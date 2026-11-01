@@ -1,0 +1,62 @@
+:root {
+    font-family: Inter, system-ui, sans-serif;
+    color: #e8e8e3;
+    background: #171a18;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+.app {
+    width: min(100% - 48px, 1100px);
+    margin: 0 auto;
+    padding: 48px 0;
+}
+
+.app-header {
+    margin-bottom: 80px;
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+}
+
+.app-header p {
+    margin-top: 8px;
+    color: #a0a69f;
+}
+
+.welcome h2 {
+    font-size: 24px;
+    font-weight: 500;
+}
+
+.welcome p {
+    color: #a0a69f;
+}
+
+@media (max-width: 600px) {
+    .app {
+        width: min(100% - 32px, 1100px);
+        padding-top: 32px;
+    }
+
+    .app-header {
+        margin-bottom: 56px;
+    }
+}
