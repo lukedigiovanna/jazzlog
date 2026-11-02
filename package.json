@@ -11,6 +11,7 @@
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
+    "supabase": "^2.122.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.5"
   }
