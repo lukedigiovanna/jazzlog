@@ -134,6 +134,41 @@ export type Database = {
           },
         ]
       }
+      album_links: {
+        Row: {
+          album_id: string
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          album_id: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+          user_id?: string
+        }
+        Update: {
+          album_id?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "album_links_album_id_user_id_fkey"
+            columns: ["album_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "albums"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       albums: {
         Row: {
           artwork_url: string | null
