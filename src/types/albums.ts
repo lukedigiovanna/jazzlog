@@ -69,22 +69,15 @@ export interface ListeningEntry {
   updatedAt: string;
 }
 
-// A release-group search result before the user has selected and saved it.
-// It carries MusicBrainz identifiers and artist credits that are resolved into
-// local artists when the album is created.
-export interface AlbumCandidate {
-  musicbrainzId: string;
+// Core album fields accepted when creating an album. Related records such as
+// artists, genres, and instruments are managed separately.
+export interface NewAlbum {
   title: string;
-  releaseYear: number | null;
-  primaryType: string | null;
-
-  artists: AlbumArtistCandidate[];
+  sortTitle?: string | null;
+  releaseYear?: number | null;
+  artworkUrl?: string | null;
+  musicbrainzReleaseGroupId?: string | null;
 }
 
-export interface AlbumArtistCandidate {
-  musicbrainzId: string;
-  name: string;
-  creditedName: string;
-  joinPhrase: string;
-  position: number;
-}
+// Core album fields accepted when editing an album.
+export type AlbumUpdates = Partial<NewAlbum>;
