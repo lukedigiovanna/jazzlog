@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { getCurrentUser } from "./auth";
 import type { Tables, TablesUpdate } from "../types/database.types";
-import type { Album, AlbumUpdates, NewAlbum } from "../types/album";
+import type { Album, AlbumUpdates, NewAlbum } from "../types/albums";
 
 type AlbumRow = Tables<"albums">;
 type ArtistRow = Tables<"artists">;
