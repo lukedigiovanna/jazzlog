@@ -1867,7 +1867,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   function isOutsideDialog(event: PointerEvent | MouseEvent) {
     const bounds = editor.getBoundingClientRect();
     return (
-      event.target === editor &&
+      editor.open &&
       (event.clientX < bounds.left ||
         event.clientX > bounds.right ||
         event.clientY < bounds.top ||
@@ -1876,18 +1876,45 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   }
 
   let pointerStartedOutside = false;
-  editor.addEventListener("pointerdown", (event) => {
-    pointerStartedOutside = isOutsideDialog(event);
-  });
-  editor.addEventListener("pointercancel", () => {
+  let suppressBackdropClick = false;
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      suppressBackdropClick = false;
+      pointerStartedOutside = isOutsideDialog(event);
+    },
+    true,
+  );
+  document.addEventListener("pointercancel", () => {
     pointerStartedOutside = false;
   });
-  editor.addEventListener("click", (event) => {
-    // Dragging from a field to the backdrop must not dismiss the form.
-    const dismiss = pointerStartedOutside && isOutsideDialog(event);
-    pointerStartedOutside = false;
-    if (dismiss) dismissDialog();
-  });
+  document.addEventListener(
+    "pointerup",
+    (event) => {
+      // Handle the release directly, before a synthesized click or focus change.
+      // Dragging from a field to the backdrop must not dismiss the form.
+      const dismiss = pointerStartedOutside && isOutsideDialog(event);
+      pointerStartedOutside = false;
+      if (dismiss) {
+        suppressBackdropClick = true;
+        event.preventDefault();
+        event.stopPropagation();
+        dismissDialog();
+      }
+    },
+    true,
+  );
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!suppressBackdropClick) return;
+      suppressBackdropClick = false;
+      // iOS can send a click to the control exposed by closing the dialog.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    },
+    true,
+  );
   editor.addEventListener("cancel", (event) => {
     event.preventDefault();
     dismissDialog();
