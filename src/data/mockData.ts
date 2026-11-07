@@ -359,13 +359,20 @@ export const mockAlbums: Album[] = catalog
     sourceId: album.id,
     createdAt: listening[index].at(-1)![0],
     updatedAt: listening[index][0][0],
+    instruments: [
+      ...new Set(listening[index].flatMap((entry) => entry[3])),
+    ].map((name) => ({
+      id: `instrument-${name.toLowerCase().replaceAll(" ", "-")}`,
+      name,
+      notes: null,
+      categories: [],
+    })),
     listeningEntries: listening[index].map(
-      ([listenedAt, rating, notes, instruments], i) => ({
+      ([listenedAt, rating, notes], i) => ({
         id: album.id + "-" + i,
         listenedAt,
         rating,
         notes,
-        instruments,
         createdAt: listenedAt,
         updatedAt: listenedAt,
       }),

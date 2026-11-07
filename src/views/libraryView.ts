@@ -9,12 +9,14 @@ import { escapeHtml } from "../components/html";
 import { icon } from "../components/icons";
 import { renderAlbumGrid } from "../components/albumGrid";
 import { matches } from "../app/search";
+
 export interface LibraryState {
   query: string;
   genre: string;
   sort: string;
   layout: string;
 }
+
 export function renderLibraryView(albums: Album[], state: LibraryState) {
   const featured =
     albums.find((album) => album.id === "seychelles") ?? albums[0];

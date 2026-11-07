@@ -9,6 +9,7 @@ import {
 import { escapeHtml } from "../components/html";
 import { icon } from "../components/icons";
 import { renderRating } from "../components/rating";
+
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -65,7 +66,6 @@ function historyCard(listen: ListeningEntry) {
       >${renderRating(listen.rating)}
     </div>
     ${listen.notes ? /* HTML */ `<p class="listen-notes">${escapeHtml(listen.notes)}</p>` : ""}
-    ${listen.instruments?.length ? /* HTML */ `<div class="tags">${chips(listen.instruments)}</div>` : ""}
   </article>`;
 }
 
@@ -102,13 +102,28 @@ export function renderAlbumDetailView(album: Album) {
         </div>
         ${listens.length ? listens.map(historyCard).join("") : '<div class="empty detail-empty"><h3>No listens logged yet</h3><p>Add a rating and notes after your next listen.</p></div>'}
       </section>
-      <section aria-labelledby="links-title">
-        <div class="detail-heading">
-          ${icon("link", 21)}
-          <h2 id="links-title">Music links</h2>
-        </div>
-        ${externalLinks(album.links)}
-      </section>
+      <div class="album-sidebar">
+        <section aria-labelledby="instruments-title">
+          <div class="detail-heading">
+            <h2 id="instruments-title">Instrumentation</h2>
+          </div>
+          ${album.instruments.length ? `<div class="tags">${chips(album.instruments.map((item) => item.name))}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
+          <button
+            type="button"
+            class="button secondary compact"
+            data-action="edit-instruments"
+          >
+            ${icon("edit", 16)} Edit instruments
+          </button>
+        </section>
+        <section aria-labelledby="links-title">
+          <div class="detail-heading">
+            ${icon("link", 21)}
+            <h2 id="links-title">Music links</h2>
+          </div>
+          ${externalLinks(album.links)}
+        </section>
+      </div>
     </div>
   </div>`;
 }

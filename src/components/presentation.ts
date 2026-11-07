@@ -46,7 +46,7 @@ export function latest(album: Album) {
 }
 
 export function displayRating(rating: number) {
-  return (rating / 2).toFixed(1);
+  return rating / 2;
 }
 
 export function chips(values: string[]) {

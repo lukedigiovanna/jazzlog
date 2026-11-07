@@ -1366,3 +1366,55 @@ dialog::backdrop {
     transition-duration: 0.001s !important;
   }
 }
+
+.instrument-picker {
+  margin: 1.25rem 0;
+}
+.instrument-picker > input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.instrument-picker .tags {
+  margin: 0.75rem 0;
+}
+.instrument-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.instrument-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+[aria-labelledby="instruments-title"] > button {
+  margin-top: 1rem;
+}
+
+.album-sidebar {
+  display: grid;
+  gap: 28px;
+}
+.instrument-picker > input {
+  background: #1a2019;
+  font-size: 13px;
+}
+.instrument-chip {
+  background: var(--panel-hover);
+  font-size: 12px;
+}

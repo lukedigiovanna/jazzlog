@@ -9,7 +9,7 @@ Build a lightweight, minimalist web app to replace an Apple Notes-based listenin
 Core functionality:
 
 - Search for albums and import available metadata and artwork.
-- Log listens with a rating, optional notes, and instrumentation.
+- Log listens with a rating and optional notes; track instrumentation on albums.
 - Categorize albums by genre and subgenre.
 - Browse, search, filter, and sort a personal album library.
 - View album details and listening history.
@@ -122,6 +122,6 @@ Run `npm run format` to format the project with Prettier, or `npm run format:che
 
 The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, and music links. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
 
-The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId`, `recordLabel`, and per-listen `instruments` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
+The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId` and `recordLabel` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
 
 See [UI verification](docs/implementation/ui-verification.md) for the browser checks performed.

@@ -1,4 +1,4 @@
-import type { Album } from "../types/albums";
+import type { Album, AlbumInstrument } from "../types/albums";
 import { mockAlbums } from "../data/mockData";
 
 // Version the demo separately from both the standalone prototype and future account data.
@@ -35,6 +35,14 @@ function isAlbum(value: unknown): value is Album {
       (genre) => object(genre) && typeof genre.name === "string",
     ) &&
     Array.isArray(value.instruments) &&
+    value.instruments.every(
+      (item) =>
+        object(item) &&
+        typeof item.id === "string" &&
+        typeof item.name === "string" &&
+        optionalString(item.notes) &&
+        strings(item.categories),
+    ) &&
     Array.isArray(value.links) &&
     value.links.every(
       (link) =>
@@ -53,8 +61,7 @@ function isAlbum(value: unknown): value is Album {
         Number.isInteger(entry.rating) &&
         entry.rating >= 1 &&
         entry.rating <= 10 &&
-        optionalString(entry.notes) &&
-        (entry.instruments === undefined || strings(entry.instruments)),
+        optionalString(entry.notes),
     )
   );
 }
@@ -64,7 +71,44 @@ export function readAlbums(): Album[] {
     const saved: unknown = JSON.parse(
       localStorage.getItem(storageKey) ?? "null",
     );
-    if (Array.isArray(saved) && saved.every(isAlbum)) return saved;
+    if (Array.isArray(saved) && saved.every(isAlbum)) {
+      // Preserve instrumentation entered in older demo versions, at album scope.
+      const known = new Map(
+        saved
+          .flatMap((album) => album.instruments)
+          .map((item) => [item.name.toLowerCase(), item]),
+      );
+      return saved.map((album) => {
+        const instruments = new Map(
+          album.instruments.map((item) => [item.id, item]),
+        );
+        const listeningEntries = album.listeningEntries.map((entry) => {
+          const { instruments: legacy, ...listen } = entry as typeof entry & {
+            instruments?: string[];
+          };
+          if (strings(legacy))
+            for (const name of legacy) {
+              const trimmed = name.trim();
+              if (!trimmed) continue;
+              const key = trimmed.toLowerCase();
+              const item: AlbumInstrument = known.get(key) ?? {
+                id: crypto.randomUUID(),
+                name: trimmed,
+                notes: null,
+                categories: [],
+              };
+              known.set(key, item);
+              instruments.set(item.id, item);
+            }
+          return listen;
+        });
+        return {
+          ...album,
+          instruments: [...instruments.values()],
+          listeningEntries,
+        };
+      });
+    }
   } catch {
     // Keep the fixture library usable if storage is blocked or malformed.
   }

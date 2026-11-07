@@ -1,4 +1,4 @@
-import type { Album, AlbumLink } from "../types/albums";
+import type { Album, AlbumLink, AlbumInstrument } from "../types/albums";
 import { catalog, ratingLabels } from "../data/mockData";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
@@ -21,6 +21,8 @@ export function initializeApp(): void {
   const toast = document.querySelector<HTMLElement>("#toast")!;
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = readAlbums();
+  let selectedInstruments: AlbumInstrument[] = [];
+  let instrumentChoices: AlbumInstrument[] = [];
   let dialogOrigin: HTMLElement | undefined;
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
@@ -236,6 +238,69 @@ export function initializeApp(): void {
     </div>`;
   }
 
+  function instrumentPicker(items: AlbumInstrument[]) {
+    selectedInstruments = structuredClone(items);
+    instrumentChoices = [
+      ...new Map(
+        albums
+          .flatMap((album) => album.instruments)
+          .concat(items)
+          .map((item) => [item.name.toLowerCase(), item]),
+      ).values(),
+    ];
+    return `<div class="instrument-picker">
+      <label class="field" for="instrument-query"><span>Instruments <span class="muted">(optional)</span></span></label>
+      <p class="form-hint" id="instrument-help">Add what you know now, or come back after listening.</p>
+      <div id="instrument-selected" class="tags" aria-live="polite"></div>
+      <input id="instrument-query" type="search" maxlength="80" autocomplete="off" placeholder="Search or create an instrument…" aria-describedby="instrument-help" />
+      <div id="instrument-results" class="instrument-results" aria-label="Available instruments"></div>
+    </div>`;
+  }
+
+  function updateInstruments() {
+    const input = editor.querySelector<HTMLInputElement>("#instrument-query");
+    if (!input) return;
+    const query = input.value.trim();
+    editor.querySelector("#instrument-selected")!.innerHTML =
+      selectedInstruments
+        .map(
+          (item) =>
+            `<button type="button" class="instrument-chip" data-action="remove-instrument" data-id="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.name)}">${escapeHtml(item.name)} ${icon("close", 14)}</button>`,
+        )
+        .join("");
+    const choices = instrumentChoices.filter(
+      (item) =>
+        !selectedInstruments.some((selected) => selected.id === item.id) &&
+        item.name.toLowerCase().includes(query.toLowerCase()),
+    );
+    editor.querySelector("#instrument-results")!.innerHTML =
+      choices
+        .map(
+          (item) =>
+            `<button type="button" class="button secondary compact" data-action="select-instrument" data-id="${escapeHtml(item.id)}">${icon("plus", 14)} ${escapeHtml(item.name)}</button>`,
+        )
+        .join("") +
+      (query &&
+      !instrumentChoices.some(
+        (item) => item.name.toLowerCase() === query.toLowerCase(),
+      )
+        ? `<button type="button" class="button secondary compact" data-action="create-instrument">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        : "") +
+      (!choices.length && !query
+        ? '<p class="form-hint">Search for an instrument name to add one.</p>'
+        : "");
+  }
+
+  function openInstruments(album: Album) {
+    showDialog(
+      "Edit instruments",
+      "ALBUM INSTRUMENTATION",
+      `<form id="instruments-form" data-id="${escapeHtml(album.id)}"><div class="dialog-body"><p class="dialog-intro">${escapeHtml(album.title)}</p>${instrumentPicker(album.instruments)}</div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="submit" class="button primary">Save instruments</button></div></form>`,
+      "#instrument-query",
+    );
+    updateInstruments();
+  }
+
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
     const isEdit = mode === "edit";
     const fromSearch = mode === "review";
@@ -273,6 +338,7 @@ export function initializeApp(): void {
             ${field("Release year", "year", album.releaseYear, { type: "number", attributes: 'min="1000" max="9999" step="1"', placeholder: "e.g. 1976" })}
             ${field("Genres", "genres", album.genres?.map((genre) => genre.name).join(", "), { attributes: 'maxlength="220"', placeholder: "Separate genres with commas" })}
           </div>
+          ${instrumentPicker(album.instruments ?? [])}
           <details class="extra-fields">
             <summary>More album details</summary>
             <div class="field-grid">
@@ -314,6 +380,7 @@ export function initializeApp(): void {
       </form>`,
       '[name="title"]',
     );
+    updateInstruments();
   }
 
   function openListen(album: Album) {
@@ -348,7 +415,6 @@ export function initializeApp(): void {
               placeholder="What stood out on this listen?"
             ></textarea>
           </label>
-          ${field("Instruments", "instruments", "", { attributes: 'maxlength="220"', placeholder: "e.g. Electric piano, bass, drums", help: "Separate instruments with commas." })}
         </div>
         <div class="dialog-footer">
           <button type="button" class="button secondary" data-action="close">
@@ -457,7 +523,7 @@ export function initializeApp(): void {
       musicbrainzReleaseGroupId: mbid || null,
       links,
       createdAt: mode === "edit" ? original!.createdAt : today(),
-      instruments: original?.instruments ?? [],
+      instruments: structuredClone(selectedInstruments),
       updatedAt: new Date().toISOString(),
       listeningEntries: mode === "edit" ? original!.listeningEntries : [],
     };
@@ -483,7 +549,6 @@ export function initializeApp(): void {
       listenedAt: String(data.get("date")),
       rating: Number(data.get("rating")),
       notes: String(data.get("notes")).trim(),
-      instruments: separated(String(data.get("instruments"))),
     });
     finishSave(album.id, "Listen saved.");
   }
@@ -516,6 +581,43 @@ export function initializeApp(): void {
     if (!button) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
+      case "edit-instruments":
+        if (album) openInstruments(album);
+        break;
+      case "select-instrument": {
+        const item = instrumentChoices.find(
+          (item) => item.id === button.dataset.id,
+        );
+        if (
+          item &&
+          !selectedInstruments.some((selected) => selected.id === item.id)
+        )
+          selectedInstruments.push({ ...item, notes: null });
+        editor.querySelector<HTMLInputElement>("#instrument-query")!.value = "";
+        updateInstruments();
+        editor.querySelector<HTMLElement>("#instrument-query")!.focus();
+        break;
+      }
+      case "create-instrument": {
+        const input =
+          editor.querySelector<HTMLInputElement>("#instrument-query")!;
+        const name = input.value.trim();
+        if (!name) break;
+        const item = { id: makeId(), name, notes: null, categories: [] };
+        instrumentChoices.push(item);
+        selectedInstruments.push(item);
+        input.value = "";
+        updateInstruments();
+        input.focus();
+        break;
+      }
+      case "remove-instrument":
+        selectedInstruments = selectedInstruments.filter(
+          (item) => item.id !== button.dataset.id,
+        );
+        updateInstruments();
+        editor.querySelector<HTMLElement>("#instrument-query")!.focus();
+        break;
       case "add":
         openSearch();
         break;
@@ -581,6 +683,7 @@ export function initializeApp(): void {
 
   document.addEventListener("input", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.id === "instrument-query") updateInstruments();
     if (input.id === "library-query") {
       state.query = input.value;
       updateLibrary(albums, state);
@@ -605,6 +708,16 @@ export function initializeApp(): void {
   });
 
   document.addEventListener("submit", (event) => {
+    if ((event.target as HTMLElement).id === "instruments-form") {
+      event.preventDefault();
+      const form = event.target as HTMLFormElement;
+      const album = albums.find((item) => item.id === form.dataset.id);
+      if (album) {
+        album.instruments = structuredClone(selectedInstruments);
+        album.updatedAt = new Date().toISOString();
+        finishSave(album.id, "Album instruments updated.");
+      }
+    }
     if ((event.target as HTMLElement).id === "album-form") {
       event.preventDefault();
       saveAlbumForm(event.target as HTMLFormElement);
@@ -635,6 +748,16 @@ export function initializeApp(): void {
 
   // Keep Tab at the dialog boundaries rather than moving into browser chrome.
   editor.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Enter" &&
+      (event.target as HTMLElement).id === "instrument-query"
+    ) {
+      event.preventDefault();
+      editor
+        .querySelector<HTMLButtonElement>("#instrument-results button")
+        ?.click();
+      return;
+    }
     if (event.key !== "Tab") return;
     const controls = [
       ...editor.querySelectorAll<HTMLElement>(
