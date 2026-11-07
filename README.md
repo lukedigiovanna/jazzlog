@@ -120,7 +120,9 @@ Run `npm install` and `npm run dev` to open the demo. Run `npm run build` to che
 
 Run `npm run format` to format the project with Prettier, or `npm run format:check` to check formatting without changing files.
 
-The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, and music links. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
+The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, music links, and an instrument catalog with category filters, album usage, and deletion of unused instruments. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
+
+Instruments are stored independently of albums in the same demo snapshot. Existing album-only snapshots migrate automatically, preserving uncategorized instruments. Removing an instrument from an album keeps it in your catalog; renaming or recategorizing it updates all album appearances.
 
 The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId` and `recordLabel` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
 

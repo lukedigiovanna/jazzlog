@@ -1,4 +1,10 @@
-import type { Album, AlbumLink, AlbumInstrument } from "../types/albums";
+import type {
+  Album,
+  AlbumLink,
+  AlbumInstrument,
+  Instrument,
+  InstrumentCategory,
+} from "../types/albums";
 import { catalog, ratingLabels } from "../data/mockData";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
@@ -12,8 +18,20 @@ import {
 import { stars } from "../components/rating";
 import { renderLibraryView, updateLibrary } from "../views/libraryView";
 import { renderAlbumDetailView } from "../views/albumDetailView";
-import { readAlbums, saveAlbums } from "./storage";
+import { readAlbums, saveAlbums, readInstrumentCatalog } from "./storage";
 import { matches } from "./search";
+import {
+  albumsUsing,
+  instrumentUrl,
+  instrumentCategories,
+  syncAlbumInstruments,
+} from "./instruments";
+import {
+  categoryFields,
+  renderInstrumentsView,
+  updateInstrumentsView,
+  renderInstrumentDetail,
+} from "../views/instrumentsView";
 import { focusForTyping, prefersTouchInteraction } from "./device";
 
 export function initializeApp(): void {
@@ -22,6 +40,9 @@ export function initializeApp(): void {
   const toast = document.querySelector<HTMLElement>("#toast")!;
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = readAlbums();
+  let instruments = readInstrumentCatalog(albums);
+  syncAlbumInstruments(albums, instruments);
+  const instrumentFilters = { query: "", category: "", unused: false };
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
   let dialogOrigin: HTMLElement | undefined;
@@ -52,10 +73,30 @@ export function initializeApp(): void {
     return albums.find((album) => albumUrl(album.id) === location.hash);
   }
 
+  function activeInstrument() {
+    return instruments.find((item) => instrumentUrl(item.id) === location.hash);
+  }
+
   function renderRoute(focus = false) {
     const album = activeAlbum();
+    const instrument = activeInstrument();
+    const instrumentPage =
+      location.hash === "#instruments" ||
+      location.hash.startsWith("#instrument/");
+    for (const link of document.querySelectorAll<HTMLElement>("[data-nav]")) {
+      if (link.dataset.nav === (instrumentPage ? "instruments" : "library"))
+        link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    }
     const missing = location.hash.startsWith("#album/") && !album;
-    if (album) {
+    if (location.hash === "#instruments") {
+      main.innerHTML = renderInstrumentsView(instrumentFilters);
+      updateInstrumentList();
+    } else if (instrument) {
+      main.innerHTML = renderInstrumentDetail(instrument, albums);
+    } else if (instrumentPage) {
+      main.innerHTML = `<div class="empty route-empty"><h1 id="page-title">Instrument unavailable</h1><p>This instrument may have been deleted.</p><a class="button secondary" href="#instruments">Back to instruments</a></div>`;
+    } else if (album) {
       main.innerHTML = renderAlbumDetailView(album);
     } else if (missing) {
       main.innerHTML = /* HTML */ `<div class="empty route-empty">
@@ -68,9 +109,11 @@ export function initializeApp(): void {
       main.innerHTML = renderLibraryView(albums, state);
       updateLibrary(albums, state);
     }
-    document.title = album
-      ? album.title + " — JazzLog"
-      : "JazzLog — The Listening Room";
+    document.title = instrumentPage
+      ? `${instrument?.name ?? "Instruments"} — JazzLog`
+      : album
+        ? album.title + " — JazzLog"
+        : "JazzLog — The Listening Room";
     if (focus) {
       window.scrollTo(0, 0);
       const heading = document.querySelector<HTMLElement>("#page-title");
@@ -244,20 +287,18 @@ export function initializeApp(): void {
 
   function instrumentPicker(items: AlbumInstrument[]) {
     selectedInstruments = structuredClone(items);
-    instrumentChoices = [
-      ...new Map(
-        albums
-          .flatMap((album) => album.instruments)
-          .concat(items)
-          .map((item) => [item.name.toLowerCase(), item]),
-      ).values(),
-    ];
+    instrumentChoices = instruments.map((item) => ({
+      ...structuredClone(item),
+      notes: null,
+    }));
     return `<div class="instrument-picker">
       <label class="field" for="instrument-query"><span>Instruments <span class="muted">(optional)</span></span></label>
       <p class="form-hint" id="instrument-help">Add what you know now, or come back after listening.</p>
       <div id="instrument-selected" class="tags" aria-live="polite"></div>
       <input id="instrument-query" type="search" maxlength="80" autocomplete="off" placeholder="Search or create an instrument…" aria-describedby="instrument-help" />
       <div id="instrument-results" class="instrument-results" aria-label="Available instruments"></div>
+      <details class="inline-instrument-categories"><summary>Categories for a new instrument</summary>${categoryFields([], "inline-category")}</details>
+      <a class="manage-instruments" href="#instruments">Manage instrument catalog ${icon("arrow", 14)}</a>
     </div>`;
   }
 
@@ -303,6 +344,75 @@ export function initializeApp(): void {
       "#instrument-query",
     );
     updateInstruments();
+  }
+
+  function updateInstrumentList() {
+    updateInstrumentsView(instruments, albums, instrumentFilters);
+  }
+
+  function commitInstrumentChoices() {
+    instruments = instrumentChoices.map(({ id, name, categories }) => ({
+      id,
+      name,
+      categories,
+    }));
+  }
+
+  function openCatalogInstrument(item?: Instrument) {
+    showDialog(
+      item ? "Edit instrument" : "Add instrument",
+      "YOUR INSTRUMENT CATALOG",
+      `<form id="catalog-instrument-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">
+      ${field("Instrument name", "instrumentName", item?.name ?? "", { attributes: 'required maxlength="80"', placeholder: "e.g. Vibraphone" })}
+      ${categoryFields(item?.categories)}
+      <p class="form-hint">Name and category changes apply everywhere this instrument is used.</p>
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+      </div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="submit" class="button primary">${item ? "Save changes" : "Add instrument"}</button></div></form>`,
+      '[name="instrumentName"]',
+    );
+  }
+
+  function finishCatalogSave(message: string, destination: string) {
+    syncAlbumInstruments(albums, instruments);
+    const stored = saveAlbums(albums, instruments);
+    editor.close();
+    if (location.hash === destination) renderRoute(true);
+    else location.hash = destination;
+    announce(
+      stored
+        ? message
+        : "Updated for this visit. Browser storage is unavailable.",
+    );
+  }
+
+  function saveCatalogInstrument(form: HTMLFormElement) {
+    const input = form.querySelector<HTMLInputElement>(
+      '[name="instrumentName"]',
+    )!;
+    const name = input.value.trim();
+    if (!name) return formError("Enter an instrument name.", input);
+    if (
+      instruments.some(
+        (item) =>
+          item.id !== form.dataset.id &&
+          item.name.toLowerCase() === name.toLowerCase(),
+      )
+    )
+      return formError("An instrument with this name already exists.", input);
+    const data = new FormData(form);
+    const item: Instrument = {
+      id: form.dataset.id || makeId(),
+      name,
+      categories: data
+        .getAll("category")
+        .filter((category): category is InstrumentCategory =>
+          instrumentCategories.some((value) => value === category),
+        ),
+    };
+    instruments = instruments
+      .filter((existing) => existing.id !== item.id)
+      .concat(item);
+    finishCatalogSave("Instrument saved.", instrumentUrl(item.id));
   }
 
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
@@ -498,6 +608,7 @@ export function initializeApp(): void {
         );
       links.push({ id: makeId(), url, label });
     }
+    commitInstrumentChoices();
     const saved: Album = {
       id: mode === "edit" ? original!.id : makeId(),
       sourceId: mode === "review" ? original!.id : original?.sourceId,
@@ -558,7 +669,7 @@ export function initializeApp(): void {
   }
 
   function finishSave(id: string, message: string) {
-    const stored = saveAlbums(albums);
+    const stored = saveAlbums(albums, instruments);
     editor.close();
     if (location.hash === albumUrl(id)) {
       renderRoute();
@@ -585,6 +696,38 @@ export function initializeApp(): void {
     if (!button) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
+      case "new-catalog-instrument":
+        openCatalogInstrument();
+        break;
+      case "edit-catalog-instrument": {
+        const item = activeInstrument();
+        if (item) openCatalogInstrument(item);
+        break;
+      }
+      case "delete-catalog-instrument": {
+        const item = activeInstrument();
+        if (!item || albumsUsing(albums, item.id).length) break;
+        showDialog(
+          "Delete instrument?",
+          "YOUR INSTRUMENT CATALOG",
+          `<div class="dialog-body"><p>Delete <strong>${escapeHtml(item.name)}</strong> from your catalog? It is not used on any albums.</p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="button" class="button primary danger" data-action="confirm-delete-instrument" data-id="${escapeHtml(item.id)}">Delete instrument</button></div>`,
+          '[data-action="close"]',
+        );
+        break;
+      }
+      case "confirm-delete-instrument": {
+        const item = instruments.find((item) => item.id === button.dataset.id);
+        if (!item || albumsUsing(albums, item.id).length) break;
+        instruments = instruments.filter((existing) => existing.id !== item.id);
+        finishCatalogSave("Instrument deleted.", "#instruments");
+        break;
+      }
+      case "clear-instrument-filters":
+        instrumentFilters.query = "";
+        instrumentFilters.category = "";
+        instrumentFilters.unused = false;
+        renderRoute();
+        break;
       case "edit-instruments":
         if (album) openInstruments(album);
         break;
@@ -607,7 +750,16 @@ export function initializeApp(): void {
           editor.querySelector<HTMLInputElement>("#instrument-query")!;
         const name = input.value.trim();
         if (!name) break;
-        const item = { id: makeId(), name, notes: null, categories: [] };
+        const categories = [
+          ...editor.querySelectorAll<HTMLInputElement>(
+            '[name="inline-category"]:checked',
+          ),
+        ].map((input) => input.value as InstrumentCategory);
+        const item = { id: makeId(), name, notes: null, categories };
+        for (const input of editor.querySelectorAll<HTMLInputElement>(
+          '[name="inline-category"]',
+        ))
+          input.checked = false;
         instrumentChoices.push(item);
         selectedInstruments.push(item);
         input.value = "";
@@ -689,6 +841,10 @@ export function initializeApp(): void {
 
   document.addEventListener("input", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.id === "instruments-search") {
+      instrumentFilters.query = input.value;
+      updateInstrumentList();
+    }
     if (input.id === "instrument-query") updateInstruments();
     if (input.id === "library-query") {
       state.query = input.value;
@@ -702,6 +858,14 @@ export function initializeApp(): void {
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.id === "instrument-category-filter") {
+      instrumentFilters.category = input.value;
+      updateInstrumentList();
+    }
+    if (input.id === "instruments-unused") {
+      instrumentFilters.unused = input.checked;
+      updateInstrumentList();
+    }
     if (input.id === "genre-filter") {
       state.genre = input.value;
       updateLibrary(albums, state);
@@ -714,11 +878,16 @@ export function initializeApp(): void {
   });
 
   document.addEventListener("submit", (event) => {
+    if ((event.target as HTMLElement).id === "catalog-instrument-form") {
+      event.preventDefault();
+      saveCatalogInstrument(event.target as HTMLFormElement);
+    }
     if ((event.target as HTMLElement).id === "instruments-form") {
       event.preventDefault();
       const form = event.target as HTMLFormElement;
       const album = albums.find((item) => item.id === form.dataset.id);
       if (album) {
+        commitInstrumentChoices();
         album.instruments = structuredClone(selectedInstruments);
         album.updatedAt = new Date().toISOString();
         finishSave(album.id, "Album instruments updated.");

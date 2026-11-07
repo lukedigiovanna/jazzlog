@@ -7,6 +7,7 @@ import {
   webUrl,
 } from "../components/presentation";
 import { escapeHtml } from "../components/html";
+import { instrumentUrl } from "../app/instruments";
 import { icon } from "../components/icons";
 import { renderRating } from "../components/rating";
 
@@ -107,7 +108,7 @@ export function renderAlbumDetailView(album: Album) {
           <div class="detail-heading">
             <h2 id="instruments-title">Instrumentation</h2>
           </div>
-          ${album.instruments.length ? `<div class="tags">${chips(album.instruments.map((item) => item.name))}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
+          ${album.instruments.length ? `<div class="tags">${album.instruments.map((item) => `<a class="chip" href="${instrumentUrl(item.id)}">${escapeHtml(item.name)}</a>`).join("")}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
           <button
             type="button"
             class="button secondary compact"

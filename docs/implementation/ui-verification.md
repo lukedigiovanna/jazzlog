@@ -31,3 +31,20 @@ Malformed and blocked localStorage both fall back to the fixture library. Unknow
 4. Run `npm run build` before reviewing or publishing changes.
 
 Real MusicBrainz, Cover Art Archive, and Supabase integration remains separate work. External music links open their destinations only when selected. The fixture catalog does not contact metadata services.
+
+## Instrument catalog mockup
+
+Verified on 2026-11-07 in desktop and touch-emulated Chromium:
+
+- Catalog navigation, search, category filters, and the unused-only filter.
+- Creating an unused instrument with multiple categories and retaining it after reload.
+- Case-insensitive duplicate-name validation and shared name/category edits across album appearances.
+- Selecting an unused catalog instrument on an album and following its usage link back to that album.
+- Creating an instrument with categories from the album picker.
+- Removing the last album association keeps the instrument in the catalog; used instruments cannot be deleted.
+- Canceling deletion preserves the instrument; confirming deletion removes it after reload.
+- Older album-array snapshots, including legacy per-listen instrument strings, migrate to the catalog with their album associations intact.
+- Touch dialogs and quick-add actions avoid automatic input focus. Catalog details and edit dialogs fit at 375px and 320px without horizontal overflow.
+- No uncaught browser errors during these workflows. Mobile detail screenshot inspected.
+
+Catalog and album data share the `jazzlog-demo-v1` snapshot; no database writes or schema changes are involved.

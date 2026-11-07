@@ -1,5 +1,6 @@
-import type { Album, AlbumInstrument } from "../types/albums";
+import type { Album, AlbumInstrument, Instrument } from "../types/albums";
 import { mockAlbums } from "../data/mockData";
+import { instrumentCategories } from "./instruments";
 
 // Version the demo separately from both the standalone prototype and future account data.
 const storageKey = "jazzlog-demo-v1";
@@ -68,9 +69,11 @@ function isAlbum(value: unknown): value is Album {
 
 export function readAlbums(): Album[] {
   try {
-    const saved: unknown = JSON.parse(
+    const snapshot: unknown = JSON.parse(
       localStorage.getItem(storageKey) ?? "null",
     );
+    const saved =
+      object(snapshot) && !Array.isArray(snapshot) ? snapshot.albums : snapshot;
     if (Array.isArray(saved) && saved.every(isAlbum)) {
       // Preserve instrumentation entered in older demo versions, at album scope.
       const known = new Map(
@@ -115,9 +118,48 @@ export function readAlbums(): Album[] {
   return structuredClone(mockAlbums);
 }
 
-export function saveAlbums(albums: Album[]): boolean {
+export function readInstrumentCatalog(albums: Album[]): Instrument[] {
+  const linked = albums
+    .flatMap((album) => album.instruments)
+    .map(({ id, name, categories }) => ({ id, name, categories }));
   try {
-    localStorage.setItem(storageKey, JSON.stringify(albums));
+    const saved: unknown = JSON.parse(
+      localStorage.getItem(storageKey) ?? "null",
+    );
+    if (
+      object(saved) &&
+      Array.isArray(saved.instruments) &&
+      saved.instruments.every(
+        (item) =>
+          object(item) &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          strings(item.categories) &&
+          item.categories.every((category) =>
+            instrumentCategories.some((valid) => valid === category),
+          ),
+      )
+    ) {
+      return [
+        ...new Map(
+          linked
+            .concat(saved.instruments as Instrument[])
+            .map((item) => [item.id, item]),
+        ).values(),
+      ];
+    }
+  } catch {
+    // Existing albums still supply a catalog when browser storage is unavailable.
+  }
+  return [...new Map(linked.map((item) => [item.id, item])).values()];
+}
+
+export function saveAlbums(
+  albums: Album[],
+  instruments: Instrument[],
+): boolean {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ albums, instruments }));
     return true;
   } catch {
     return false;

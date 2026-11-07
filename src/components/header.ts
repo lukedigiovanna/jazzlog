@@ -7,6 +7,10 @@ export function renderHeader(): string {
             >JazzLog<span class="brand-period">.</span></span
           ></a
         >
+        <nav class="main-nav" aria-label="Main navigation">
+          <a href="#" data-nav="library">Library</a
+          ><a href="#instruments" data-nav="instruments">Instruments</a>
+        </nav>
         <button
           type="button"
           class="button primary top-add"

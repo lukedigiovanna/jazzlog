@@ -48,11 +48,14 @@ export interface AlbumGenre {
 
 // An instrument associated with an album, including its categories and any
 // album-specific notes.
-export interface AlbumInstrument {
+export interface Instrument {
   id: string;
   name: string;
-  notes: string | null;
   categories: InstrumentCategory[];
+}
+
+export interface AlbumInstrument extends Instrument {
+  notes: string | null;
 }
 
 // A user-supplied link attached to an album.

@@ -1,0 +1,78 @@
+import type { Album, Instrument, InstrumentCategory } from "../types/albums";
+import { escapeHtml } from "../components/html";
+import { icon } from "../components/icons";
+import { chips } from "../components/presentation";
+import { renderAlbumGrid } from "../components/albumGrid";
+import {
+  albumsUsing,
+  categoryLabel,
+  instrumentCategories,
+  instrumentUrl,
+} from "../app/instruments";
+import { matches } from "../app/search";
+
+export interface InstrumentFilters {
+  query: string;
+  category: string;
+  unused: boolean;
+}
+
+export function categoryFields(
+  selected: InstrumentCategory[] = [],
+  name = "category",
+) {
+  return `<fieldset class="category-fields"><legend>Categories <span class="muted">(optional)</span></legend><p class="form-hint">Choose all that apply.</p><div class="category-options">${instrumentCategories.map((category) => `<label><input type="checkbox" name="${name}" value="${category}" ${selected.includes(category) ? "checked" : ""} /><span>${categoryLabel(category)}</span></label>`).join("")}</div></fieldset>`;
+}
+
+export function renderInstrumentsView(filters: InstrumentFilters) {
+  return `<section class="instrument-page" aria-labelledby="page-title">
+    <div class="instrument-page-heading"><div><p class="eyebrow"><span></span> YOUR CATALOG</p><h1 id="page-title">Instruments</h1><p class="muted">The sounds that connect your records.</p></div><button type="button" class="button primary" data-action="new-catalog-instrument">${icon("plus", 17)} Add instrument</button></div>
+    <div class="instrument-toolbar">
+      <label class="search-field">${icon("search")}<span class="sr-only">Search instruments</span><input id="instruments-search" type="search" placeholder="Find an instrument…" value="${escapeHtml(filters.query)}" /></label>
+      <label class="field"><span class="sr-only">Filter by category</span><select id="instrument-category-filter"><option value="">All categories</option>${instrumentCategories.map((category) => `<option value="${category}" ${filters.category === category ? "selected" : ""}>${categoryLabel(category)}</option>`).join("")}<option value="uncategorized" ${filters.category === "uncategorized" ? "selected" : ""}>Uncategorized</option></select></label>
+      <label class="unused-filter"><input type="checkbox" id="instruments-unused" ${filters.unused ? "checked" : ""} /> Unused only</label>
+    </div>
+    <p id="instruments-count" class="muted" role="status"></p><div id="instruments-list"></div>
+  </section>`;
+}
+
+export function updateInstrumentsView(
+  instruments: Instrument[],
+  albums: Album[],
+  filters: InstrumentFilters,
+) {
+  const results = instruments
+    .filter(
+      (item) =>
+        matches(filters.query, item.name) &&
+        (!filters.category ||
+          (filters.category === "uncategorized"
+            ? !item.categories.length
+            : item.categories.some(
+                (category) => category === filters.category,
+              ))) &&
+        (!filters.unused || !albumsUsing(albums, item.id).length),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  document.querySelector("#instruments-count")!.textContent =
+    `${results.length} ${results.length === 1 ? "instrument" : "instruments"}`;
+  document.querySelector("#instruments-list")!.innerHTML = results.length
+    ? `<ul class="instrument-catalog-list">${results
+        .map((item) => {
+          const count = albumsUsing(albums, item.id).length;
+          return `<li><a class="instrument-catalog-row" href="${instrumentUrl(item.id)}"><span class="instrument-row-info"><strong>${escapeHtml(item.name)}</strong><span class="muted">${item.categories.length ? item.categories.map(categoryLabel).join(" · ") : "Uncategorized"}</span><span class="instrument-usage ${count ? "" : "unused"}">${count ? `Used on ${count} ${count === 1 ? "album" : "albums"}` : "Not used on any albums"}</span></span>${icon("chevron", 18)}</a></li>`;
+        })
+        .join("")}</ul>`
+    : `<div class="empty"><h2>${instruments.length ? "No matching instruments" : "Start your instrument catalog"}</h2><p>${instruments.length ? "Try another search or adjust your filters." : "Add an instrument here or while editing an album."}</p>${instruments.length ? '<button type="button" class="button secondary" data-action="clear-instrument-filters">Clear filters</button>' : ""}</div>`;
+}
+
+export function renderInstrumentDetail(item: Instrument, albums: Album[]) {
+  const used = albumsUsing(albums, item.id);
+  return `<section class="instrument-page" aria-labelledby="page-title">
+    <a class="back-link" href="#instruments">${icon("back", 17)} Back to instruments</a>
+    <div class="instrument-page-heading"><div><p class="eyebrow"><span></span> INSTRUMENT DETAILS</p><h1 id="page-title">${escapeHtml(item.name)}</h1><div class="tags">${item.categories.length ? chips(item.categories.map(categoryLabel)) : '<span class="muted">Uncategorized</span>'}</div></div><button type="button" class="button secondary" data-action="edit-catalog-instrument">${icon("edit", 16)} Edit instrument</button></div>
+    <section class="instrument-albums" aria-labelledby="instrument-albums-title"><div class="detail-heading"><h2 id="instrument-albums-title">Albums using this instrument</h2><span class="count-pill">${used.length}</span></div>
+    ${used.length ? renderAlbumGrid(used) : '<div class="empty detail-empty"><h3>Not used on any albums</h3><p>This instrument stays in your catalog until you add it to an album or delete it.</p></div>'}</section>
+    <div class="instrument-delete"><button type="button" class="button secondary danger" data-action="delete-catalog-instrument" ${used.length ? 'disabled aria-describedby="instrument-delete-help"' : ""}>Delete instrument</button><p id="instrument-delete-help" class="muted">${used.length ? "Remove this instrument from its albums before deleting it." : "Unused instruments can be deleted from your catalog."}</p></div>
+  </section>`;
+}

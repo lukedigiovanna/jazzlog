@@ -1,4 +1,4 @@
-import type { Album, AlbumLink } from "../types/albums";
+import type { Album, AlbumLink, InstrumentCategory } from "../types/albums";
 
 // Illustrated covers and catalog records are local demo fixtures, not API results.
 export const ratingLabels = [
@@ -358,6 +358,20 @@ const listening: [string, number, string, string[]][][] = [
   ],
 ];
 
+const demoInstrumentCategories: Record<string, InstrumentCategory[]> = {
+  "Electric guitar": ["strings"],
+  Bass: ["strings"],
+  "Electric bass": ["strings"],
+  Percussion: ["percussion"],
+  Drums: ["percussion"],
+  Keyboards: ["keyboard"],
+  "Electric piano": ["keyboard", "electronic"],
+  Synthesizer: ["keyboard", "electronic"],
+  Saxophone: ["woodwind"],
+  Flute: ["woodwind"],
+  Vocals: ["voice"],
+};
+
 export const mockAlbums: Album[] = catalog
   .slice(0, listening.length)
   .map((album, index) => ({
@@ -371,7 +385,7 @@ export const mockAlbums: Album[] = catalog
       id: `instrument-${name.toLowerCase().replaceAll(" ", "-")}`,
       name,
       notes: null,
-      categories: [],
+      categories: demoInstrumentCategories[name] ?? [],
     })),
     listeningEntries: listening[index].map(
       ([listenedAt, rating, notes], i) => ({
