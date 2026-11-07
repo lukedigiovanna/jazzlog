@@ -114,9 +114,15 @@ Explicitly outside the initial scope; consider only after the core app is workin
 - Keep this README updated as project scope and milestone completion evolve.
 - Document detailed implementation decisions in separate milestone plans.
 
-**Current status:** The vanilla TypeScript UI is implemented with local demo fixtures. MusicBrainz, Cover Art Archive, and Supabase services are not connected to the UI yet.
+**Current status:** Email/password sign-in and sign-up are connected to Supabase Auth, including confirmation email redirects, persisted sessions, and sign-out across tabs. The library still uses local demo fixtures for both signed-in users and demo visitors; album synchronization, MusicBrainz, and Cover Art Archive integration remain separate work.
 
-Run `npm install` and `npm run dev` to open the demo. Run `npm run build` to check TypeScript and create the production bundle.
+Run `npm install` and `npm run dev` to open the app. Run `npm run build` to check TypeScript and create the production bundle.
+
+For authentication, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in your local `.env`, then restart Vite. Environment files are ignored by Git. Use the public publishable key, never a service-role key. Without configuration, the demo remains available.
+
+In the hosted Supabase project's Authentication → URL Configuration, set the production Site URL and allow the development URL (normally `http://localhost:5173/`, or `http://127.0.0.1:5173/` if using that host). Signup confirmation emails return to the current origin and pathname, which must be allowed by Supabase. Local Supabase configuration uses Vite's default port 5173. No hosted settings or migrations are changed by the frontend.
+
+Auth verification uses mocked Supabase HTTP responses to cover signup confirmation and redirects, invalid credentials, successful sign-in, session restoration after reload, sign-out propagation between tabs, and demo entry/exit. Live account creation and email delivery require verification against your configured Supabase project.
 
 Run `npm run format` to format the project with Prettier, or `npm run format:check` to check formatting without changing files.
 

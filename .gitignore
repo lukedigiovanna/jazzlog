@@ -25,3 +25,8 @@ dist-ssr
 *.sw?
 
 .wrangler
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example

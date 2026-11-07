@@ -3,11 +3,108 @@ import { renderApp } from "./app/app";
 import { initializeNavigation } from "./app/navigation";
 import { initializeApp } from "./app/controller";
 import { initializeMobileHeader } from "./components/header";
+import { renderAuthView, initializeAuthView } from "./views/authView";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error('Missing "#app" root element.');
-root.innerHTML = renderApp();
-const renderNavigationPage = initializeApp();
-initializeMobileHeader();
 
-initializeNavigation(renderNavigationPage);
+let libraryMounted = false;
+let accountId: string | null = null;
+let signingOut = false;
+let stopAuth: (() => void) | undefined;
+
+function enterLibrary(authenticated = false): void {
+  if (libraryMounted) {
+    // The library owns document listeners. Reload rather than registering them twice
+    // when switching between demo/account mode or between different accounts.
+    if (authenticated) window.location.reload();
+    return;
+  }
+  libraryMounted = true;
+  root!.innerHTML = renderApp();
+  const renderNavigationPage = initializeApp();
+  initializeMobileHeader();
+  initializeNavigation(renderNavigationPage);
+  const account = document.createElement("button");
+  account.type = "button";
+  account.className = "auth-text-button account-button";
+  account.textContent = authenticated ? "Sign out" : "Sign in";
+  document.querySelector(".masthead-inner")!.append(account);
+  account.addEventListener("click", async () => {
+    account.disabled = true;
+    try {
+      if (authenticated) {
+        signingOut = true;
+        const { signOut } = await import("./services/auth");
+        await signOut();
+      }
+      window.location.reload();
+    } catch {
+      signingOut = false;
+      account.disabled = false;
+      const toast = document.querySelector<HTMLElement>("#toast")!;
+      toast.textContent = "Couldn’t sign out. Please try again.";
+      toast.classList.add("visible");
+    }
+  });
+  window.scrollTo(0, 0);
+}
+
+function showAuth(message?: string): void {
+  root!.innerHTML = renderAuthView();
+  initializeAuthView((authenticated) => {
+    // A configured client drives authenticated navigation via its auth events.
+    if (!authenticated) enterLibrary();
+  });
+  if (message) {
+    const status = document.querySelector<HTMLElement>("#auth-status")!;
+    status.classList.add("auth-error");
+    status.textContent = message;
+  }
+}
+
+async function start(): Promise<void> {
+  if (
+    !import.meta.env.VITE_SUPABASE_URL ||
+    !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ) {
+    showAuth();
+    return;
+  }
+  root!.innerHTML = /* HTML */ `<main class="frame auth-loading" role="status">
+    Opening your listening journal…
+  </main>`;
+  try {
+    const { onAuthStateChange } = await import("./services/auth");
+    const subscription = onAuthStateChange((event, session) => {
+      // Supabase invokes this callback while holding its auth lock. Keep it
+      // synchronous and do not call another auth method from here.
+      if (session) {
+        if (libraryMounted && accountId === session.user.id) return;
+        accountId = session.user.id;
+        enterLibrary(true);
+      } else if (event === "SIGNED_OUT" && libraryMounted && !signingOut) {
+        window.location.reload();
+      } else if (event === "INITIAL_SESSION" && !libraryMounted) {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const error = params.get("error_description");
+        if (error) {
+          history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search,
+          );
+        }
+        showAuth(error ?? undefined);
+      }
+    });
+    stopAuth = () => subscription.unsubscribe();
+  } catch {
+    showAuth(
+      "Couldn’t initialize account access. Please refresh to try again, or explore the demo.",
+    );
+  }
+}
+
+void start();
+if (import.meta.hot) import.meta.hot.dispose(() => stopAuth?.());
