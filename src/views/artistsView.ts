@@ -1,3 +1,5 @@
+import { renderCatalogHeading } from "../components/catalogHeading";
+import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Artist } from "../types/albums";
 import { escapeHtml as e } from "../components/html";
 import { icon } from "../components/icons";
@@ -12,7 +14,7 @@ export const roleLabel = (role: string) =>
   role.charAt(0).toUpperCase() + role.slice(1);
 
 export function renderArtistsView(query: string, unused: boolean) {
-  return `<section class="instrument-page" aria-labelledby="page-title"><div class="instrument-page-heading"><div><p class="eyebrow"><span></span> YOUR CATALOG</p><h1 id="page-title">Artists</h1><p class="muted">The people and groups behind your records.</p></div><button class="button primary" data-action="new-catalog-artist">${icon("plus", 17)} Add artist</button></div><div class="instrument-toolbar"><label class="search-field">${icon("search")}<span class="sr-only">Search artists</span><input id="artists-search" type="search" placeholder="Find an artist…" value="${e(query)}" /></label><label class="unused-filter"><input id="artists-unused" type="checkbox" ${unused ? "checked" : ""} /> Unused only</label></div><p id="artists-count" class="muted" role="status"></p><div id="artists-list"></div></section>`;
+  return `<section class="instrument-page catalog-page" aria-labelledby="page-title">${renderCatalogHeading("Artists", "artist")}<div class="instrument-toolbar genre-toolbar"><label class="search-field">${icon("search")}<span class="sr-only">Search artists</span><input id="artists-search" type="search" placeholder="Find an artist…" value="${e(query)}" /></label>${renderCatalogFilters(`<label><input id="artists-unused" type="checkbox" ${unused ? "checked" : ""} /> Unused only</label>`, Number(unused))}</div><p id="artists-count" class="muted" role="status"></p><div id="artists-list"></div></section>`;
 }
 export function updateArtistsView(
   artists: Artist[],

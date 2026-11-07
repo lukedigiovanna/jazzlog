@@ -34,7 +34,6 @@ export function renderLibraryView(
   );
   return /* HTML */ `<section class="hero" aria-labelledby="page-title">
       <div class="hero-copy">
-        <p class="eyebrow"><span></span> THE JAZZ JOURNAL</p>
         <h1 id="page-title">The Listening <em>Room.</em></h1>
         <p class="hero-description">
           A place for the records you come back to.

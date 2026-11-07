@@ -649,7 +649,7 @@ export function initializeApp(): void {
     updateGenres();
   }
 
-  function updateGenreFilters(focusId: string) {
+  function updateCatalogFilters(focusId: string) {
     renderRoute();
     const dropdown = main.querySelector<HTMLDetailsElement>(
       ".genre-filter-dropdown",
@@ -1336,15 +1336,15 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
     if (input.id === "genres-alphabetical") {
       genreAlphabetical = input.checked;
-      updateGenreFilters(input.id);
+      updateCatalogFilters(input.id);
     }
     if (input.id === "genres-unused") {
       genreUnused = input.checked;
-      updateGenreFilters(input.id);
+      updateCatalogFilters(input.id);
     }
     if (input.id === "artists-unused") {
       artistUnused = input.checked;
-      updateArtistList();
+      updateCatalogFilters(input.id);
     }
     if (
       input.dataset.artistRole &&
@@ -1357,11 +1357,11 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
     if (input.id === "instrument-category-filter") {
       instrumentFilters.category = input.value;
-      updateInstrumentList();
+      updateCatalogFilters(input.id);
     }
     if (input.id === "instruments-unused") {
       instrumentFilters.unused = input.checked;
-      updateInstrumentList();
+      updateCatalogFilters(input.id);
     }
     if (input.id === "genre-filter") {
       state.genre = input.value;

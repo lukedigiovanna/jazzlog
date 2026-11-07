@@ -1,3 +1,5 @@
+import { renderCatalogHeading } from "../components/catalogHeading";
+import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Instrument, InstrumentCategory } from "../types/albums";
 import { escapeHtml } from "../components/html";
 import { icon } from "../components/icons";
@@ -25,12 +27,15 @@ export function categoryFields(
 }
 
 export function renderInstrumentsView(filters: InstrumentFilters) {
-  return `<section class="instrument-page" aria-labelledby="page-title">
-    <div class="instrument-page-heading"><div><p class="eyebrow"><span></span> YOUR CATALOG</p><h1 id="page-title">Instruments</h1><p class="muted">The sounds that connect your records.</p></div><button type="button" class="button primary" data-action="new-catalog-instrument">${icon("plus", 17)} Add instrument</button></div>
-    <div class="instrument-toolbar">
+  return `<section class="instrument-page catalog-page" aria-labelledby="page-title">
+    ${renderCatalogHeading("Instruments", "instrument")}
+    <div class="instrument-toolbar genre-toolbar">
       <label class="search-field">${icon("search")}<span class="sr-only">Search instruments</span><input id="instruments-search" type="search" placeholder="Find an instrument…" value="${escapeHtml(filters.query)}" /></label>
-      <label class="field"><span class="sr-only">Filter by category</span><select id="instrument-category-filter"><option value="">All categories</option>${instrumentCategories.map((category) => `<option value="${category}" ${filters.category === category ? "selected" : ""}>${categoryLabel(category)}</option>`).join("")}<option value="uncategorized" ${filters.category === "uncategorized" ? "selected" : ""}>Uncategorized</option></select></label>
-      <label class="unused-filter"><input type="checkbox" id="instruments-unused" ${filters.unused ? "checked" : ""} /> Unused only</label>
+      ${renderCatalogFilters(
+        `<label class="field"><span>Category</span><select id="instrument-category-filter"><option value="">All categories</option>${instrumentCategories.map((category) => `<option value="${category}" ${filters.category === category ? "selected" : ""}>${categoryLabel(category)}</option>`).join("")}<option value="uncategorized" ${filters.category === "uncategorized" ? "selected" : ""}>Uncategorized</option></select></label>
+      <label ><input type="checkbox" id="instruments-unused" ${filters.unused ? "checked" : ""} /> Unused only</label>`,
+        Number(Boolean(filters.category)) + Number(filters.unused),
+      )}
     </div>
     <p id="instruments-count" class="muted" role="status"></p><div id="instruments-list"></div>
   </section>`;

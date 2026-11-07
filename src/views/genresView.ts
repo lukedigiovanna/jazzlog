@@ -1,4 +1,5 @@
-import { icon } from "../components/icons";
+import { renderCatalogHeading } from "../components/catalogHeading";
+import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Genre } from "../types/albums";
 import { escapeHtml as e } from "../components/html";
 import { ancestors, genreUrl, includesGenre } from "../app/genres";
@@ -30,7 +31,7 @@ export function renderGenresView(
         (!unused || !albums.some((a) => a.genres.some((c) => c.id === g.id))),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
-  return `<section class="instrument-page genres-page"><div class="instrument-page-heading"><h1 id="page-title">Genres</h1><button class="button primary" data-action="new-catalog-genre">Add genre</button></div><div class="instrument-toolbar genre-toolbar"><label class="search-field"><span class="sr-only">Search genres</span><input id="genres-search" type="search" placeholder="Find a genre…" value="${e(query)}"></label><details class="genre-filter-dropdown"><summary class="button secondary" aria-label="Genre filters${alphabetical || unused ? `, ${Number(alphabetical) + Number(unused)} active` : ""}">${icon("filter", 18)}<span class="genre-filter-text">Filters</span>${alphabetical || unused ? `<span class="genre-filter-count">${Number(alphabetical) + Number(unused)}</span>` : ""}</summary><div class="genre-filter-panel"><p>Display & filters</p><label><input id="genres-alphabetical" type="checkbox" ${alphabetical ? "checked" : ""}> Alphabetical view</label><label><input id="genres-unused" type="checkbox" ${unused ? "checked" : ""}> Unused only</label></div></details></div><div class="genre-tree">${
+  return `<section class="instrument-page catalog-page genres-page">${renderCatalogHeading("Genres", "genre")}<div class="instrument-toolbar genre-toolbar"><label class="search-field"><span class="sr-only">Search genres</span><input id="genres-search" type="search" placeholder="Find a genre…" value="${e(query)}"></label>${renderCatalogFilters(`<label><input id="genres-alphabetical" type="checkbox" ${alphabetical ? "checked" : ""}> Alphabetical view</label><label><input id="genres-unused" type="checkbox" ${unused ? "checked" : ""}> Unused only</label>`, Number(alphabetical) + Number(unused), "Display & filters")}</div><div class="genre-tree">${
     query || alphabetical || unused
       ? `<ul>${results
           .map(
