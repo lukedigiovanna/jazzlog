@@ -1034,6 +1034,7 @@ dialog::backdrop {
 .field {
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   align-content: start;
   color: var(--ink);
@@ -1055,6 +1056,11 @@ dialog::backdrop {
 }
 .field textarea {
   resize: vertical;
+}
+/* Keep native date controls within their field, including on mobile Safari. */
+.field input[type="date"] {
+  appearance: none;
+  max-width: 100%;
 }
 .field small,
 .form-hint {
