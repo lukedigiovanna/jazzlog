@@ -74,7 +74,8 @@ button:disabled {
   outline-offset: 4px;
 }
 main:focus,
-#page-title:focus {
+#page-title:focus,
+#dialog-title:focus {
   outline: none;
 }
 .frame {
@@ -2057,4 +2058,17 @@ dialog {
 .genre-descendant-note {
   margin-top: 0;
   margin-bottom: 12px;
+}
+
+/* Touch fields retain their normal borders without an extra focus ring. */
+@media (pointer: coarse) {
+  input:focus,
+  textarea:focus,
+  select:focus,
+  .search-field:focus-within,
+  .select-wrap:focus-within,
+  .rating-options label:focus-within,
+  .category-options input:focus-visible + span {
+    outline: none;
+  }
 }
