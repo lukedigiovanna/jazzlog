@@ -1682,6 +1682,7 @@ dialog {
   .masthead-inner {
     flex-wrap: wrap;
     gap: 10px;
+    padding-top: 12px;
   }
   .main-nav {
     order: 3;
