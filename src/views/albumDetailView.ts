@@ -89,14 +89,18 @@ export function renderAlbumDetailView(album: Album) {
                   .sort((a, b) => a.position - b.position)
                   .map(
                     (artist) =>
-                      `<a href="${artistUrl(artist.id)}">${escapeHtml(artist.name)}</a><span class="artist-role-label">${roleLabel(artist.role)}</span>`,
+                      /* HTML */ `<a href="${artistUrl(artist.id)}"
+                          >${escapeHtml(artist.name)}</a
+                        ><span class="artist-role-label"
+                          >${roleLabel(artist.role)}</span
+                        >`,
                   )
                   .join(" · ")
               : "Unknown artist"
           }
         </p>
         ${album.releaseYear || album.recordLabel ? /* HTML */ `<p class="detail-meta">${[album.releaseYear, album.recordLabel].filter(Boolean).map(escapeHtml).join(" · ")}</p>` : ""}
-        ${album.genres.length ? /* HTML */ `<div class="tags">${album.genres.map((g) => `<a class="chip" href="${genreUrl(g.id)}">${escapeHtml(g.name)}${g.isPrimary ? " · Primary" : ""}</a>`).join("")}</div>` : ""}
+        ${album.genres.length ? /* HTML */ `<div class="tags">${album.genres.map((g) => /* HTML */ `<a class="chip" href="${genreUrl(g.id)}">${escapeHtml(g.name)}${g.isPrimary ? " · Primary" : ""}</a>`).join("")}</div>` : ""}
         <div class="detail-rating">
           ${renderRating(listens[0]?.rating)}${listens[0] ? /* HTML */ `<span class="muted">Latest rating</span>` : ""}
         </div>
@@ -123,7 +127,7 @@ export function renderAlbumDetailView(album: Album) {
           <div class="detail-heading">
             <h2 id="instruments-title">Instrumentation</h2>
           </div>
-          ${album.instruments.length ? `<div class="tags">${album.instruments.map((item) => `<a class="chip" href="${instrumentUrl(item.id)}">${escapeHtml(item.name)}</a>`).join("")}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
+          ${album.instruments.length ? /* HTML */ `<div class="tags">${album.instruments.map((item) => /* HTML */ `<a class="chip" href="${instrumentUrl(item.id)}">${escapeHtml(item.name)}</a>`).join("")}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
           <button
             type="button"
             class="button secondary compact"

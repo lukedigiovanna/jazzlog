@@ -161,14 +161,21 @@ export function initializeApp(): void {
     } else if (artist) {
       main.innerHTML = renderArtistDetail(artist, albums);
     } else if (artistPage) {
-      main.innerHTML = `<div class="empty"><h1 id="page-title">Artist unavailable</h1><a href="#artists">Back to artists</a></div>`;
+      main.innerHTML = /* HTML */ `<div class="empty">
+        <h1 id="page-title">Artist unavailable</h1>
+        <a href="#artists">Back to artists</a>
+      </div>`;
     } else if (location.hash === "#instruments") {
       main.innerHTML = renderInstrumentsView(instrumentFilters);
       updateInstrumentList();
     } else if (instrument) {
       main.innerHTML = renderInstrumentDetail(instrument, albums);
     } else if (instrumentPage) {
-      main.innerHTML = `<div class="empty route-empty"><h1 id="page-title">Instrument unavailable</h1><p>This instrument may have been deleted.</p><a class="button secondary" href="#instruments">Back to instruments</a></div>`;
+      main.innerHTML = /* HTML */ `<div class="empty route-empty">
+        <h1 id="page-title">Instrument unavailable</h1>
+        <p>This instrument may have been deleted.</p>
+        <a class="button secondary" href="#instruments">Back to instruments</a>
+      </div>`;
     } else if (album) {
       main.innerHTML = renderAlbumDetailView(album);
     } else if (missing) {
@@ -370,12 +377,27 @@ export function initializeApp(): void {
     showDialog(
       item ? "Edit artist" : "Add artist",
       "YOUR ARTIST CATALOG",
-      `<form id="catalog-artist-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">
-      ${field("Artist name", "artistName", item?.name, { attributes: 'required maxlength="150"', placeholder: "e.g. Miles Davis" })}
-      ${field("Sort name", "sortName", item?.sortName, { attributes: 'maxlength="150"', placeholder: "e.g. Davis, Miles" })}
-      ${field("Country code", "country", item?.country, { attributes: 'maxlength="2" pattern="[A-Za-z]{2}"', placeholder: "e.g. US" })}
-      ${field("MusicBrainz artist ID", "artistMbid", item?.musicbrainzId, { attributes: 'maxlength="36"', placeholder: "Optional artist ID" })}
-      <p class="form-hint">Artist details apply everywhere this artist is credited. Choose their role separately on each album.</p><p id="form-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button class="button primary" type="submit">Save artist</button></div></form>`,
+      /* HTML */ `<form
+        id="catalog-artist-form"
+        data-id="${escapeHtml(item?.id ?? "")}"
+      >
+        <div class="dialog-body">
+          ${field("Artist name", "artistName", item?.name, { attributes: 'required maxlength="150"', placeholder: "e.g. Miles Davis" })}
+          ${field("Sort name", "sortName", item?.sortName, { attributes: 'maxlength="150"', placeholder: "e.g. Davis, Miles" })}
+          ${field("Country code", "country", item?.country, { attributes: 'maxlength="2" pattern="[A-Za-z]{2}"', placeholder: "e.g. US" })}
+          ${field("MusicBrainz artist ID", "artistMbid", item?.musicbrainzId, { attributes: 'maxlength="36"', placeholder: "Optional artist ID" })}
+          <p class="form-hint">
+            Artist details apply everywhere this artist is credited. Choose
+            their role separately on each album.
+          </p>
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="button secondary" data-action="close">
+            Cancel</button
+          ><button class="button primary" type="submit">Save artist</button>
+        </div>
+      </form>`,
       '[name="artistName"]',
     );
   }
@@ -396,7 +418,32 @@ export function initializeApp(): void {
       }
       return { ...credit, ...(existing ?? {}) };
     });
-    return `<div class="instrument-picker"><label class="field" for="artist-query"><span>Artists <span class="muted">(optional)</span></span></label><p id="artist-help" class="form-hint">Choose artists from your catalog, then set each album credit’s role and order.</p><div id="artist-selected"></div><input id="artist-query" type="search" maxlength="150" autocomplete="off" placeholder="Search or create an artist…" aria-describedby="artist-help" /><div id="artist-results" class="instrument-results" aria-label="Available artists"></div><a class="manage-instruments" href="#artists">Manage artist catalog ${icon("arrow", 14)}</a></div>`;
+    return /* HTML */ `<div class="instrument-picker">
+      <label class="field" for="artist-query"
+        ><span>Artists <span class="muted">(optional)</span></span></label
+      >
+      <p id="artist-help" class="form-hint">
+        Choose artists from your catalog, then set each album credit’s role and
+        order.
+      </p>
+      <div id="artist-selected"></div>
+      <input
+        id="artist-query"
+        type="search"
+        maxlength="150"
+        autocomplete="off"
+        placeholder="Search or create an artist…"
+        aria-describedby="artist-help"
+      />
+      <div
+        id="artist-results"
+        class="instrument-results"
+        aria-label="Available artists"
+      ></div>
+      <a class="manage-instruments" href="#artists"
+        >Manage artist catalog ${icon("arrow", 14)}</a
+      >
+    </div>`;
   }
 
   function updateArtists() {
@@ -406,7 +453,32 @@ export function initializeApp(): void {
     editor.querySelector("#artist-selected")!.innerHTML = selectedArtists
       .map(
         (item, index) =>
-          `<div class="artist-credit-row"><strong>${escapeHtml(item.name)}</strong><label class="field"><span class="sr-only">Role for ${escapeHtml(item.name)}</span><select data-artist-role="${escapeHtml(item.id)}">${artistRoles.map((role) => `<option value="${role}" ${item.role === role ? "selected" : ""}>${roleLabel(role)}</option>`).join("")}</select></label><button type="button" class="icon-button" data-action="move-artist" data-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.name)} earlier" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-action="remove-artist" data-id="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.name)}">${icon("close", 16)}</button></div>`,
+          /* HTML */ `<div class="artist-credit-row">
+            <strong>${escapeHtml(item.name)}</strong
+            ><label class="field"
+              ><span class="sr-only">Role for ${escapeHtml(item.name)}</span
+              ><select data-artist-role="${escapeHtml(item.id)}">
+                ${artistRoles.map((role) => /* HTML */ `<option value="${role}" ${item.role === role ? "selected" : ""}>${roleLabel(role)}</option>`).join("")}
+              </select></label
+            ><button
+              type="button"
+              class="icon-button"
+              data-action="move-artist"
+              data-id="${escapeHtml(item.id)}"
+              aria-label="Move ${escapeHtml(item.name)} earlier"
+              ${index === 0 ? "disabled" : ""}
+            >
+              ↑</button
+            ><button
+              type="button"
+              class="icon-button"
+              data-action="remove-artist"
+              data-id="${escapeHtml(item.id)}"
+              aria-label="Remove ${escapeHtml(item.name)}"
+            >
+              ${icon("close", 16)}
+            </button>
+          </div>`,
       )
       .join("");
     const choices = artistChoices.filter(
@@ -418,14 +490,27 @@ export function initializeApp(): void {
       choices
         .map(
           (item) =>
-            `<button type="button" class="button secondary compact" data-action="select-artist" data-id="${escapeHtml(item.id)}">${icon("plus", 14)} ${escapeHtml(item.name)}</button>`,
+            /* HTML */ `<button
+              type="button"
+              class="button secondary compact"
+              data-action="select-artist"
+              data-id="${escapeHtml(item.id)}"
+            >
+              ${icon("plus", 14)} ${escapeHtml(item.name)}
+            </button>`,
         )
         .join("") +
       (query &&
       !artistChoices.some(
         (item) => item.name.toLowerCase() === query.toLowerCase(),
       )
-        ? `<button type="button" class="button secondary compact" data-action="create-artist">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        ? /* HTML */ `<button
+            type="button"
+            class="button secondary compact"
+            data-action="create-artist"
+          >
+            ${icon("plus", 14)} Create “${escapeHtml(query)}”
+          </button>`
         : "");
   }
 
@@ -435,14 +520,34 @@ export function initializeApp(): void {
       ...structuredClone(item),
       notes: null,
     }));
-    return `<div class="instrument-picker">
-      <label class="field" for="instrument-query"><span>Instruments <span class="muted">(optional)</span></span></label>
-      <p class="form-hint" id="instrument-help">Add what you know now, or come back after listening.</p>
+    return /* HTML */ `<div class="instrument-picker">
+      <label class="field" for="instrument-query"
+        ><span>Instruments <span class="muted">(optional)</span></span></label
+      >
+      <p class="form-hint" id="instrument-help">
+        Add what you know now, or come back after listening.
+      </p>
       <div id="instrument-selected" class="tags" aria-live="polite"></div>
-      <input id="instrument-query" type="search" maxlength="80" autocomplete="off" placeholder="Search or create an instrument…" aria-describedby="instrument-help" />
-      <div id="instrument-results" class="instrument-results" aria-label="Available instruments"></div>
-      <details class="inline-instrument-categories"><summary>Categories for a new instrument</summary>${categoryFields([], "inline-category")}</details>
-      <a class="manage-instruments" href="#instruments">Manage instrument catalog ${icon("arrow", 14)}</a>
+      <input
+        id="instrument-query"
+        type="search"
+        maxlength="80"
+        autocomplete="off"
+        placeholder="Search or create an instrument…"
+        aria-describedby="instrument-help"
+      />
+      <div
+        id="instrument-results"
+        class="instrument-results"
+        aria-label="Available instruments"
+      ></div>
+      <details class="inline-instrument-categories">
+        <summary>Categories for a new instrument</summary>
+        ${categoryFields([], "inline-category")}
+      </details>
+      <a class="manage-instruments" href="#instruments"
+        >Manage instrument catalog ${icon("arrow", 14)}</a
+      >
     </div>`;
   }
 
@@ -454,7 +559,15 @@ export function initializeApp(): void {
       selectedInstruments
         .map(
           (item) =>
-            `<button type="button" class="instrument-chip" data-action="remove-instrument" data-id="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.name)}">${escapeHtml(item.name)} ${icon("close", 14)}</button>`,
+            /* HTML */ `<button
+              type="button"
+              class="instrument-chip"
+              data-action="remove-instrument"
+              data-id="${escapeHtml(item.id)}"
+              aria-label="Remove ${escapeHtml(item.name)}"
+            >
+              ${escapeHtml(item.name)} ${icon("close", 14)}
+            </button>`,
         )
         .join("");
     const choices = instrumentChoices.filter(
@@ -466,14 +579,27 @@ export function initializeApp(): void {
       choices
         .map(
           (item) =>
-            `<button type="button" class="button secondary compact" data-action="select-instrument" data-id="${escapeHtml(item.id)}">${icon("plus", 14)} ${escapeHtml(item.name)}</button>`,
+            /* HTML */ `<button
+              type="button"
+              class="button secondary compact"
+              data-action="select-instrument"
+              data-id="${escapeHtml(item.id)}"
+            >
+              ${icon("plus", 14)} ${escapeHtml(item.name)}
+            </button>`,
         )
         .join("") +
       (query &&
       !instrumentChoices.some(
         (item) => item.name.toLowerCase() === query.toLowerCase(),
       )
-        ? `<button type="button" class="button secondary compact" data-action="create-instrument">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        ? /* HTML */ `<button
+            type="button"
+            class="button secondary compact"
+            data-action="create-instrument"
+          >
+            ${icon("plus", 14)} Create “${escapeHtml(query)}”
+          </button>`
         : "") +
       (!choices.length && !query
         ? '<p class="form-hint">Search for an instrument name to add one.</p>'
@@ -484,7 +610,19 @@ export function initializeApp(): void {
     showDialog(
       "Edit instruments",
       "ALBUM INSTRUMENTATION",
-      `<form id="instruments-form" data-id="${escapeHtml(album.id)}"><div class="dialog-body"><p class="dialog-intro">${escapeHtml(album.title)}</p>${instrumentPicker(album.instruments)}</div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="submit" class="button primary">Save instruments</button></div></form>`,
+      /* HTML */ `<form id="instruments-form" data-id="${escapeHtml(album.id)}">
+        <div class="dialog-body">
+          <p class="dialog-intro">${escapeHtml(album.title)}</p>
+          ${instrumentPicker(album.instruments)}
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="button secondary" data-action="close">
+            Cancel</button
+          ><button type="submit" class="button primary">
+            Save instruments
+          </button>
+        </div>
+      </form>`,
       "#instrument-query",
     );
     updateInstruments();
@@ -506,12 +644,26 @@ export function initializeApp(): void {
     showDialog(
       item ? "Edit instrument" : "Add instrument",
       "YOUR INSTRUMENT CATALOG",
-      `<form id="catalog-instrument-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">
-      ${field("Instrument name", "instrumentName", item?.name ?? "", { attributes: 'required maxlength="80"', placeholder: "e.g. Vibraphone" })}
-      ${categoryFields(item?.categories)}
-      <p class="form-hint">Name and category changes apply everywhere this instrument is used.</p>
-      <p id="form-error" class="form-error" role="alert" hidden></p>
-      </div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="submit" class="button primary">${item ? "Save changes" : "Add instrument"}</button></div></form>`,
+      /* HTML */ `<form
+        id="catalog-instrument-form"
+        data-id="${escapeHtml(item?.id ?? "")}"
+      >
+        <div class="dialog-body">
+          ${field("Instrument name", "instrumentName", item?.name ?? "", { attributes: 'required maxlength="80"', placeholder: "e.g. Vibraphone" })}
+          ${categoryFields(item?.categories)}
+          <p class="form-hint">
+            Name and category changes apply everywhere this instrument is used.
+          </p>
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="button secondary" data-action="close">
+            Cancel</button
+          ><button type="submit" class="button primary">
+            ${item ? "Save changes" : "Add instrument"}
+          </button>
+        </div>
+      </form>`,
       '[name="instrumentName"]',
     );
   }
@@ -696,7 +848,32 @@ export function initializeApp(): void {
           name: g.name,
           parentGenreId: g.parentGenreId,
         });
-    return `<div class="instrument-picker"><label class="field" for="genre-query"><span>Genres <span class="muted">(optional)</span></span></label><p id="genre-help" class="form-hint">Choose specific genres. Parent filters include their descendants. At most one may be primary.</p><div id="genre-selected" aria-live="polite"></div><input id="genre-query" type="search" maxlength="80" autocomplete="off" placeholder="Search or create a genre…" aria-describedby="genre-help" /><div id="genre-results" class="instrument-results" aria-label="Available genres"></div><a class="manage-instruments" href="#genres">Manage genre catalog ${icon("arrow", 14)}</a></div>`;
+    return /* HTML */ `<div class="instrument-picker">
+      <label class="field" for="genre-query"
+        ><span>Genres <span class="muted">(optional)</span></span></label
+      >
+      <p id="genre-help" class="form-hint">
+        Choose specific genres. Parent filters include their descendants. At
+        most one may be primary.
+      </p>
+      <div id="genre-selected" aria-live="polite"></div>
+      <input
+        id="genre-query"
+        type="search"
+        maxlength="80"
+        autocomplete="off"
+        placeholder="Search or create a genre…"
+        aria-describedby="genre-help"
+      />
+      <div
+        id="genre-results"
+        class="instrument-results"
+        aria-label="Available genres"
+      ></div>
+      <a class="manage-instruments" href="#genres"
+        >Manage genre catalog ${icon("arrow", 14)}</a
+      >
+    </div>`;
   }
   function updateGenres() {
     const input = editor.querySelector<HTMLInputElement>("#genre-query");
@@ -705,7 +882,24 @@ export function initializeApp(): void {
     editor.querySelector("#genre-selected")!.innerHTML = selectedGenres
       .map(
         (g) =>
-          `<div class="genre-credit-row"><strong>${escapeHtml(g.name)}</strong><label><input type="checkbox" data-genre-primary="${escapeHtml(g.id)}" ${g.isPrimary ? "checked" : ""}> Primary</label><button type="button" class="button secondary compact" data-action="remove-genre" data-id="${escapeHtml(g.id)}">Remove</button></div>`,
+          /* HTML */ `<div class="genre-credit-row">
+            <strong>${escapeHtml(g.name)}</strong
+            ><label
+              ><input
+                type="checkbox"
+                data-genre-primary="${escapeHtml(g.id)}"
+                ${g.isPrimary ? "checked" : ""}
+              />
+              Primary</label
+            ><button
+              type="button"
+              class="button secondary compact"
+              data-action="remove-genre"
+              data-id="${escapeHtml(g.id)}"
+            >
+              Remove
+            </button>
+          </div>`,
       )
       .join("");
     editor.querySelector("#genre-results")!.innerHTML =
@@ -723,40 +917,78 @@ export function initializeApp(): void {
           const descendant = selectedGenres.find((c) =>
             ancestors(c.id, genreChoices).some((p) => p.id === g.id),
           );
-          return `<button type="button" class="button secondary compact" data-action="select-genre" data-id="${escapeHtml(g.id)}" ${descendant ? "disabled" : ""}>${icon("plus", 14)} ${escapeHtml(g.name)}${
-            descendant
-              ? ` — Included through ${escapeHtml(descendant.name)}`
-              : ancestors(g.id, genreChoices).length
-                ? ` (${ancestors(g.id, genreChoices)
-                    .map((p) => escapeHtml(p.name))
-                    .join(" › ")})`
-                : ""
-          }</button>`;
+          return /* HTML */ `<button
+            type="button"
+            class="button secondary compact"
+            data-action="select-genre"
+            data-id="${escapeHtml(g.id)}"
+            ${descendant ? "disabled" : ""}
+          >
+            ${icon("plus", 14)}
+            ${escapeHtml(g.name)}${
+              descendant
+                ? ` — Included through ${escapeHtml(descendant.name)}`
+                : ancestors(g.id, genreChoices).length
+                  ? ` (${ancestors(g.id, genreChoices)
+                      .map((p) => escapeHtml(p.name))
+                      .join(" › ")})`
+                  : ""
+            }
+          </button>`;
         })
         .join("") +
       (query &&
       !genreChoices.some((g) => g.name.toLowerCase() === query.toLowerCase())
-        ? `<button type="button" class="button secondary compact" data-action="create-genre">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        ? /* HTML */ `<button
+            type="button"
+            class="button secondary compact"
+            data-action="create-genre"
+          >
+            ${icon("plus", 14)} Create “${escapeHtml(query)}”
+          </button>`
         : "");
   }
   function openCatalogGenre(item?: Genre) {
     showDialog(
       item ? "Edit genre" : "Add genre",
       "GENRE CATALOG",
-      `<form id="catalog-genre-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">${field("Genre name", "genreName", item?.name ?? "", { attributes: 'required maxlength="80"' })}<label class="field"><span>Parent genre (optional)</span><select name="parentGenreId"><option value="">No parent</option>${genres
-        .filter(
-          (g) =>
-            g.id !== item?.id &&
-            !ancestors(g.id, genres).some((p) => p.id === item?.id),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(
-          (g) =>
-            `<option value="${escapeHtml(g.id)}" ${g.id === item?.parentGenreId ? "selected" : ""}>${escapeHtml([...ancestors(g.id, genres), g].map((p) => p.name).join(" › "))}</option>`,
-        )
-        .join(
-          "",
-        )}</select></label><p id="form-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button class="button primary" type="submit">Save genre</button></div></form>`,
+      /* HTML */ `<form
+        id="catalog-genre-form"
+        data-id="${escapeHtml(item?.id ?? "")}"
+      >
+        <div class="dialog-body">
+          ${field("Genre name", "genreName", item?.name ?? "", { attributes: 'required maxlength="80"' })}<label
+            class="field"
+            ><span>Parent genre (optional)</span
+            ><select name="parentGenreId">
+              <option value="">No parent</option>
+              ${genres
+                .filter(
+                  (g) =>
+                    g.id !== item?.id &&
+                    !ancestors(g.id, genres).some((p) => p.id === item?.id),
+                )
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map(
+                  (g) =>
+                    /* HTML */ `<option
+                      value="${escapeHtml(g.id)}"
+                      ${g.id === item?.parentGenreId ? "selected" : ""}
+                    >
+                      ${escapeHtml([...ancestors(g.id, genres), g].map((p) => p.name).join(" › "))}
+                    </option>`,
+                )
+                .join("")}
+            </select></label
+          >
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-footer">
+          <button type="button" class="button secondary" data-action="close">
+            Cancel</button
+          ><button class="button primary" type="submit">Save genre</button>
+        </div>
+      </form>`,
       '[name="genreName"]',
     );
   }
@@ -806,7 +1038,26 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
             ${entry ? "Save changes" : "Save listen"}
           </button>
         </div>
-        ${entry ? `<div class="listen-delete"><details><summary>Delete listening entry</summary><p>This will permanently remove this listen, including its rating and notes.</p><button type="button" class="button secondary danger" data-action="delete-listen">Delete entry permanently</button></details></div>` : ""}
+        ${
+          entry
+            ? /* HTML */ `<div class="listen-delete">
+                <details>
+                  <summary>Delete listening entry</summary>
+                  <p>
+                    This will permanently remove this listen, including its
+                    rating and notes.
+                  </p>
+                  <button
+                    type="button"
+                    class="button secondary danger"
+                    data-action="delete-listen"
+                  >
+                    Delete entry permanently
+                  </button>
+                </details>
+              </div>`
+            : ""
+        }
       </form>`,
       entry ? '[name="notes"]' : '[name="date"]',
     );
@@ -977,7 +1228,20 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         showDialog(
           "Delete genre?",
           "GENRE CATALOG",
-          `<div class="dialog-body">Delete ${escapeHtml(item.name)}?</div><div class="dialog-footer"><button class="button secondary" data-action="close">Cancel</button><button class="button primary danger" data-action="confirm-delete-genre" data-id="${escapeHtml(item.id)}">Delete genre</button></div>`,
+          /* HTML */ `<div class="dialog-body">
+              Delete ${escapeHtml(item.name)}?
+            </div>
+            <div class="dialog-footer">
+              <button class="button secondary" data-action="close">
+                Cancel</button
+              ><button
+                class="button primary danger"
+                data-action="confirm-delete-genre"
+                data-id="${escapeHtml(item.id)}"
+              >
+                Delete genre
+              </button>
+            </div>`,
           '[data-action="close"]',
         );
         break;
@@ -1053,7 +1317,25 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         showDialog(
           "Delete artist?",
           "YOUR ARTIST CATALOG",
-          `<div class="dialog-body"><p>Delete ${escapeHtml(item.name)} from your catalog?</p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="button" class="button primary danger" data-action="confirm-delete-artist" data-id="${escapeHtml(item.id)}">Delete artist</button></div>`,
+          /* HTML */ `<div class="dialog-body">
+              <p>Delete ${escapeHtml(item.name)} from your catalog?</p>
+            </div>
+            <div class="dialog-footer">
+              <button
+                type="button"
+                class="button secondary"
+                data-action="close"
+              >
+                Cancel</button
+              ><button
+                type="button"
+                class="button primary danger"
+                data-action="confirm-delete-artist"
+                data-id="${escapeHtml(item.id)}"
+              >
+                Delete artist
+              </button>
+            </div>`,
           '[data-action="close"]',
         );
         break;
@@ -1141,7 +1423,28 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         showDialog(
           "Delete instrument?",
           "YOUR INSTRUMENT CATALOG",
-          `<div class="dialog-body"><p>Delete <strong>${escapeHtml(item.name)}</strong> from your catalog? It is not used on any albums.</p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="button" class="button primary danger" data-action="confirm-delete-instrument" data-id="${escapeHtml(item.id)}">Delete instrument</button></div>`,
+          /* HTML */ `<div class="dialog-body">
+              <p>
+                Delete <strong>${escapeHtml(item.name)}</strong> from your
+                catalog? It is not used on any albums.
+              </p>
+            </div>
+            <div class="dialog-footer">
+              <button
+                type="button"
+                class="button secondary"
+                data-action="close"
+              >
+                Cancel</button
+              ><button
+                type="button"
+                class="button primary danger"
+                data-action="confirm-delete-instrument"
+                data-id="${escapeHtml(item.id)}"
+              >
+                Delete instrument
+              </button>
+            </div>`,
           '[data-action="close"]',
         );
         break;
@@ -1413,7 +1716,22 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         showDialog(
           "Review genre changes",
           "GENRE CATALOG",
-          `<div class="dialog-body"><p>This change removes redundant parent assignments from these albums, keeping their more specific genres:</p><ul>${affected.map((a) => `<li>${escapeHtml(a.title)}</li>`).join("")}</ul></div><div class="dialog-footer"><button class="button secondary" data-action="close">Cancel</button><button class="button primary" id="apply-genre-change">Apply changes</button></div>`,
+          /* HTML */ `<div class="dialog-body">
+              <p>
+                This change removes redundant parent assignments from these
+                albums, keeping their more specific genres:
+              </p>
+              <ul>
+                ${affected.map((a) => /* HTML */ `<li>${escapeHtml(a.title)}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="dialog-footer">
+              <button class="button secondary" data-action="close">
+                Cancel</button
+              ><button class="button primary" id="apply-genre-change">
+                Apply changes
+              </button>
+            </div>`,
           "#apply-genre-change",
         );
         editor

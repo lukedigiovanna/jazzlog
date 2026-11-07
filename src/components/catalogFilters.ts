@@ -11,7 +11,7 @@ export function renderCatalogFilters(
       aria-label="Filters${activeCount ? `, ${activeCount} active` : ""}"
     >
       ${icon("filter", 18)}<span class="genre-filter-text">Filters</span
-      >${activeCount ? `<span class="genre-filter-count">${activeCount}</span>` : ""}
+      >${activeCount ? /* HTML */ `<span class="genre-filter-count">${activeCount}</span>` : ""}
     </summary>
     <div class="genre-filter-panel">
       <p>${heading}</p>
