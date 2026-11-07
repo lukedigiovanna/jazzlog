@@ -1680,6 +1680,15 @@ dialog {
   :root {
     --page-top-gap: 20px;
   }
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    transition: transform 500ms ease;
+  }
+  .masthead.masthead-hidden:not(:focus-within) {
+    transform: translateY(-100%);
+  }
   .masthead-inner {
     flex-wrap: wrap;
     gap: 10px;
