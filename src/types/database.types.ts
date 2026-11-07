@@ -175,6 +175,7 @@ export type Database = {
           created_at: string;
           id: string;
           musicbrainz_release_group_id: string | null;
+          record_label: string | null;
           release_year: number | null;
           sort_title: string | null;
           title: string;
@@ -186,6 +187,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           musicbrainz_release_group_id?: string | null;
+          record_label?: string | null;
           release_year?: number | null;
           sort_title?: string | null;
           title: string;
@@ -197,6 +199,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           musicbrainz_release_group_id?: string | null;
+          record_label?: string | null;
           release_year?: number | null;
           sort_title?: string | null;
           title?: string;
@@ -381,7 +384,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      save_library_changes: {
+        Args: { changes: Json };
+        Returns: Json;
+      };
     };
     Enums: {
       artist_role: "primary" | "featured" | "other";

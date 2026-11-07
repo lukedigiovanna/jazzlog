@@ -69,29 +69,8 @@ export interface LibraryData {
 }
 
 export function initializeApp(data?: LibraryData) {
-  const readOnly = Boolean(data);
-  const browsingActions = new Set([
-    "layout",
-    "artist-layout",
-    "clear",
-    "clear-artist-filters",
-    "clear-instrument-filters",
-  ]);
-  function hideWriteControls(root: ParentNode) {
-    if (!readOnly) return;
-    root.querySelectorAll<HTMLElement>("[data-action]").forEach((button) => {
-      if (button.dataset.action === "edit-listen") {
-        const card = document.createElement("div");
-        card.className = button.className;
-        card.append(...button.childNodes);
-        const edit = card.querySelector<HTMLElement>(".listen-edit");
-        if (edit) edit.hidden = true;
-        button.replaceWith(card);
-      } else if (!browsingActions.has(button.dataset.action ?? "")) {
-        button.hidden = true;
-      }
-    });
-  }
+  const authenticated = Boolean(data);
+  let saving = false;
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
@@ -99,7 +78,7 @@ export function initializeApp(data?: LibraryData) {
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = data?.albums ?? readAlbums();
   let genres = data?.genres ?? readGenreCatalog(albums);
-  if (!readOnly) syncAlbumGenres(albums, genres);
+  if (!authenticated) syncAlbumGenres(albums, genres);
   let selectedGenres: AlbumGenre[] = [];
   let genreChoices: Genre[] = [];
   let genreQuery = "";
@@ -111,7 +90,7 @@ export function initializeApp(data?: LibraryData) {
   let selectedArtists: AlbumArtist[] = [];
   let artistChoices: Artist[] = [];
   let instruments = data?.instruments ?? readInstrumentCatalog(albums);
-  if (!readOnly) syncAlbumInstruments(albums, instruments);
+  if (!authenticated) syncAlbumInstruments(albums, instruments);
   const instrumentFilters = { query: "", category: "", unused: false };
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
@@ -126,10 +105,56 @@ export function initializeApp(data?: LibraryData) {
     17,
   );
 
+  const snapshot = (): LibraryData =>
+    structuredClone({ albums, artists, genres, instruments });
+  let committed = snapshot();
+
+  async function persistChanges(): Promise<boolean | null> {
+    if (!authenticated) return saveAlbums(albums, instruments, artists, genres);
+    const pending = snapshot();
+    // Existing forms build a candidate using local objects. Restore committed
+    // state while the request runs so routes cannot display an unconfirmed save.
+    ({ albums, artists, genres, instruments } = structuredClone(committed));
+    saving = true;
+    editor.setAttribute("aria-busy", "true");
+    const controls = [
+      ...editor.querySelectorAll<
+        | HTMLButtonElement
+        | HTMLInputElement
+        | HTMLSelectElement
+        | HTMLTextAreaElement
+      >("button, input, select, textarea"),
+    ];
+    const enabled = controls.filter((control) => !control.disabled);
+    enabled.forEach((control) => (control.disabled = true));
+    try {
+      const { saveLibraryChanges } = await import("../services/saveLibrary");
+      const saved = await saveLibraryChanges(committed, pending);
+      ({ albums, artists, genres, instruments } = saved);
+      committed = snapshot();
+      return true;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message;
+      const errorElement = editor.querySelector<HTMLElement>("#form-error");
+      const text = `Couldn’t save changes. ${message || "Please try again."}`;
+      if (errorElement) {
+        errorElement.hidden = false;
+        errorElement.textContent = text;
+      } else announce(text);
+      renderRoute();
+      return null;
+    } finally {
+      saving = false;
+      editor.removeAttribute("aria-busy");
+      enabled.forEach((control) => (control.disabled = false));
+    }
+  }
+
   function makeId() {
-    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
-      byte.toString(16).padStart(2, "0"),
-    ).join("");
+    return crypto.randomUUID();
   }
 
   function announce(message: string) {
@@ -221,7 +246,6 @@ export function initializeApp(data?: LibraryData) {
       main.innerHTML = renderLibraryView(albums, state, genres);
       updateLibrary(albums, state, genres);
     }
-    hideWriteControls(document);
     document.title = genrePage
       ? `${genre?.name ?? "Genres"} — JazzLog`
       : artistPage
@@ -255,6 +279,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function canDismissDialog() {
+    if (saving) return false;
     return (
       dialogFormState() === dialogBaseline ||
       window.confirm("Discard unsaved changes? Your changes will be lost.")
@@ -753,7 +778,7 @@ export function initializeApp(data?: LibraryData) {
     );
   }
 
-  function finishCatalogSave(message: string, destination: string) {
+  async function finishCatalogSave(message: string, destination: string) {
     syncAlbumGenres(albums, genres);
     syncAlbumInstruments(albums, instruments);
     for (const album of albums)
@@ -761,7 +786,8 @@ export function initializeApp(data?: LibraryData) {
         const artist = artists.find((item) => item.id === credit.id);
         if (artist) Object.assign(credit, artist);
       }
-    const stored = saveAlbums(albums, instruments, artists, genres);
+    const stored = await persistChanges();
+    if (stored === null) return;
     editor.close();
     if (location.hash === destination) renderRoute(true);
     else location.hash = destination;
@@ -1258,8 +1284,9 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     finishSave(album.id, entry ? "Listen updated." : "Listen saved.");
   }
 
-  function finishSave(id: string, message: string) {
-    const stored = saveAlbums(albums, instruments, artists, genres);
+  async function finishSave(id: string, message: string) {
+    const stored = await persistChanges();
+    if (stored === null) return;
     editor.close();
     if (location.hash === albumUrl(id)) {
       renderRoute();
@@ -1284,7 +1311,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       "button[data-action]",
     );
     if (!button) return;
-    if (readOnly && !browsingActions.has(button.dataset.action ?? "")) return;
+    if (saving) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
       case "new-catalog-genre":
@@ -1759,7 +1786,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   });
 
   document.addEventListener("submit", (event) => {
-    if (readOnly) {
+    if (saving) {
       event.preventDefault();
       return;
     }
@@ -1821,7 +1848,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         );
         editor
           .querySelector("#apply-genre-change")!
-          .addEventListener("click", apply, { once: true });
+          .addEventListener("click", apply);
       } else apply();
     }
     if ((event.target as HTMLElement).id === "catalog-artist-form") {
@@ -2075,12 +2102,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     renderRoute(true);
   });
 
-  if (readOnly) {
-    new MutationObserver(() => hideWriteControls(document)).observe(main, {
-      childList: true,
-      subtree: true,
-    });
-  }
   viewHash = location.hash;
   renderRoute();
 
@@ -2106,7 +2127,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       updateLibrary(albums, state, genres, page);
     }
     // Preview content is visual only; avoid duplicate IDs and interactive controls.
-    hideWriteControls(page);
     page.inert = true;
     page.setAttribute("aria-hidden", "true");
     page

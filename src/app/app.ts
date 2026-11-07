@@ -14,7 +14,7 @@ export function renderApp(authenticated = false): string {
         <span
           >${
             authenticated
-              ? "Your library · Read only"
+              ? "Your library · Changes saved to your account"
               : /* HTML */ `<span class="demo-dot" aria-hidden="true"></span
                   >Demo library · Changes saved in this browser`
           }</span

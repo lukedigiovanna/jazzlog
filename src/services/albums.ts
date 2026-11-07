@@ -31,6 +31,7 @@ const ALBUM_SELECT = `
     id,
     title,
     sort_title,
+    record_label,
     release_year,
     artwork_url,
     musicbrainz_release_group_id,
@@ -146,6 +147,7 @@ function mapAlbum(row: AlbumQueryRow): Album {
     id: row.id,
     title: row.title,
     sortTitle: row.sort_title,
+    recordLabel: row.record_label ?? undefined,
     releaseYear: row.release_year,
     artworkUrl: row.artwork_url,
     musicbrainzReleaseGroupId: row.musicbrainz_release_group_id,
@@ -198,6 +200,7 @@ export async function createAlbum(album: NewAlbum): Promise<Album> {
     .from("albums")
     .insert({
       title: album.title,
+      record_label: album.recordLabel ?? null,
       sort_title: album.sortTitle ?? null,
       release_year: album.releaseYear ?? null,
       artwork_url: album.artworkUrl ?? null,
@@ -225,6 +228,9 @@ export async function updateAlbum(
 ): Promise<Album> {
   const dbUpdates: TablesUpdate<"albums"> = {};
 
+  if (updates.recordLabel !== undefined) {
+    dbUpdates.record_label = updates.recordLabel;
+  }
   if (updates.title !== undefined) {
     dbUpdates.title = updates.title;
   }

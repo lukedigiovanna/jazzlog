@@ -114,13 +114,23 @@ Explicitly outside the initial scope; consider only after the core app is workin
 - Keep this README updated as project scope and milestone completion evolve.
 - Document detailed implementation decisions in separate milestone plans.
 
-**Current status:** Email/password sign-in and sign-up are connected to Supabase Auth, including confirmation email redirects, persisted sessions, and sign-out across tabs. Signed-in users fetch their albums, artist credits, genres, instruments, music links, and listening history from Supabase under the existing RLS policies. Artist, genre, and instrument catalogs include unused records. Account libraries are read only for now; create, update, and delete integration comes next. Loading failures offer retry and sign-out without falling back to demo records. Demo visitors continue to use separate browser fixtures. MusicBrainz and Cover Art Archive integration remain separate work.
+**Current status:** Email/password sign-in and sign-up are connected to Supabase Auth, including confirmation email redirects, persisted sessions, and sign-out across tabs. Signed-in users fetch their albums, artist credits, genres, instruments, music links, and listening history from Supabase under the existing RLS policies. Artist, genre, and instrument catalogs include unused records. Account libraries support creating and updating albums, listens, artists, genres, and instruments, including related credits, categories, and music links. Existing catalog/listen deletion controls also persist to Supabase. Saves apply only changed records in one database transaction, then update local state and all affected album appearances. Failed saves preserve the form and committed local state for retry. Loading failures offer retry and sign-out without falling back to demo records. Demo visitors continue to use separate browser fixtures. MusicBrainz and Cover Art Archive integration remain separate work.
 
 Run `npm install` and `npm run dev` to open the app. Run `npm run build` to check TypeScript and create the production bundle.
 
 For authentication, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in your local `.env`, then restart Vite. Environment files are ignored by Git. Use the public publishable key, never a service-role key. Without configuration, the demo remains available.
 
 In the hosted Supabase project's Authentication → URL Configuration, set the production Site URL and allow the development URL (normally `http://localhost:5173/`, or `http://127.0.0.1:5173/` if using that host). Signup confirmation emails return to the current origin and pathname, which must be allowed by Supabase. Local Supabase configuration uses Vite's default port 5173. No hosted settings or migrations are changed by the frontend.
+
+Apply all migrations in `supabase/migrations` before running the account library. In particular, `20261107120000_save_library_changes.sql` adds record-label storage and the RLS-protected `save_library_changes` function used by the editor. The frontend does not apply migrations automatically.
+
+Database write regression checks cover related creation, updates, server timestamps, transaction rollback, genre cycles, and cross-user access. Run them against a disposable database with all migrations applied:
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/save_library_changes.sql
+```
+
+The SQL checks roll back their fixtures. Browser save verification uses mocked Supabase responses for album and catalog create/update, listen create/update, failed-save retry, and account/demo storage isolation.
 
 Auth verification uses mocked Supabase HTTP responses to cover signup confirmation and redirects, invalid credentials, successful sign-in, session restoration after reload, sign-out propagation between tabs, and demo entry/exit. Live account creation and email delivery require verification against your configured Supabase project.
 
@@ -130,6 +140,6 @@ The demo includes library search, genre filters, sorting, grid/list layouts, alb
 
 Instruments are stored independently of albums in the same demo snapshot. Existing album-only snapshots migrate automatically, preserving uncategorized instruments. Removing an instrument from an album keeps it in your catalog; renaming or recategorizing it updates all album appearances.
 
-The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId` and `recordLabel` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
+The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId` is optional demo provenance. `recordLabel` is persisted as `albums.record_label` for account libraries. The reference handoff stays separate from the application source.
 
 See [UI verification](docs/implementation/ui-verification.md) for the browser checks performed.

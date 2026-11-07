@@ -86,6 +86,7 @@ export interface ListeningEntry {
 // artists, genres, and instruments are managed separately.
 export interface NewAlbum {
   title: string;
+  recordLabel?: string | null;
   sortTitle?: string | null;
   releaseYear?: number | null;
   artworkUrl?: string | null;
