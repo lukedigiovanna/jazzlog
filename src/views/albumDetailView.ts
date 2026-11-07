@@ -60,14 +60,21 @@ function externalLinks(links: AlbumLink[]) {
 }
 
 function historyCard(listen: ListeningEntry) {
-  return /* HTML */ `<article class="listen-card">
-    <div class="listen-top">
+  return /* HTML */ `<button
+    type="button"
+    class="listen-card"
+    data-action="edit-listen"
+    data-id="${escapeHtml(listen.id)}"
+    aria-label="Edit listen from ${formatDate(listen.listenedAt)}"
+  >
+    <span class="listen-top">
       <time datetime="${listen.listenedAt}"
         >${formatDate(listen.listenedAt)}</time
       >${renderRating(listen.rating)}
-    </div>
-    ${listen.notes ? /* HTML */ `<p class="listen-notes">${escapeHtml(listen.notes)}</p>` : ""}
-  </article>`;
+    </span>
+    ${listen.notes ? /* HTML */ `<span class="listen-notes">${escapeHtml(listen.notes)}</span>` : ""}
+    <span class="listen-edit">${icon("edit", 14)} Edit listen</span>
+  </button>`;
 }
 
 export function renderAlbumDetailView(album: Album) {

@@ -792,6 +792,12 @@ main:focus,
   padding: 4px 7px;
 }
 .listen-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   padding: 16px;
   margin-bottom: 8px;
   border: 1px solid var(--line);
@@ -808,6 +814,7 @@ main:focus,
   font-weight: 650;
 }
 .listen-notes {
+  display: block;
   color: var(--muted);
   margin-top: 8px;
   white-space: pre-wrap;
@@ -1675,4 +1682,29 @@ dialog {
   .instrument-page {
     padding-top: 20px;
   }
+}
+
+.listen-card:hover {
+  border-color: var(--muted);
+}
+.listen-edit {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.listen-delete {
+  padding: 18px 24px;
+  border-top: 1px solid var(--line);
+}
+.listen-delete summary {
+  cursor: pointer;
+  color: #a43b35;
+}
+.listen-delete p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 12px 0;
 }

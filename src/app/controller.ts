@@ -2,6 +2,7 @@ import type {
   Album,
   AlbumLink,
   AlbumInstrument,
+  ListeningEntry,
   Instrument,
   InstrumentCategory,
 } from "../types/albums";
@@ -497,23 +498,27 @@ export function initializeApp(): void {
     updateInstruments();
   }
 
-  function openListen(album: Album) {
+  function openListen(album: Album, entry?: ListeningEntry) {
     showDialog(
-      "Log a listen",
+      entry ? "Edit listen" : "Log a listen",
       "LISTENING ENTRY",
-      /* HTML */ `<form id="listen-form" data-id="${escapeHtml(album.id)}">
+      /* HTML */ `<form
+        id="listen-form"
+        data-id="${escapeHtml(album.id)}"
+        data-entry-id="${escapeHtml(entry?.id ?? "")}"
+      >
         <div class="dialog-body">
           <p class="dialog-intro">
             ${escapeHtml(album.title)}
             <span class="separator">·</span> ${escapeHtml(artistText(album))}
           </p>
-          ${field("Date listened", "date", today(), { type: "date", attributes: 'required min="1900-01-01" max="' + today() + '"' })}
+          ${field("Date listened", "date", entry?.listenedAt.slice(0, 10) ?? today(), { type: "date", attributes: 'required min="1900-01-01" max="' + today() + '"' })}
           <fieldset class="rate-field">
             <legend>Rating</legend>
             <div class="rating-picker">
-              <span id="rating-stars">${stars(0)}</span>
+              <span id="rating-stars">${stars(entry?.rating ?? 0)}</span>
               <div class="rating-options">
-                ${ratingLabels.map((label, i) => /* HTML */ `<label><input name="rating" type="radio" value="${i + 1}" required aria-label="${(i + 1) / 2} out of 5 stars: ${escapeHtml(label)}" /></label>`).join("")}
+                ${ratingLabels.map((label, i) => /* HTML */ `<label><input name="rating" type="radio" value="${i + 1}" ${entry?.rating === i + 1 ? "checked" : ""} required aria-label="${(i + 1) / 2} out of 5 stars: ${escapeHtml(label)}" /></label>`).join("")}
               </div>
             </div>
             <p id="rating-description" class="form-hint" aria-live="polite">
@@ -527,17 +532,22 @@ export function initializeApp(): void {
               rows="4"
               maxlength="3000"
               placeholder="What stood out on this listen?"
-            ></textarea>
+            >
+${escapeHtml(entry?.notes ?? "")}</textarea>
           </label>
         </div>
         <div class="dialog-footer">
           <button type="button" class="button secondary" data-action="close">
             Cancel</button
-          ><button type="submit" class="button primary">Save listen</button>
+          ><button type="submit" class="button primary">
+            ${entry ? "Save changes" : "Save listen"}
+          </button>
         </div>
+        ${entry ? `<div class="listen-delete"><details><summary>Delete listening entry</summary><p>This will permanently remove this listen, including its rating and notes.</p><button type="button" class="button secondary danger" data-action="delete-listen">Delete entry permanently</button></details></div>` : ""}
       </form>`,
-      '[name="date"]',
+      entry ? '[name="notes"]' : '[name="date"]',
     );
+    if (entry) updateRating(entry.rating);
   }
 
   function updateRating(rating: number) {
@@ -656,16 +666,26 @@ export function initializeApp(): void {
     const data = new FormData(form);
     const album = albums.find((item) => item.id === form.dataset.id);
     if (!album) return;
-    album.updatedAt = new Date().toISOString();
-    album.listeningEntries.unshift({
-      id: makeId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const entry = album.listeningEntries.find(
+      (item) => item.id === form.dataset.entryId,
+    );
+    if (form.dataset.entryId && !entry) return;
+    const now = new Date().toISOString();
+    album.updatedAt = now;
+    const updates = {
+      updatedAt: now,
       listenedAt: String(data.get("date")),
       rating: Number(data.get("rating")),
       notes: String(data.get("notes")).trim(),
-    });
-    finishSave(album.id, "Listen saved.");
+    };
+    if (entry) Object.assign(entry, updates);
+    else
+      album.listeningEntries.unshift({
+        id: makeId(),
+        createdAt: now,
+        ...updates,
+      });
+    finishSave(album.id, entry ? "Listen updated." : "Listen saved.");
   }
 
   function finishSave(id: string, message: string) {
@@ -780,6 +800,30 @@ export function initializeApp(): void {
       case "edit":
         if (album) openAlbumForm(album, "edit");
         break;
+      case "edit-listen": {
+        const entry = album?.listeningEntries.find(
+          (item) => item.id === button.dataset.id,
+        );
+        if (album && entry) openListen(album, entry);
+        break;
+      }
+      case "delete-listen": {
+        const form = button.closest<HTMLFormElement>("#listen-form");
+        const owner = albums.find((item) => item.id === form?.dataset.id);
+        if (
+          !owner ||
+          !owner.listeningEntries.some(
+            (item) => item.id === form?.dataset.entryId,
+          )
+        )
+          break;
+        owner.listeningEntries = owner.listeningEntries.filter(
+          (item) => item.id !== form?.dataset.entryId,
+        );
+        owner.updatedAt = new Date().toISOString();
+        finishSave(owner.id, "Listen deleted.");
+        break;
+      }
       case "listen":
         if (album) openListen(album);
         break;
