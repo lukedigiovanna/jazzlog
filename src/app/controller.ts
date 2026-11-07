@@ -239,11 +239,25 @@ export function initializeApp() {
     eyebrow: string,
     content: string,
     focusSelector: string,
+    backToSearch = false,
   ) {
     const opening = !editor.open;
     if (opening) dialogOrigin = document.activeElement as HTMLElement;
-    editor.innerHTML = /* HTML */ `<div class="dialog-heading">
+    editor.innerHTML = /* HTML */ `<div
+        class="dialog-heading ${backToSearch ? "dialog-heading-with-back" : ""}"
+      >
         <div>
+          ${
+            backToSearch
+              ? /* HTML */ `<button
+                  class="dialog-back"
+                  type="button"
+                  data-action="back-search"
+                >
+                  ${icon("back", 16)} Back to search
+                </button>`
+              : ""
+          }
           <p class="eyebrow"><span></span> ${eyebrow}</p>
           <h2 id="dialog-title" tabindex="-1">${title}</h2>
         </div>
@@ -454,27 +468,22 @@ export function initializeApp() {
       <label class="field" for="artist-query"
         ><span>Artists <span class="muted">(optional)</span></span></label
       >
-      <p id="artist-help" class="form-hint">
-        Choose artists from your catalog, then set each album credit’s role and
-        order.
-      </p>
       <div id="artist-selected"></div>
-      <input
-        id="artist-query"
-        type="search"
-        maxlength="150"
-        autocomplete="off"
-        placeholder="Search or create an artist…"
-        aria-describedby="artist-help"
-      />
-      <div
-        id="artist-results"
-        class="instrument-results"
-        aria-label="Available artists"
-      ></div>
-      <a class="manage-instruments" href="#artists"
-        >Manage artist catalog ${icon("arrow", 14)}</a
-      >
+      <div class="catalog-search">
+        <input
+          id="artist-query"
+          type="search"
+          maxlength="150"
+          autocomplete="off"
+          placeholder="Search or create an artist…"
+          aria-controls="artist-results"
+        />
+        <div
+          id="artist-results"
+          class="instrument-results"
+          aria-label="Available artists"
+        ></div>
+      </div>
     </div>`;
   }
 
@@ -513,13 +522,18 @@ export function initializeApp() {
           </div>`,
       )
       .join("");
-    const choices = artistChoices.filter(
-      (item) =>
-        !selectedArtists.some((credit) => credit.id === item.id) &&
-        matches(query, item.name, item.sortName ?? ""),
-    );
+    const choices = artistChoices
+      .filter(
+        (item) =>
+          !selectedArtists.some((credit) => credit.id === item.id) &&
+          matches(query, item.name, item.sortName ?? ""),
+      )
+      .sort((a, b) =>
+        (a.sortName || a.name).localeCompare(b.sortName || b.name),
+      );
     editor.querySelector("#artist-results")!.innerHTML =
       choices
+        .slice(0, 20)
         .map(
           (item) =>
             /* HTML */ `<button
@@ -528,10 +542,16 @@ export function initializeApp() {
               data-action="select-artist"
               data-id="${escapeHtml(item.id)}"
             >
-              ${icon("plus", 14)} ${escapeHtml(item.name)}
+              ${escapeHtml(item.name)}
             </button>`,
         )
         .join("") +
+      (!choices.length && !query
+        ? /* HTML */ `<p class="form-hint">Type a name to create one.</p>`
+        : "") +
+      (choices.length > 20
+        ? /* HTML */ `<p class="form-hint">Type to narrow the results.</p>`
+        : "") +
       (query &&
       !artistChoices.some(
         (item) => item.name.toLowerCase() === query.toLowerCase(),
@@ -556,9 +576,6 @@ export function initializeApp() {
       <label class="field" for="instrument-query"
         ><span>Instruments <span class="muted">(optional)</span></span></label
       >
-      <p class="form-hint" id="instrument-help">
-        Add what you know now, or come back after listening.
-      </p>
       <div id="instrument-selected" class="tags" aria-live="polite"></div>
       <input
         id="instrument-query"
@@ -566,20 +583,20 @@ export function initializeApp() {
         maxlength="80"
         autocomplete="off"
         placeholder="Search or create an instrument…"
-        aria-describedby="instrument-help"
       />
+      <div id="instrument-create" class="inline-instrument-create" hidden>
+        ${categoryFields([], "inline-category")}
+        <button
+          type="button"
+          class="button secondary compact"
+          data-action="create-instrument"
+        ></button>
+      </div>
       <div
         id="instrument-results"
         class="instrument-results"
         aria-label="Available instruments"
       ></div>
-      <details class="inline-instrument-categories">
-        <summary>Categories for a new instrument</summary>
-        ${categoryFields([], "inline-category")}
-      </details>
-      <a class="manage-instruments" href="#instruments"
-        >Manage instrument catalog ${icon("arrow", 14)}</a
-      >
     </div>`;
   }
 
@@ -602,11 +619,28 @@ export function initializeApp() {
             </button>`,
         )
         .join("");
-    const choices = instrumentChoices.filter(
-      (item) =>
-        !selectedInstruments.some((selected) => selected.id === item.id) &&
-        item.name.toLowerCase().includes(query.toLowerCase()),
-    );
+    const create = editor.querySelector<HTMLElement>("#instrument-create")!;
+    create.hidden =
+      !query ||
+      instrumentChoices.some(
+        (item) => item.name.toLowerCase() === query.toLowerCase(),
+      );
+    create.querySelector("button")!.textContent = `Create “${query}”`;
+    const usage = new Map<string, number>();
+    for (const album of albums)
+      for (const id of new Set(album.instruments.map((item) => item.id)))
+        usage.set(id, (usage.get(id) ?? 0) + 1);
+    const choices = instrumentChoices
+      .filter(
+        (item) =>
+          !selectedInstruments.some((selected) => selected.id === item.id) &&
+          item.name.toLowerCase().includes(query.toLowerCase()),
+      )
+      .sort(
+        (a, b) =>
+          (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0) ||
+          a.name.localeCompare(b.name),
+      );
     editor.querySelector("#instrument-results")!.innerHTML =
       choices
         .map(
@@ -621,18 +655,6 @@ export function initializeApp() {
             </button>`,
         )
         .join("") +
-      (query &&
-      !instrumentChoices.some(
-        (item) => item.name.toLowerCase() === query.toLowerCase(),
-      )
-        ? /* HTML */ `<button
-            type="button"
-            class="button secondary compact"
-            data-action="create-instrument"
-          >
-            ${icon("plus", 14)} Create “${escapeHtml(query)}”
-          </button>`
-        : "") +
       (!choices.length && !query
         ? '<p class="form-hint">Search for an instrument name to add one.</p>'
         : "");
@@ -752,11 +774,7 @@ export function initializeApp() {
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
     const isEdit = mode === "edit";
     const fromSearch = mode === "review";
-    const title = isEdit
-      ? "Edit album"
-      : fromSearch
-        ? "Review album"
-        : "Add album manually";
+    const title = isEdit ? "Edit album" : "Create album";
     showDialog(
       title,
       isEdit ? "ALBUM DETAILS" : "NEW RECORD",
@@ -815,18 +833,15 @@ export function initializeApp() {
           <p class="form-error" id="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-footer">
-          <button
-            type="button"
-            class="button secondary"
-            data-action="${isEdit ? "close" : "back-search"}"
-          >
-            ${isEdit ? "Cancel" : "Back to search"}</button
+          <button type="button" class="button secondary" data-action="close">
+            Cancel</button
           ><button type="submit" class="button primary">
             ${isEdit ? "Save changes" : "Save album"}
           </button>
         </div>
       </form>`,
       '[name="title"]',
+      !isEdit,
     );
     updateInstruments();
     updateArtists();
@@ -884,27 +899,22 @@ export function initializeApp() {
       <label class="field" for="genre-query"
         ><span>Genres <span class="muted">(optional)</span></span></label
       >
-      <p id="genre-help" class="form-hint">
-        Choose specific genres. Parent filters include their descendants. At
-        most one may be primary.
-      </p>
       <div id="genre-selected" aria-live="polite"></div>
-      <input
-        id="genre-query"
-        type="search"
-        maxlength="80"
-        autocomplete="off"
-        placeholder="Search or create a genre…"
-        aria-describedby="genre-help"
-      />
-      <div
-        id="genre-results"
-        class="instrument-results"
-        aria-label="Available genres"
-      ></div>
-      <a class="manage-instruments" href="#genres"
-        >Manage genre catalog ${icon("arrow", 14)}</a
-      >
+      <div class="catalog-search">
+        <input
+          id="genre-query"
+          type="search"
+          maxlength="80"
+          autocomplete="off"
+          placeholder="Search or create a genre…"
+          aria-controls="genre-results"
+        />
+        <div
+          id="genre-results"
+          class="instrument-results"
+          aria-label="Available genres"
+        ></div>
+      </div>
     </div>`;
   }
   function updateGenres() {
@@ -916,35 +926,32 @@ export function initializeApp() {
         (g) =>
           /* HTML */ `<div class="genre-credit-row">
             <strong>${escapeHtml(g.name)}</strong
-            ><label
-              ><input
-                type="checkbox"
-                data-genre-primary="${escapeHtml(g.id)}"
-                ${g.isPrimary ? "checked" : ""}
-              />
-              Primary</label
             ><button
               type="button"
-              class="button secondary compact"
+              class="icon-button"
               data-action="remove-genre"
               data-id="${escapeHtml(g.id)}"
+              aria-label="Remove ${escapeHtml(g.name)}"
             >
-              Remove
+              ${icon("close", 16)}
             </button>
           </div>`,
       )
       .join("");
+    const choices = genreChoices
+      .filter(
+        (g) =>
+          !selectedGenres.some((c) => c.id === g.id) &&
+          matches(
+            query,
+            g.name,
+            ...ancestors(g.id, genreChoices).map((p) => p.name),
+          ),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
     editor.querySelector("#genre-results")!.innerHTML =
-      genreChoices
-        .filter(
-          (g) =>
-            !selectedGenres.some((c) => c.id === g.id) &&
-            matches(
-              query,
-              g.name,
-              ...ancestors(g.id, genreChoices).map((p) => p.name),
-            ),
-        )
+      choices
+        .slice(0, 20)
         .map((g) => {
           const descendant = selectedGenres.find((c) =>
             ancestors(c.id, genreChoices).some((p) => p.id === g.id),
@@ -956,7 +963,6 @@ export function initializeApp() {
             data-id="${escapeHtml(g.id)}"
             ${descendant ? "disabled" : ""}
           >
-            ${icon("plus", 14)}
             ${escapeHtml(g.name)}${
               descendant
                 ? ` — Included through ${escapeHtml(descendant.name)}`
@@ -969,6 +975,12 @@ export function initializeApp() {
           </button>`;
         })
         .join("") +
+      (!choices.length && !query
+        ? /* HTML */ `<p class="form-hint">Type a name to create one.</p>`
+        : "") +
+      (choices.length > 20
+        ? /* HTML */ `<p class="form-hint">Type to narrow the results.</p>`
+        : "") +
       (query &&
       !genreChoices.some((g) => g.name.toLowerCase() === query.toLowerCase())
         ? /* HTML */ `<button
@@ -1325,6 +1337,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         input.value = "";
         updateGenres();
         focusForTyping(input);
+        updateSearchDropdowns(null);
         break;
       }
       case "remove-genre":
@@ -1414,6 +1427,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         input.value = "";
         updateArtists();
         focusForTyping(input);
+        updateSearchDropdowns(null);
         break;
       }
       case "remove-artist":
@@ -1672,13 +1686,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
-    if (input.dataset.genrePrimary) {
-      selectedGenres = selectedGenres.map((g) => ({
-        ...g,
-        isPrimary: g.id === input.dataset.genrePrimary && input.checked,
-      }));
-      updateGenres();
-    }
     if (input.id === "genres-alphabetical") {
       genreAlphabetical = input.checked;
       updateCatalogFilters(input.id);
@@ -1888,9 +1895,26 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   let pointerStartedOutside = false;
   let suppressBackdropClick = false;
+  function updateSearchDropdowns(target: EventTarget | null) {
+    for (const search of editor.querySelectorAll(".catalog-search")) {
+      search.classList.toggle(
+        "is-open",
+        target instanceof Node && search.contains(target),
+      );
+    }
+  }
+  editor.addEventListener("input", (event) => {
+    updateSearchDropdowns(event.target);
+  });
+  document.addEventListener("focusin", (event) => {
+    updateSearchDropdowns(event.target);
+  });
   document.addEventListener(
     "pointerdown",
     (event) => {
+      // Safari may blur the input without focusing a tapped option. Keep the
+      // dropdown mounted until its click runs; outside interactions close it.
+      updateSearchDropdowns(event.target);
       suppressBackdropClick = false;
       pointerStartedOutside = isOutsideDialog(event);
     },
@@ -1933,6 +1957,36 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   // Keep Tab at the dialog boundaries rather than moving into browser chrome.
   editor.addEventListener("keydown", (event) => {
+    const search = (event.target as HTMLElement).closest(".catalog-search");
+    if (search) {
+      const input = search.querySelector<HTMLInputElement>("input")!;
+      const options = [
+        ...search.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
+      ];
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const index = options.indexOf(
+          document.activeElement as HTMLButtonElement,
+        );
+        const next =
+          event.key === "ArrowDown"
+            ? index + 1
+            : index < 0
+              ? options.length - 1
+              : index - 1;
+        (options[next] ?? input).focus();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        updateSearchDropdowns(null);
+        editor
+          .querySelector<HTMLElement>("#dialog-title")
+          ?.focus({ preventScroll: true });
+        return;
+      }
+    }
     if (
       event.key === "Enter" &&
       ["instrument-query", "artist-query", "genre-query"].includes(
@@ -1946,7 +2000,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
             ? "#artist-results button"
             : (event.target as HTMLElement).id === "genre-query"
               ? "#genre-results button:not([disabled])"
-              : "#instrument-results button",
+              : "#instrument-create:not([hidden]) button, #instrument-results button",
         )
         ?.click();
       return;

@@ -899,6 +899,28 @@ dialog::backdrop {
 .dialog-heading .close {
   margin: -4px -5px 0 0;
 }
+.dialog-heading-with-back {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #20261e;
+}
+.dialog-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 41px;
+  margin: -4px 0 8px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--sage);
+  font-size: 13px;
+}
+.dialog-back:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
 .dialog-body {
   padding: 16px 24px 20px;
 }
@@ -1391,7 +1413,8 @@ dialog::backdrop {
   border: 1px solid #424d3d;
   border-radius: 8px;
 }
-.instrument-picker > input {
+.instrument-picker > input,
+.catalog-search > input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid #424d3d;
@@ -1401,7 +1424,10 @@ dialog::backdrop {
   font: inherit;
 }
 .instrument-picker .tags {
-  margin: 0.75rem 0;
+  margin: 0 0 10px;
+}
+.instrument-picker .tags:empty {
+  display: none;
 }
 .instrument-chip {
   display: inline-flex;
@@ -1433,7 +1459,67 @@ dialog::backdrop {
 }
 .instrument-picker > input {
   background: #1a2019;
-  font-size: 13px;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.instrument-picker > .field {
+  font-size: 15px;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+.instrument-picker > .field .muted {
+  font-size: 12px;
+  font-weight: 400;
+}
+.instrument-picker strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.catalog-search {
+  position: relative;
+  margin-top: 10px;
+}
+.catalog-search > input {
+  background: #1a2019;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.catalog-search .instrument-results {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  margin-top: 4px;
+  max-height: 220px;
+  padding: 4px;
+  border: 1px solid #53614b;
+  border-radius: 6px;
+  background: #20261e;
+  box-shadow: 0 8px 20px #0b0e0b80;
+}
+.catalog-search.is-open .instrument-results:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+.catalog-search .instrument-results .button {
+  flex-shrink: 0;
+  justify-content: flex-start;
+  width: 100%;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 14px;
+}
+.catalog-search .instrument-results .button:hover,
+.catalog-search .instrument-results .button:focus-visible {
+  background: var(--panel-hover);
+  outline-offset: -2px;
 }
 .instrument-chip {
   background: var(--panel-hover);
@@ -1472,7 +1558,8 @@ dialog {
   .search-field input,
   .field input,
   .field textarea,
-  .instrument-picker > input {
+  .instrument-picker > input,
+  .catalog-search > input {
     font-size: 16px;
   }
   .instrument-chip,
@@ -1637,23 +1724,15 @@ dialog {
   outline: 2px solid var(--sage);
   outline-offset: 3px;
 }
-.inline-instrument-categories {
-  margin-top: 14px;
-  font-size: 12px;
-  color: var(--muted);
+.inline-instrument-create {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1a2019;
 }
-.inline-instrument-categories summary {
-  cursor: pointer;
-  padding-block: 8px;
-}
-.manage-instruments {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  min-height: 44px;
-  font-size: 12px;
-  color: var(--sage);
+.inline-instrument-create .category-fields {
+  margin: 0 0 12px;
 }
 .instrument-albums {
   margin-top: 30px;
@@ -1746,10 +1825,10 @@ dialog {
 
 .artist-credit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 36px 36px;
+  grid-template-columns: minmax(0, 1fr) 100px 32px 32px;
   align-items: center;
-  gap: 8px;
-  padding: 10px 0;
+  gap: 6px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--line-soft);
 }
 .artist-credit-row strong {
@@ -1757,6 +1836,12 @@ dialog {
 }
 .artist-credit-row .field {
   margin: 0;
+}
+.artist-credit-row .icon-button,
+.genre-credit-row .icon-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px;
 }
 .artist-credit-row select {
   width: 100%;
@@ -1786,22 +1871,20 @@ dialog {
   }
 }
 .artist-credit-row select {
-  min-height: 44px;
-  padding: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
   border: 1px solid #424d3d;
   border-radius: 6px;
   background: #1a2019;
   color: var(--ink);
   font-size: 13px;
 }
-@media (max-width: 480px) {
+@media (pointer: coarse) {
   .artist-credit-row {
-    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    grid-template-columns: minmax(0, 1fr) 100px 44px 44px;
   }
-  .artist-credit-row strong {
-    grid-column: 1 / -1;
-  }
-  .artist-credit-row .icon-button {
+  .artist-credit-row .icon-button,
+  .genre-credit-row .icon-button {
     width: 44px;
     min-height: 44px;
   }
@@ -1824,11 +1907,12 @@ dialog {
   color: var(--accent, #a9bfa7);
 }
 #genre-selected > div {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 #genre-results {
   max-height: 15rem;

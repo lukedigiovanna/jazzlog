@@ -100,7 +100,7 @@ export function renderAlbumDetailView(album: Album) {
           }
         </p>
         ${album.releaseYear || album.recordLabel ? /* HTML */ `<p class="detail-meta">${[album.releaseYear, album.recordLabel].filter(Boolean).map(escapeHtml).join(" · ")}</p>` : ""}
-        ${album.genres.length ? /* HTML */ `<div class="tags">${album.genres.map((g) => /* HTML */ `<a class="chip" href="${genreUrl(g.id)}">${escapeHtml(g.name)}${g.isPrimary ? " · Primary" : ""}</a>`).join("")}</div>` : ""}
+        ${album.genres.length ? /* HTML */ `<div class="tags">${album.genres.map((g) => /* HTML */ `<a class="chip" href="${genreUrl(g.id)}">${escapeHtml(g.name)}</a>`).join("")}</div>` : ""}
         <div class="detail-rating">
           ${renderRating(listens[0]?.rating)}${listens[0] ? /* HTML */ `<span class="muted">Latest rating</span>` : ""}
         </div>
