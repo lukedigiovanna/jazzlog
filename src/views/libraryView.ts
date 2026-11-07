@@ -144,8 +144,9 @@ export function updateLibrary(
   albums: Album[],
   state: LibraryState,
   catalog: Genre[],
+  root: ParentNode = document,
 ) {
-  const list = document.querySelector("#library-results");
+  const list = root.querySelector("#library-results");
   if (!list) return;
   const titleOrder = (a: Album, b: Album) =>
     (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title);
@@ -176,7 +177,7 @@ export function updateLibrary(
       ),
   );
   filtered.sort((a, b) => order[state.sort](a, b) || titleOrder(a, b));
-  document.querySelector("#library-count")!.textContent =
+  root.querySelector("#library-count")!.textContent =
     filtered.length === albums.length
       ? `${filtered.length} ${filtered.length === 1 ? "album" : "albums"}`
       : `${filtered.length} of ${albums.length} albums`;

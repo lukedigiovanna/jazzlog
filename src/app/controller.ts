@@ -61,7 +61,7 @@ import {
 } from "../views/instrumentsView";
 import { focusForTyping, prefersTouchInteraction } from "./device";
 
-export function initializeApp(): void {
+export function initializeApp() {
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
@@ -1889,6 +1889,36 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   viewHash = location.hash;
   renderRoute();
+
+  return (hash: string): HTMLElement => {
+    const page = document.createElement("div");
+    page.className = "frame swipe-preview";
+    if (hash === "#artists") {
+      page.innerHTML = renderArtistsView(artistQuery, artistUnused);
+      updateArtistsView(artists, albums, artistQuery, artistUnused, page);
+    } else if (hash === "#genres") {
+      page.innerHTML = renderGenresView(
+        genres,
+        albums,
+        genreQuery,
+        genreAlphabetical,
+        genreUnused,
+      );
+    } else if (hash === "#instruments") {
+      page.innerHTML = renderInstrumentsView(instrumentFilters);
+      updateInstrumentsView(instruments, albums, instrumentFilters, page);
+    } else {
+      page.innerHTML = renderLibraryView(albums, state, genres);
+      updateLibrary(albums, state, genres, page);
+    }
+    // Preview content is visual only; avoid duplicate IDs and interactive controls.
+    page.inert = true;
+    page.setAttribute("aria-hidden", "true");
+    page
+      .querySelectorAll("[id]")
+      .forEach((element) => element.removeAttribute("id"));
+    return page;
+  };
 
   function today() {
     return new Intl.DateTimeFormat("sv-SE", {

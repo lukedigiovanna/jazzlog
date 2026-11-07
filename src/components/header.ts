@@ -58,8 +58,8 @@ export function renderHeader(): string {
         <nav class="main-nav" aria-label="Main navigation">
           <a href="#" data-nav="library">Library</a
           ><a href="#artists" data-nav="artists">Artists</a
-          ><a href="#instruments" data-nav="instruments">Instruments</a
-          ><a href="#genres" data-nav="genres">Genres</a>
+          ><a href="#genres" data-nav="genres">Genres</a
+          ><a href="#instruments" data-nav="instruments">Instruments</a>
         </nav>
         <button
           type="button"

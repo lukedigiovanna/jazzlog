@@ -1482,9 +1482,18 @@ dialog {
 }
 
 .main-nav {
+  position: relative;
+  isolation: isolate;
   display: flex;
   gap: 6px;
   margin-left: auto;
+}
+.nav-highlight {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 6px;
+  background: var(--panel-hover);
 }
 .main-nav a {
   display: flex;
@@ -1497,7 +1506,6 @@ dialog {
 }
 .main-nav a[aria-current="page"] {
   color: var(--sage-strong);
-  background: var(--panel-hover);
 }
 .instrument-page {
   padding: var(--page-top-gap) 0 40px;
@@ -2080,4 +2088,23 @@ dialog {
   .category-options input:focus-visible + span {
     outline: none;
   }
+}
+
+/* Adjacent pages track the finger without changing the document's scroll height. */
+.swiping-pages {
+  overflow-x: clip;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.swiping-pages main {
+  will-change: transform;
+}
+.swipe-preview {
+  position: fixed;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  will-change: transform;
+  z-index: 2;
 }

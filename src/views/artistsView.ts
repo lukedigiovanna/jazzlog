@@ -38,6 +38,7 @@ export function updateArtistsView(
   albums: Album[],
   query: string,
   unused: boolean,
+  root: ParentNode = document,
 ) {
   const results = artists
     .filter(
@@ -46,9 +47,9 @@ export function updateArtistsView(
         (!unused || !artistAlbums(albums, item.id).length),
     )
     .sort((a, b) => (a.sortName || a.name).localeCompare(b.sortName || b.name));
-  document.querySelector("#artists-count")!.textContent =
+  root.querySelector("#artists-count")!.textContent =
     `${results.length} ${results.length === 1 ? "artist" : "artists"}`;
-  document.querySelector("#artists-list")!.innerHTML = results.length
+  root.querySelector("#artists-list")!.innerHTML = results.length
     ? /* HTML */ `<ul class="instrument-catalog-list">
         ${results
           .map((item) => {

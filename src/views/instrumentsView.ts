@@ -81,6 +81,7 @@ export function updateInstrumentsView(
   instruments: Instrument[],
   albums: Album[],
   filters: InstrumentFilters,
+  root: ParentNode = document,
 ) {
   const results = instruments
     .filter(
@@ -95,9 +96,9 @@ export function updateInstrumentsView(
         (!filters.unused || !albumsUsing(albums, item.id).length),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
-  document.querySelector("#instruments-count")!.textContent =
+  root.querySelector("#instruments-count")!.textContent =
     `${results.length} ${results.length === 1 ? "instrument" : "instruments"}`;
-  document.querySelector("#instruments-list")!.innerHTML = results.length
+  root.querySelector("#instruments-list")!.innerHTML = results.length
     ? /* HTML */ `<ul class="instrument-catalog-list">
         ${results
           .map((item) => {
