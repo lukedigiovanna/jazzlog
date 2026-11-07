@@ -85,6 +85,7 @@ export function initializeApp() {
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
   let dialogOrigin: HTMLElement | undefined;
+  let dialogBaseline = "";
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
   let searchQuery = "";
@@ -206,6 +207,32 @@ export function initializeApp() {
     }
   }
 
+  function dialogFormState() {
+    const form = editor.querySelector("form");
+    if (!form) return "";
+    return JSON.stringify({
+      fields: [...new FormData(form).entries()],
+      artists: editor.querySelector("#artist-selected")
+        ? selectedArtists
+        : null,
+      genres: editor.querySelector("#genre-selected") ? selectedGenres : null,
+      instruments: editor.querySelector("#instrument-selected")
+        ? selectedInstruments
+        : null,
+    });
+  }
+
+  function canDismissDialog() {
+    return (
+      dialogFormState() === dialogBaseline ||
+      window.confirm("Discard unsaved changes? Your changes will be lost.")
+    );
+  }
+
+  function dismissDialog() {
+    if (canDismissDialog()) editor.close();
+  }
+
   function showDialog(
     title: string,
     eyebrow: string,
@@ -229,6 +256,10 @@ export function initializeApp() {
         </button>
       </div>
       ${content}`;
+    // Picker controls finish rendering synchronously after showDialog returns.
+    queueMicrotask(() => {
+      dialogBaseline = dialogFormState();
+    });
     if (opening) editor.showModal();
     editor.scrollTop = 0;
     // Keep dialog focus accessible without opening a touch keyboard.
@@ -1542,13 +1573,13 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         if (album) openListen(album);
         break;
       case "close":
-        editor.close();
+        dismissDialog();
         break;
       case "manual":
         openAlbumForm();
         break;
       case "back-search":
-        openSearch(false);
+        if (canDismissDialog()) openSearch(false);
         break;
       case "pick": {
         const result = catalog.find((entry) => entry.id === button.dataset.id);
@@ -1832,6 +1863,35 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     },
     true,
   );
+
+  function isOutsideDialog(event: PointerEvent | MouseEvent) {
+    const bounds = editor.getBoundingClientRect();
+    return (
+      event.target === editor &&
+      (event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom)
+    );
+  }
+
+  let pointerStartedOutside = false;
+  editor.addEventListener("pointerdown", (event) => {
+    pointerStartedOutside = isOutsideDialog(event);
+  });
+  editor.addEventListener("pointercancel", () => {
+    pointerStartedOutside = false;
+  });
+  editor.addEventListener("click", (event) => {
+    // Dragging from a field to the backdrop must not dismiss the form.
+    const dismiss = pointerStartedOutside && isOutsideDialog(event);
+    pointerStartedOutside = false;
+    if (dismiss) dismissDialog();
+  });
+  editor.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    dismissDialog();
+  });
 
   // Keep Tab at the dialog boundaries rather than moving into browser chrome.
   editor.addEventListener("keydown", (event) => {
