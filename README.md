@@ -7,6 +7,7 @@ A personal jazz listening journal for cataloging albums, recording ratings and n
 Build a lightweight, minimalist web app to replace an Apple Notes-based listening log.
 
 Core functionality:
+
 - Search for albums and import available metadata and artwork.
 - Log listens with a rating, optional notes, and instrumentation.
 - Categorize albums by genre and subgenre.
@@ -17,15 +18,15 @@ The app is initially for personal use, but its data model should support multipl
 
 ## Technology
 
-| Area | Choice |
-|---|---|
-| Frontend | Vanilla HTML, CSS, TypeScript |
-| Build tooling | Vite |
-| Hosting | Cloudflare Workers |
-| Database | Supabase PostgreSQL |
-| Authentication | Supabase Auth |
-| Album metadata | MusicBrainz |
-| Album artwork | Cover Art Archive |
+| Area           | Choice                        |
+| -------------- | ----------------------------- |
+| Frontend       | Vanilla HTML, CSS, TypeScript |
+| Build tooling  | Vite                          |
+| Hosting        | Cloudflare Workers            |
+| Database       | Supabase PostgreSQL           |
+| Authentication | Supabase Auth                 |
+| Album metadata | MusicBrainz                   |
+| Album artwork  | Cover Art Archive             |
 
 No frontend framework or separately hosted application backend. The browser communicates with Supabase directly, with access controlled by Row Level Security (RLS).
 
@@ -44,18 +45,18 @@ No frontend framework or separately hosted application backend. The browser comm
 
 Ratings are integers from 1–10:
 
-| Rating | Description |
-|---:|---|
-| 1 | Get this away from me |
-| 2 | Actively unpleasant |
-| 3 | Not for me |
-| 4 | Pretty forgettable |
-| 5 | Some good, some snooze |
-| 6 | Solid listen |
-| 7 | Glad I heard it |
-| 8 | Excellent album |
-| 9 | Nearly a classic |
-| 10 | Inject this into my bloodstream |
+| Rating | Description                     |
+| -----: | ------------------------------- |
+|      1 | Get this away from me           |
+|      2 | Actively unpleasant             |
+|      3 | Not for me                      |
+|      4 | Pretty forgettable              |
+|      5 | Some good, some snooze          |
+|      6 | Solid listen                    |
+|      7 | Glad I heard it                 |
+|      8 | Excellent album                 |
+|      9 | Nearly a classic                |
+|     10 | Inject this into my bloodstream |
 
 ## Design direction
 
@@ -73,6 +74,7 @@ An understated personal music journal, not a Spotify clone or an administrative 
 Use Supabase Auth and PostgreSQL. User-owned records should include a `user_id`, with RLS policies enforcing ownership.
 
 The initial data model will cover:
+
 - Profiles
 - Artists and albums
 - Album–artist relationships
@@ -112,4 +114,14 @@ Explicitly outside the initial scope; consider only after the core app is workin
 - Keep this README updated as project scope and milestone completion evolve.
 - Document detailed implementation decisions in separate milestone plans.
 
-**Current status:** Design complete. Implementation has not started.
+**Current status:** The vanilla TypeScript UI is implemented with local demo fixtures. MusicBrainz, Cover Art Archive, and Supabase services are not connected to the UI yet.
+
+Run `npm install` and `npm run dev` to open the demo. Run `npm run build` to check TypeScript and create the production bundle.
+
+Run `npm run format` to format the project with Prettier, or `npm run format:check` to check formatting without changing files.
+
+The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, and music links. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
+
+The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId`, `recordLabel`, and per-listen `instruments` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
+
+See [UI verification](docs/implementation/ui-verification.md) for the browser checks performed.

@@ -19,6 +19,7 @@ At the end of this milestone, JazzLog should look and feel like a usable applica
 JazzLog should feel like a personal music journal, not a streaming service or analytics dashboard.
 
 ### Visual direction
+
 - Dark charcoal as the primary theme.
 - Muted sage as the primary accent.
 - Warm off-white for text and lighter surfaces.
@@ -29,6 +30,7 @@ JazzLog should feel like a personal music journal, not a streaming service or an
 - Ratings should be visually recognizable and easy to scan.
 
 ### UX principles
+
 - Library is the main destination.
 - Adding an album and logging a listen should be easy to access.
 - Album details should be easy to inspect without excessive navigation.
@@ -51,6 +53,7 @@ These are logical application views, not necessarily separate URLs.
 This is the default screen and the central experience of JazzLog.
 
 ### Header
+
 - JazzLog wordmark.
 - Main navigation, if needed.
 - Prominent "Add album" action.
@@ -58,6 +61,7 @@ This is the default screen and the central experience of JazzLog.
 Keep navigation minimal. The library should remain the obvious focus.
 
 ### Library controls
+
 - Search input.
 - Sort selector.
 - Optional filter controls for genre and rating.
@@ -66,9 +70,11 @@ Keep navigation minimal. The library should remain the obvious focus.
 For the initial shell, these controls can be visually present without implementing real filtering or sorting.
 
 ### Album collection
+
 Display the user's albums in a clean, scannable collection.
 
 Each album should show:
+
 - Cover artwork.
 - Album title.
 - Primary artist or artists.
@@ -80,6 +86,7 @@ Clicking an album opens its detail view.
 Prefer a layout that gives artwork sufficient prominence without wasting screen space. Start with a responsive grid or compact list and evaluate it in the browser before committing to the final layout.
 
 ### Empty state
+
 Include an empty-library state with a short explanation and an Add album action.
 
 This will be useful later when a new user has no albums.
@@ -93,6 +100,7 @@ Selecting an album opens a dedicated detail view.
 This can initially be a full-screen view with a back button. The implementation should not require a router.
 
 ### Album information
+
 - Large album artwork.
 - Album title.
 - Artist credits.
@@ -102,7 +110,9 @@ This can initially be a full-screen view with a back button. The implementation 
 - Latest rating.
 
 ### External listening links
+
 Display optional links to services such as:
+
 - Apple Music.
 - YouTube.
 
@@ -111,9 +121,11 @@ These are external destinations, not album identity.
 For the shell, use placeholder links or disabled-looking controls. Do not navigate to invented destinations.
 
 ### Listening history
+
 Show the album's listening entries, newest first.
 
 Each entry should display:
+
 - Listening date.
 - Rating.
 - Optional notes.
@@ -121,6 +133,7 @@ Each entry should display:
 Historical ratings must remain visible. The latest rating should be visually distinguishable.
 
 ### Actions
+
 - Log a listen.
 - Edit album metadata.
 - Return to library.
@@ -140,6 +153,7 @@ The UI should reflect that design even though search is not functional yet.
 ### Step A: Search
 
 Show:
+
 - Search input.
 - Search button or clear search affordance.
 - Brief search guidance.
@@ -147,6 +161,7 @@ Show:
 Below the input, display several hardcoded example search results.
 
 Each result should include:
+
 - Artwork.
 - Album title.
 - Artist.
@@ -167,6 +182,7 @@ Manual entry should not feel like an obscure fallback.
 The editor should support:
 
 **Basic metadata**
+
 - Album title (required).
 - Sort title.
 - Release year.
@@ -174,12 +190,14 @@ The editor should support:
 - Artwork URL.
 
 **Additional metadata**
+
 - Genres.
 - Instruments.
 
 For the shell, these fields can use simple static examples and placeholder controls. The final interaction patterns for adding/removing artists, genres, and instruments can be refined later.
 
 ### Actions
+
 - Save album.
 - Cancel.
 
@@ -194,6 +212,7 @@ Logging a listening entry should be a quick, focused interaction.
 I recommend implementing this as a modal or dialog rather than another full-screen page.
 
 ### Contents
+
 - Album artwork and title for context.
 - Listening date.
 - Rating (1–10).
@@ -202,6 +221,7 @@ I recommend implementing this as a modal or dialog rather than another full-scre
 Use a clear rating input. A selectable row of numbered values is a reasonable starting point.
 
 ### Actions
+
 - Save listening entry.
 - Cancel.
 
@@ -258,36 +278,44 @@ This structure is a starting point, not a requirement to create every file immed
 ### Responsibilities
 
 **main.ts**
+
 - Application entry point.
 - Initialize the application.
 
 **app/app.ts**
+
 - Coordinate application rendering.
 - Render the shared application shell.
 - Decide which view is currently active.
 
 **app/state.ts**
+
 - Hold temporary UI state.
 - Track the current view, selected album, and whether a modal is open.
 - No persistent storage.
 
 **app/navigation.ts**
+
 - Handle navigation between views.
 - Provide simple functions such as `showLibrary()`, `showAlbum(id)`, and `showAddAlbum()`.
 
 **components/**
+
 - Small reusable rendering functions.
 - Examples: album cards, ratings, modals, and headers.
 
 **views/**
+
 - Functions responsible for rendering each major screen.
 - Each view should compose smaller components.
 
 **data/mockData.ts**
+
 - Hardcoded sample albums and listening entries.
 - Keep mock data separate from rendering logic.
 
 **styles/**
+
 - Separate design tokens, shared layout, reusable components, and view-specific styling.
 
 ---
@@ -332,7 +360,7 @@ Use event delegation from a stable application root rather than attaching indivi
 For example, an album card can expose:
 
 ```html
-<article data-action="open-album" data-album-id="album-1">
+<article data-action="open-album" data-album-id="album-1"></article>
 ```
 
 The application handles clicks on the root element, identifies the action, and calls the appropriate navigation function.
@@ -346,10 +374,7 @@ Keep application state explicit and small.
 For example:
 
 ```ts
-type ViewName =
-  | "library"
-  | "album-detail"
-  | "add-album";
+type ViewName = "library" | "album-detail" | "add-album";
 
 interface AppState {
   currentView: ViewName;
@@ -377,6 +402,7 @@ For simple interactions, update only the relevant element where practical. If th
 Create a small collection of realistic jazz albums.
 
 Use approximately 8–12 albums, with varied:
+
 - Artists.
 - Release years.
 - Artwork.
@@ -471,6 +497,7 @@ Implement the UI incrementally. Do not attempt to build all views at once.
 # 7. Explicitly excluded from this milestone
 
 Do not implement:
+
 - Supabase queries or mutations.
 - Authentication flows.
 - MusicBrainz search requests.

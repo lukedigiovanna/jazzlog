@@ -158,13 +158,13 @@ Create `src/services/auth.ts`.
 
 This module should expose a small set of functions:
 
-| Function | Responsibility |
-|---|---|
-| `signUp(email, password)` | Register a new user |
-| `signIn(email, password)` | Authenticate an existing user |
-| `signOut()` | End the current session |
-| `getCurrentUser()` | Retrieve the authenticated user |
-| `getSession()` | Retrieve the current session |
+| Function                      | Responsibility                      |
+| ----------------------------- | ----------------------------------- |
+| `signUp(email, password)`     | Register a new user                 |
+| `signIn(email, password)`     | Authenticate an existing user       |
+| `signOut()`                   | End the current session             |
+| `getCurrentUser()`            | Retrieve the authenticated user     |
+| `getSession()`                | Retrieve the current session        |
 | `onAuthStateChange(callback)` | Subscribe to authentication changes |
 
 The service should delegate to the Supabase client rather than implementing authentication logic itself.
@@ -218,13 +218,13 @@ This module will contain application-facing database operations for albums.
 
 Initially, implement:
 
-| Function | Responsibility |
-|---|---|
-| `getAlbums()` | Retrieve the current user's albums |
-| `getAlbumById(id)` | Retrieve one album |
-| `createAlbum(album)` | Insert an album |
-| `updateAlbum(id, updates)` | Update editable album fields |
-| `deleteAlbum(id)` | Delete an album |
+| Function                   | Responsibility                     |
+| -------------------------- | ---------------------------------- |
+| `getAlbums()`              | Retrieve the current user's albums |
+| `getAlbumById(id)`         | Retrieve one album                 |
+| `createAlbum(album)`       | Insert an album                    |
+| `updateAlbum(id, updates)` | Update editable album fields       |
+| `deleteAlbum(id)`          | Delete an album                    |
 
 Use the Supabase client directly.
 
@@ -493,6 +493,7 @@ git commit -m "Integrate Supabase and music metadata services"
 # Completion checklist
 
 ## Supabase
+
 - [ ] Supabase client initialized.
 - [ ] Environment variables configured.
 - [ ] Authentication works.
@@ -502,6 +503,7 @@ git commit -m "Integrate Supabase and music metadata services"
 - [ ] RLS behavior verified.
 
 ## MusicBrainz
+
 - [ ] Cloudflare Worker endpoint implemented.
 - [ ] MusicBrainz User-Agent configured.
 - [ ] Rate limiting respected.
@@ -510,11 +512,13 @@ git commit -m "Integrate Supabase and music metadata services"
 - [ ] Artist credits preserved.
 
 ## Cover Art Archive
+
 - [ ] Artwork URL generation implemented.
 - [ ] Artwork successfully retrieved.
 - [ ] Missing artwork handled gracefully.
 
 ## Final
+
 - [ ] End-to-end metadata-to-database test passes.
 - [ ] Production build succeeds.
 - [ ] Changes committed to Git.
