@@ -112,4 +112,12 @@ Explicitly outside the initial scope; consider only after the core app is workin
 - Keep this README updated as project scope and milestone completion evolve.
 - Document detailed implementation decisions in separate milestone plans.
 
-**Current status:** Design complete. Implementation has not started.
+**Current status:** The vanilla TypeScript UI is implemented with local demo fixtures. MusicBrainz, Cover Art Archive, and Supabase services are not connected to the UI yet.
+
+Run `npm install` and `npm run dev` to open the demo. Run `npm run build` to check TypeScript and create the production bundle.
+
+The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, and music links. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
+
+The illustrated SVG covers in `public/art/` and the catalog in `src/data/mockData.ts` are demo fixtures. `sourceId`, `recordLabel`, and per-listen `instruments` are optional UI/demo metadata; they do not introduce database schema changes. The reference handoff stays separate from the application source.
+
+See [UI verification](docs/implementation/ui-verification.md) for the browser checks performed.

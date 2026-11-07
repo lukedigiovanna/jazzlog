@@ -9,6 +9,9 @@ export type InstrumentCategory = Enums<"instrument_category">;
 export interface Album {
   id: string;
   title: string;
+  /** Browser demo provenance; not a MusicBrainz identifier. */
+  sourceId?: string;
+  recordLabel?: string;
   sortTitle: string | null;
   releaseYear: number | null;
   artworkUrl: string | null;
@@ -62,6 +65,8 @@ export interface AlbumLink {
 // A single listening event for an album.
 export interface ListeningEntry {
   id: string;
+  /** Optional demo instrumentation for this particular listen. */
+  instruments?: string[];
   rating: number;
   listenedAt: string;
   notes: string | null;

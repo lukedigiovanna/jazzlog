@@ -1,33 +1,13 @@
-const STAR_RATINGS: Record<number, string> = {
-    0: "☆☆☆☆☆",
-    1: "½☆☆☆☆",
-    2: "★☆☆☆☆",
-    3: "★½☆☆☆",
-    4: "★★☆☆☆",
-    5: "★★½☆☆",
-    6: "★★★☆☆",
-    7: "★★★½☆",
-    8: "★★★★☆",
-    9: "★★★★½",
-    10: "★★★★★",
-};
+import { starPath } from "./icons";
+import { displayRating } from "./presentation";
+export function stars(rating: number) {
+  return `<span class="stars" aria-hidden="true">${Array.from({ length: 5 }, (_, i) => {
+    const fill = Math.max(0, Math.min(2, rating - i * 2));
+    return `<span class="star"><svg viewBox="0 0 24 24"><path d="${starPath}"/></svg><span class="star-fill" style="--fill:${fill * 50}%"><svg viewBox="0 0 24 24"><path d="${starPath}"/></svg></span></span>`;
+  }).join('')}</span>`;
+}
 
-export function renderRating(rating: number | null): string {
-    const hasRating = rating !== null && rating > 0;
-    const score = hasRating
-        ? Math.max(1, Math.min(10, Math.round(rating)))
-        : 0;
-    const stars = STAR_RATINGS[score] ?? STAR_RATINGS[0];
-    const label = hasRating
-        ? `Rated ${score} out of 10`
-        : "Not rated";
-    const modifier = hasRating ? "" : " rating--empty";
-
-    return `
-        <span
-            class="rating${modifier}"
-            role="img"
-            aria-label="${label}"
-        >${stars}</span>
-    `;
+export function renderRating(rating: number | undefined) {
+  return rating ? `<span class="rating" aria-label="${displayRating(rating)} out of 5 stars">${stars(rating)}<span aria-hidden="true">${displayRating(rating)}</span></span>`
+    : '<span class="unrated">Unrated</span>';
 }
