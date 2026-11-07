@@ -28,6 +28,11 @@ export interface Album {
 
 // An artist credit on an album, combining the artist record with the role and
 // position stored on the album/artist link.
+export type Artist = Pick<
+  AlbumArtist,
+  "id" | "name" | "sortName" | "country" | "musicbrainzId"
+>;
+
 export interface AlbumArtist {
   id: string;
   musicbrainzId: string | null;

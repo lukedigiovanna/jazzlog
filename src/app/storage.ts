@@ -1,4 +1,9 @@
-import type { Album, AlbumInstrument, Instrument } from "../types/albums";
+import type {
+  Album,
+  AlbumInstrument,
+  Instrument,
+  Artist,
+} from "../types/albums";
 import { mockAlbums } from "../data/mockData";
 import { instrumentCategories } from "./instruments";
 
@@ -157,11 +162,59 @@ export function readInstrumentCatalog(albums: Album[]): Instrument[] {
 export function saveAlbums(
   albums: Album[],
   instruments: Instrument[],
+  artists: Artist[],
 ): boolean {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({ albums, instruments }));
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ albums, instruments, artists }),
+    );
     return true;
   } catch {
     return false;
   }
+}
+
+// Upgrade older demos by sharing artist identities across album credits.
+export function readArtistCatalog(albums: Album[]): Artist[] {
+  let saved: Artist[] = [];
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+    if (
+      Array.isArray(snapshot?.artists) &&
+      snapshot.artists.every(
+        (item: unknown) =>
+          object(item) &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          optionalString(item.sortName) &&
+          optionalString(item.country) &&
+          optionalString(item.musicbrainzId),
+      )
+    )
+      saved = snapshot.artists;
+  } catch {
+    /* Albums still supply the catalog. */
+  }
+  const catalog = new Map(saved.map((item) => [item.id, item]));
+  for (const album of albums)
+    for (const credit of album.artists) {
+      const existing =
+        catalog.get(credit.id) ??
+        [...catalog.values()].find((item) =>
+          credit.musicbrainzId
+            ? item.musicbrainzId === credit.musicbrainzId
+            : item.name.toLowerCase() === credit.name.toLowerCase(),
+        );
+      const artist = existing ?? {
+        id: credit.id,
+        name: credit.name,
+        sortName: credit.sortName,
+        country: credit.country,
+        musicbrainzId: credit.musicbrainzId,
+      };
+      catalog.set(artist.id, artist);
+      Object.assign(credit, artist);
+    }
+  return [...catalog.values()];
 }

@@ -1,7 +1,7 @@
+import { artistUrl, roleLabel } from "./artistsView";
 import type { Album, AlbumLink, ListeningEntry } from "../types/albums";
 import {
   cover,
-  artistText,
   orderedListens,
   chips,
   webUrl,
@@ -86,7 +86,19 @@ export function renderAlbumDetailView(album: Album) {
       <div class="album-hero-info">
         <p class="eyebrow"><span></span> ALBUM DETAILS</p>
         <h1 id="page-title">${escapeHtml(album.title)}</h1>
-        <p class="detail-artist">${escapeHtml(artistText(album))}</p>
+        <p class="detail-artist">
+          ${
+            album.artists.length
+              ? [...album.artists]
+                  .sort((a, b) => a.position - b.position)
+                  .map(
+                    (artist) =>
+                      `<a href="${artistUrl(artist.id)}">${escapeHtml(artist.name)}</a><span class="artist-role-label">${roleLabel(artist.role)}</span>`,
+                  )
+                  .join(" · ")
+              : "Unknown artist"
+          }
+        </p>
         ${album.releaseYear || album.recordLabel ? /* HTML */ `<p class="detail-meta">${[album.releaseYear, album.recordLabel].filter(Boolean).map(escapeHtml).join(" · ")}</p>` : ""}
         ${album.genres.length ? /* HTML */ `<div class="tags">${chips(album.genres.map((genre) => genre.name))}</div>` : ""}
         <div class="detail-rating">

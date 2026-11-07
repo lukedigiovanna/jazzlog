@@ -1,5 +1,17 @@
+import {
+  artistUrl,
+  artistAlbums,
+  artistRoles,
+  roleLabel,
+  renderArtistsView,
+  updateArtistsView,
+  renderArtistDetail,
+} from "../views/artistsView";
 import type {
   Album,
+  Artist,
+  AlbumArtist,
+  ArtistRole,
   AlbumLink,
   AlbumInstrument,
   ListeningEntry,
@@ -19,7 +31,12 @@ import {
 import { stars } from "../components/rating";
 import { renderLibraryView, updateLibrary } from "../views/libraryView";
 import { renderAlbumDetailView } from "../views/albumDetailView";
-import { readAlbums, saveAlbums, readInstrumentCatalog } from "./storage";
+import {
+  readAlbums,
+  saveAlbums,
+  readInstrumentCatalog,
+  readArtistCatalog,
+} from "./storage";
 import { matches } from "./search";
 import {
   albumsUsing,
@@ -41,6 +58,11 @@ export function initializeApp(): void {
   const toast = document.querySelector<HTMLElement>("#toast")!;
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = readAlbums();
+  let artists = readArtistCatalog(albums);
+  let artistQuery = "";
+  let artistUnused = false;
+  let selectedArtists: AlbumArtist[] = [];
+  let artistChoices: Artist[] = [];
   let instruments = readInstrumentCatalog(albums);
   syncAlbumInstruments(albums, instruments);
   const instrumentFilters = { query: "", category: "", unused: false };
@@ -80,17 +102,30 @@ export function initializeApp(): void {
 
   function renderRoute(focus = false) {
     const album = activeAlbum();
+    const artist = artists.find((item) => artistUrl(item.id) === location.hash);
+    const artistPage =
+      location.hash === "#artists" || location.hash.startsWith("#artist/");
     const instrument = activeInstrument();
     const instrumentPage =
       location.hash === "#instruments" ||
       location.hash.startsWith("#instrument/");
     for (const link of document.querySelectorAll<HTMLElement>("[data-nav]")) {
-      if (link.dataset.nav === (instrumentPage ? "instruments" : "library"))
+      if (
+        link.dataset.nav ===
+        (artistPage ? "artists" : instrumentPage ? "instruments" : "library")
+      )
         link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
     const missing = location.hash.startsWith("#album/") && !album;
-    if (location.hash === "#instruments") {
+    if (location.hash === "#artists") {
+      main.innerHTML = renderArtistsView(artistQuery, artistUnused);
+      updateArtistList();
+    } else if (artist) {
+      main.innerHTML = renderArtistDetail(artist, albums);
+    } else if (artistPage) {
+      main.innerHTML = `<div class="empty"><h1 id="page-title">Artist unavailable</h1><a href="#artists">Back to artists</a></div>`;
+    } else if (location.hash === "#instruments") {
       main.innerHTML = renderInstrumentsView(instrumentFilters);
       updateInstrumentList();
     } else if (instrument) {
@@ -110,11 +145,13 @@ export function initializeApp(): void {
       main.innerHTML = renderLibraryView(albums, state);
       updateLibrary(albums, state);
     }
-    document.title = instrumentPage
-      ? `${instrument?.name ?? "Instruments"} — JazzLog`
-      : album
-        ? album.title + " — JazzLog"
-        : "JazzLog — The Listening Room";
+    document.title = artistPage
+      ? `${artist?.name ?? "Artists"} — JazzLog`
+      : instrumentPage
+        ? `${instrument?.name ?? "Instruments"} — JazzLog`
+        : album
+          ? album.title + " — JazzLog"
+          : "JazzLog — The Listening Room";
     if (focus) {
       window.scrollTo(0, 0);
       const heading = document.querySelector<HTMLElement>("#page-title");
@@ -286,6 +323,73 @@ export function initializeApp(): void {
     </div>`;
   }
 
+  function updateArtistList() {
+    updateArtistsView(artists, albums, artistQuery, artistUnused);
+  }
+
+  function openCatalogArtist(item?: Artist) {
+    showDialog(
+      item ? "Edit artist" : "Add artist",
+      "YOUR ARTIST CATALOG",
+      `<form id="catalog-artist-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">
+      ${field("Artist name", "artistName", item?.name, { attributes: 'required maxlength="150"', placeholder: "e.g. Miles Davis" })}
+      ${field("Sort name", "sortName", item?.sortName, { attributes: 'maxlength="150"', placeholder: "e.g. Davis, Miles" })}
+      ${field("Country code", "country", item?.country, { attributes: 'maxlength="2" pattern="[A-Za-z]{2}"', placeholder: "e.g. US" })}
+      ${field("MusicBrainz artist ID", "artistMbid", item?.musicbrainzId, { attributes: 'maxlength="36"', placeholder: "Optional artist ID" })}
+      <p class="form-hint">Artist details apply everywhere this artist is credited. Choose their role separately on each album.</p><p id="form-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button class="button primary" type="submit">Save artist</button></div></form>`,
+      '[name="artistName"]',
+    );
+  }
+
+  function artistPicker(credits: AlbumArtist[]) {
+    artistChoices = structuredClone(artists);
+    selectedArtists = credits.map((credit) => {
+      const existing = artistChoices.find(
+        (item) =>
+          item.id === credit.id ||
+          (credit.musicbrainzId
+            ? item.musicbrainzId === credit.musicbrainzId
+            : item.name.toLowerCase() === credit.name.toLowerCase()),
+      );
+      if (!existing) {
+        const { role, position, ...artist } = credit;
+        artistChoices.push(artist);
+      }
+      return { ...credit, ...(existing ?? {}) };
+    });
+    return `<div class="instrument-picker"><label class="field" for="artist-query"><span>Artists <span class="muted">(optional)</span></span></label><p id="artist-help" class="form-hint">Choose artists from your catalog, then set each album credit’s role and order.</p><div id="artist-selected"></div><input id="artist-query" type="search" maxlength="150" autocomplete="off" placeholder="Search or create an artist…" aria-describedby="artist-help" /><div id="artist-results" class="instrument-results" aria-label="Available artists"></div><a class="manage-instruments" href="#artists">Manage artist catalog ${icon("arrow", 14)}</a></div>`;
+  }
+
+  function updateArtists() {
+    const input = editor.querySelector<HTMLInputElement>("#artist-query");
+    if (!input) return;
+    const query = input.value.trim();
+    editor.querySelector("#artist-selected")!.innerHTML = selectedArtists
+      .map(
+        (item, index) =>
+          `<div class="artist-credit-row"><strong>${escapeHtml(item.name)}</strong><label class="field"><span class="sr-only">Role for ${escapeHtml(item.name)}</span><select data-artist-role="${escapeHtml(item.id)}">${artistRoles.map((role) => `<option value="${role}" ${item.role === role ? "selected" : ""}>${roleLabel(role)}</option>`).join("")}</select></label><button type="button" class="icon-button" data-action="move-artist" data-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.name)} earlier" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="icon-button" data-action="remove-artist" data-id="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.name)}">${icon("close", 16)}</button></div>`,
+      )
+      .join("");
+    const choices = artistChoices.filter(
+      (item) =>
+        !selectedArtists.some((credit) => credit.id === item.id) &&
+        matches(query, item.name, item.sortName ?? ""),
+    );
+    editor.querySelector("#artist-results")!.innerHTML =
+      choices
+        .map(
+          (item) =>
+            `<button type="button" class="button secondary compact" data-action="select-artist" data-id="${escapeHtml(item.id)}">${icon("plus", 14)} ${escapeHtml(item.name)}</button>`,
+        )
+        .join("") +
+      (query &&
+      !artistChoices.some(
+        (item) => item.name.toLowerCase() === query.toLowerCase(),
+      )
+        ? `<button type="button" class="button secondary compact" data-action="create-artist">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        : "");
+  }
+
   function instrumentPicker(items: AlbumInstrument[]) {
     selectedInstruments = structuredClone(items);
     instrumentChoices = instruments.map((item) => ({
@@ -375,7 +479,12 @@ export function initializeApp(): void {
 
   function finishCatalogSave(message: string, destination: string) {
     syncAlbumInstruments(albums, instruments);
-    const stored = saveAlbums(albums, instruments);
+    for (const album of albums)
+      for (const credit of album.artists) {
+        const artist = artists.find((item) => item.id === credit.id);
+        if (artist) Object.assign(credit, artist);
+      }
+    const stored = saveAlbums(albums, instruments, artists);
     editor.close();
     if (location.hash === destination) renderRoute(true);
     else location.hash = destination;
@@ -449,10 +558,10 @@ export function initializeApp(): void {
           ${isEdit ? "" : '<p class="form-hint">Album title is required. The other fields are optional.</p>'}
           <div class="field-grid">
             ${field("Album title", "title", album.title, { attributes: 'required maxlength="150"', placeholder: "Album title" })}
-            ${field("Artists", "artists", album.artists?.map((artist) => artist.name).join(", "), { attributes: 'maxlength="220"', placeholder: "Separate names with commas" })}
             ${field("Release year", "year", album.releaseYear, { type: "number", attributes: 'min="1000" max="9999" step="1"', placeholder: "e.g. 1976" })}
             ${field("Genres", "genres", album.genres?.map((genre) => genre.name).join(", "), { attributes: 'maxlength="220"', placeholder: "Separate genres with commas" })}
           </div>
+          ${artistPicker(album.artists ?? [])}
           ${instrumentPicker(album.instruments ?? [])}
           <details class="extra-fields">
             <summary>More album details</summary>
@@ -496,6 +605,7 @@ export function initializeApp(): void {
       '[name="title"]',
     );
     updateInstruments();
+    updateArtists();
   }
 
   function openListen(album: Album, entry?: ListeningEntry) {
@@ -619,18 +729,14 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       links.push({ id: makeId(), url, label });
     }
     commitInstrumentChoices();
+    artists = structuredClone(artistChoices);
     const saved: Album = {
       id: mode === "edit" ? original!.id : makeId(),
       sourceId: mode === "review" ? original!.id : original?.sourceId,
       title,
       sortTitle: value("sortTitle"),
-      artists: separated(value("artists")).map((name, position) => ({
-        id: makeId(),
-        name,
-        sortName: null,
-        musicbrainzId: null,
-        country: null,
-        role: "primary" as const,
+      artists: selectedArtists.map((credit, position) => ({
+        ...credit,
         position,
       })),
       releaseYear: Number(value("year")) || null,
@@ -689,7 +795,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   }
 
   function finishSave(id: string, message: string) {
-    const stored = saveAlbums(albums, instruments);
+    const stored = saveAlbums(albums, instruments, artists);
     editor.close();
     if (location.hash === albumUrl(id)) {
       renderRoute();
@@ -716,6 +822,96 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (!button) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
+      case "new-catalog-artist":
+        openCatalogArtist();
+        break;
+      case "edit-catalog-artist":
+        openCatalogArtist(
+          artists.find((item) => artistUrl(item.id) === location.hash),
+        );
+        break;
+      case "delete-catalog-artist": {
+        const item = artists.find(
+          (item) => artistUrl(item.id) === location.hash,
+        );
+        if (!item || artistAlbums(albums, item.id).length) break;
+        showDialog(
+          "Delete artist?",
+          "YOUR ARTIST CATALOG",
+          `<div class="dialog-body"><p>Delete ${escapeHtml(item.name)} from your catalog?</p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button type="button" class="button primary danger" data-action="confirm-delete-artist" data-id="${escapeHtml(item.id)}">Delete artist</button></div>`,
+          '[data-action="close"]',
+        );
+        break;
+      }
+      case "confirm-delete-artist":
+        if (!artistAlbums(albums, button.dataset.id!).length) {
+          artists = artists.filter((item) => item.id !== button.dataset.id);
+          finishCatalogSave("Artist deleted.", "#artists");
+        }
+        break;
+      case "clear-artist-filters":
+        artistQuery = "";
+        artistUnused = false;
+        renderRoute();
+        break;
+      case "create-artist":
+      case "select-artist": {
+        const input = editor.querySelector<HTMLInputElement>("#artist-query")!;
+        let item = artistChoices.find((item) => item.id === button.dataset.id);
+        if (button.dataset.action === "create-artist") {
+          const name = input.value.trim();
+          if (
+            !name ||
+            artistChoices.some(
+              (item) => item.name.toLowerCase() === name.toLowerCase(),
+            )
+          )
+            break;
+          item = {
+            id: makeId(),
+            name,
+            sortName: null,
+            country: null,
+            musicbrainzId: null,
+          };
+          artistChoices.push(item);
+        }
+        if (item && !selectedArtists.some((credit) => credit.id === item.id))
+          selectedArtists.push({
+            ...item,
+            role: "primary",
+            position: selectedArtists.length,
+          });
+        input.value = "";
+        updateArtists();
+        focusForTyping(input);
+        break;
+      }
+      case "remove-artist":
+        selectedArtists = selectedArtists.filter(
+          (item) => item.id !== button.dataset.id,
+        );
+        updateArtists();
+        focusForTyping(editor.querySelector("#artist-query"));
+        break;
+      case "move-artist": {
+        const index = selectedArtists.findIndex(
+          (item) => item.id === button.dataset.id,
+        );
+        if (index > 0)
+          [selectedArtists[index - 1], selectedArtists[index]] = [
+            selectedArtists[index],
+            selectedArtists[index - 1],
+          ];
+        updateArtists();
+        editor
+          .querySelector<HTMLElement>(
+            `[data-action="move-artist"][data-id="${button.dataset.id}"]`,
+          )
+          ?.focus();
+        break;
+      }
+
       case "new-catalog-instrument":
         openCatalogInstrument();
         break;
@@ -889,6 +1085,11 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       instrumentFilters.query = input.value;
       updateInstrumentList();
     }
+    if (input.id === "artists-search") {
+      artistQuery = input.value;
+      updateArtistList();
+    }
+    if (input.id === "artist-query") updateArtists();
     if (input.id === "instrument-query") updateInstruments();
     if (input.id === "library-query") {
       state.query = input.value;
@@ -902,6 +1103,19 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.id === "artists-unused") {
+      artistUnused = input.checked;
+      updateArtistList();
+    }
+    if (
+      input.dataset.artistRole &&
+      artistRoles.some((role) => role === input.value)
+    ) {
+      const credit = selectedArtists.find(
+        (item) => item.id === input.dataset.artistRole,
+      );
+      if (credit) credit.role = input.value as ArtistRole;
+    }
     if (input.id === "instrument-category-filter") {
       instrumentFilters.category = input.value;
       updateInstrumentList();
@@ -922,6 +1136,57 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   });
 
   document.addEventListener("submit", (event) => {
+    if ((event.target as HTMLElement).id === "catalog-artist-form") {
+      event.preventDefault();
+      const form = event.target as HTMLFormElement;
+      const data = new FormData(form);
+      const value = (key: string) => String(data.get(key) ?? "").trim();
+      const input = form.querySelector<HTMLInputElement>(
+        '[name="artistName"]',
+      )!;
+      const name = value("artistName");
+      if (!name) return formError("Enter an artist name.", input);
+      if (
+        artists.some(
+          (item) =>
+            item.id !== form.dataset.id &&
+            item.name.toLowerCase() === name.toLowerCase(),
+        )
+      )
+        return formError("An artist with this name already exists.", input);
+      const musicbrainzId = value("artistMbid") || null;
+      if (
+        musicbrainzId &&
+        !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(musicbrainzId)
+      )
+        return formError(
+          "Enter a valid MusicBrainz artist ID.",
+          form.querySelector('[name="artistMbid"]')!,
+        );
+      if (
+        musicbrainzId &&
+        artists.some(
+          (item) =>
+            item.id !== form.dataset.id &&
+            item.musicbrainzId?.toLowerCase() === musicbrainzId.toLowerCase(),
+        )
+      )
+        return formError(
+          "This MusicBrainz artist is already in your catalog.",
+          input,
+        );
+      const item: Artist = {
+        id: form.dataset.id || makeId(),
+        name,
+        sortName: value("sortName") || null,
+        country: value("country").toUpperCase() || null,
+        musicbrainzId,
+      };
+      artists = artists
+        .filter((existing) => existing.id !== item.id)
+        .concat(item);
+      finishCatalogSave("Artist saved.", artistUrl(item.id));
+    }
     if ((event.target as HTMLElement).id === "catalog-instrument-form") {
       event.preventDefault();
       saveCatalogInstrument(event.target as HTMLFormElement);
@@ -969,11 +1234,17 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   editor.addEventListener("keydown", (event) => {
     if (
       event.key === "Enter" &&
-      (event.target as HTMLElement).id === "instrument-query"
+      ["instrument-query", "artist-query"].includes(
+        (event.target as HTMLElement).id,
+      )
     ) {
       event.preventDefault();
       editor
-        .querySelector<HTMLButtonElement>("#instrument-results button")
+        .querySelector<HTMLButtonElement>(
+          (event.target as HTMLElement).id === "artist-query"
+            ? "#artist-results button"
+            : "#instrument-results button",
+        )
         ?.click();
       return;
     }
