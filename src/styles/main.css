@@ -1418,3 +1418,44 @@ dialog::backdrop {
   background: var(--panel-hover);
   font-size: 12px;
 }
+
+/* Mobile dialogs scroll vertically; long content wraps within the viewport. */
+dialog {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.dialog-heading > div,
+.dialog-body,
+.instrument-picker,
+.album-sidebar {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.instrument-chip,
+.instrument-results .button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.instrument-chip .icon,
+.instrument-results .icon {
+  flex-shrink: 0;
+}
+/* Input sizing follows touch capability; layout breakpoints remain viewport based. */
+@media (pointer: coarse) {
+  /* 16px avoids focus zoom in mobile Safari while keeping pinch zoom available. */
+  input,
+  select,
+  textarea,
+  .search-field input,
+  .field input,
+  .field textarea,
+  .instrument-picker > input {
+    font-size: 16px;
+  }
+  .instrument-chip,
+  .instrument-results .button {
+    min-height: 44px;
+  }
+}

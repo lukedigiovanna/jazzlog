@@ -107,7 +107,10 @@ const records: RecordFixture[] = [
     1977,
     ["Jazz Fusion"],
     "Columbia Records",
-    [youtube("Weather Report Heavy Weather full album")],
+    [
+      youtube("Weather Report Heavy Weather full album"),
+      apple("heavy-weather/170409940"),
+    ],
   ],
   [
     "bright-size-life",
@@ -116,7 +119,10 @@ const records: RecordFixture[] = [
     1976,
     ["Contemporary Jazz"],
     "ECM Records",
-    [youtube("Pat Metheny Bright Size Life full album")],
+    [
+      youtube("Pat Metheny Bright Size Life full album"),
+      apple("bright-size-life/1440831870"),
+    ],
   ],
   [
     "mysterious-traveller",

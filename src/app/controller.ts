@@ -14,6 +14,7 @@ import { renderLibraryView, updateLibrary } from "../views/libraryView";
 import { renderAlbumDetailView } from "../views/albumDetailView";
 import { readAlbums, saveAlbums } from "./storage";
 import { matches } from "./search";
+import { focusForTyping, prefersTouchInteraction } from "./device";
 
 export function initializeApp(): void {
   const main = document.querySelector<HTMLElement>("main")!;
@@ -89,7 +90,7 @@ export function initializeApp(): void {
     editor.innerHTML = /* HTML */ `<div class="dialog-heading">
         <div>
           <p class="eyebrow"><span></span> ${eyebrow}</p>
-          <h2 id="dialog-title">${title}</h2>
+          <h2 id="dialog-title" tabindex="-1">${title}</h2>
         </div>
         <button
           class="icon-button close"
@@ -103,8 +104,11 @@ export function initializeApp(): void {
       ${content}`;
     if (opening) editor.showModal();
     editor.scrollTop = 0;
+    // Keep dialog focus accessible without opening a touch keyboard.
     editor
-      .querySelector<HTMLElement>(focusSelector)
+      .querySelector<HTMLElement>(
+        prefersTouchInteraction() ? "#dialog-title" : focusSelector,
+      )
       ?.focus({ preventScroll: true });
   }
 
@@ -595,7 +599,7 @@ export function initializeApp(): void {
           selectedInstruments.push({ ...item, notes: null });
         editor.querySelector<HTMLInputElement>("#instrument-query")!.value = "";
         updateInstruments();
-        editor.querySelector<HTMLElement>("#instrument-query")!.focus();
+        focusForTyping(editor.querySelector<HTMLElement>("#instrument-query"));
         break;
       }
       case "create-instrument": {
@@ -608,7 +612,7 @@ export function initializeApp(): void {
         selectedInstruments.push(item);
         input.value = "";
         updateInstruments();
-        input.focus();
+        focusForTyping(input);
         break;
       }
       case "remove-instrument":
@@ -616,7 +620,7 @@ export function initializeApp(): void {
           (item) => item.id !== button.dataset.id,
         );
         updateInstruments();
-        editor.querySelector<HTMLElement>("#instrument-query")!.focus();
+        focusForTyping(editor.querySelector<HTMLElement>("#instrument-query"));
         break;
       case "add":
         openSearch();
@@ -664,14 +668,16 @@ export function initializeApp(): void {
         document.querySelector<HTMLInputElement>("#library-query")!.value = "";
         document.querySelector<HTMLSelectElement>("#genre-filter")!.value = "";
         updateLibrary(albums, state);
-        document.querySelector<HTMLInputElement>("#library-query")!.focus();
+        focusForTyping(
+          document.querySelector<HTMLInputElement>("#library-query"),
+        );
         break;
       case "add-link": {
         const rows = document.querySelector<HTMLElement>("#link-rows")!;
         rows.insertAdjacentHTML("beforeend", linkRow());
-        rows
-          .lastElementChild!.querySelector<HTMLInputElement>("input")!
-          .focus();
+        focusForTyping(
+          rows.lastElementChild!.querySelector<HTMLInputElement>("input"),
+        );
         break;
       }
       case "remove-link":
