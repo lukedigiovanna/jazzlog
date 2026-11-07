@@ -1,3 +1,7 @@
+import { makeId } from "./id";
+import { searchReleaseGroups } from "../services/musicbrainz";
+import { getReleaseGroupArtworkUrl } from "../services/coverArt";
+import type { MusicBrainzAlbumCandidate } from "../types/musicbrainz";
 import {
   ancestors,
   genreUrl,
@@ -27,7 +31,7 @@ import type {
   Instrument,
   InstrumentCategory,
 } from "../types/albums";
-import { catalog, ratingLabels } from "../data/mockData";
+import { ratingLabels } from "../data/mockData";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
 import {
@@ -99,6 +103,44 @@ export function initializeApp(data?: LibraryData) {
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
   let searchQuery = "";
+  let searchResults: Album[] = [];
+  let reviewAlbum: Album | undefined;
+  let searchTimer: ReturnType<typeof setTimeout>;
+  let searchVersion = 0;
+  const searchCache = new Map<string, Album[]>();
+
+  function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
+    return {
+      id: candidate.musicbrainzId,
+      musicbrainzReleaseGroupId: candidate.musicbrainzId,
+      title: candidate.title,
+      releaseYear: candidate.releaseYear,
+      sortTitle: null,
+      artworkUrl: getReleaseGroupArtworkUrl(candidate.musicbrainzId),
+      artists: candidate.artists
+        .filter(
+          (credit, index, credits) =>
+            credits.findIndex(
+              (other) => other.musicbrainzId === credit.musicbrainzId,
+            ) === index,
+        )
+        .map((credit, position) => ({
+          id: makeId(),
+          musicbrainzId: credit.musicbrainzId,
+          name: credit.name,
+          sortName: null,
+          country: null,
+          role: "primary",
+          position,
+        })),
+      genres: [],
+      instruments: [],
+      links: [],
+      listeningEntries: [],
+      createdAt: "",
+      updatedAt: "",
+    };
+  }
 
   document.querySelector<HTMLElement>("#add-icon")!.innerHTML = icon(
     "plus",
@@ -151,10 +193,6 @@ export function initializeApp(data?: LibraryData) {
       editor.removeAttribute("aria-busy");
       enabled.forEach((control) => (control.disabled = false));
     }
-  }
-
-  function makeId() {
-    return crypto.randomUUID();
   }
 
   function announce(message: string) {
@@ -348,12 +386,10 @@ export function initializeApp(data?: LibraryData) {
       "NEW RECORD",
       /* HTML */ `<div class="dialog-body">
           <p class="dialog-intro">
-            Find a release in the demo MusicBrainz catalog, or enter the details
-            yourself.
+            Find an album on MusicBrainz, or enter the details yourself.
           </p>
           <label class="search-field dialog-search"
-            >${icon("search")}<span class="sr-only"
-              >Search MusicBrainz demo catalog</span
+            >${icon("search")}<span class="sr-only">Search MusicBrainz</span
             ><input
               id="catalog-query"
               type="search"
@@ -362,7 +398,7 @@ export function initializeApp(data?: LibraryData) {
               autocomplete="off"
           /></label>
           <div class="search-results-heading">
-            <span>MusicBrainz results <span class="demo-label">Demo</span></span
+            <span>MusicBrainz results</span
             ><span id="catalog-count" aria-live="polite"></span>
           </div>
           <div id="catalog-results"></div>
@@ -379,16 +415,81 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function updateCatalog() {
-    const results = catalog.filter((album) =>
-      matches(
-        searchQuery,
-        album.title,
-        ...album.artists.map((artist) => artist.name),
-        album.releaseYear,
-      ),
-    );
+    clearTimeout(searchTimer);
+    const version = ++searchVersion;
+    const container = editor.querySelector<HTMLElement>("#catalog-results");
+    const count = editor.querySelector<HTMLElement>("#catalog-count");
+    if (!container || !count) return;
+    searchResults = [];
+    container.removeAttribute("aria-busy");
+    const query = searchQuery.trim();
+    count.textContent = "";
+    if (!query) {
+      container.innerHTML = /* HTML */ `<div class="empty catalog-empty">
+        <p>Search by album title or artist to find a release.</p>
+      </div>`;
+      return;
+    }
+    const cached = searchCache.get(query);
+    if (cached) {
+      searchResults = cached;
+      renderCatalog();
+      return;
+    }
+    container.setAttribute("aria-busy", "true");
+    container.innerHTML = /* HTML */ `<div
+      class="empty catalog-empty"
+      role="status"
+    >
+      <p>Searching MusicBrainz…</p>
+    </div>`;
+    searchTimer = setTimeout(async () => {
+      const current = () =>
+        version === searchVersion &&
+        editor.open &&
+        editor.querySelector("#catalog-results") === container;
+      if (!current()) return;
+      try {
+        // Preserve the indexed search syntax used by MusicBrainz's website.
+        const candidates = await searchReleaseGroups(query);
+        if (!current()) return;
+        searchResults = candidates.map(candidateAlbum);
+        if (searchCache.size >= 20)
+          searchCache.delete(searchCache.keys().next().value!);
+        searchCache.set(query, searchResults);
+        renderCatalog();
+      } catch (error) {
+        if (!current()) return;
+        count.textContent = "Search failed";
+        container.innerHTML = /* HTML */ `<div
+          class="empty catalog-empty"
+          role="alert"
+        >
+          <h3>Couldn’t search MusicBrainz</h3>
+          <p>
+            ${escapeHtml(error instanceof Error ? error.message : "Please try again.")}
+          </p>
+          <button
+            type="button"
+            class="button secondary"
+            data-action="retry-search"
+          >
+            Try again
+          </button>
+        </div>`;
+      } finally {
+        if (current()) container.removeAttribute("aria-busy");
+      }
+    }, 400);
+  }
+
+  function renderCatalog() {
+    const results = searchResults;
     const inLibrary = (album: Album) =>
-      albums.find((item) => item.sourceId === album.id);
+      albums.find(
+        (item) =>
+          item.musicbrainzReleaseGroupId === album.musicbrainzReleaseGroupId,
+      );
     const sorted = [...results].sort(
       (a, b) => Number(Boolean(inLibrary(a))) - Number(Boolean(inLibrary(b))),
     );
@@ -405,13 +506,13 @@ export function initializeApp(data?: LibraryData) {
                     type="button"
                     class="result-row"
                     data-action="pick"
-                    data-id="${album.id}"
+                    data-id="${escapeHtml(album.id)}"
                   >
                     ${cover(album)}<span class="result-info"
                       ><strong>${escapeHtml(album.title)}</strong
                       ><span
                         >${escapeHtml(artistText(album))} ·
-                        ${album.releaseYear}</span
+                        ${album.releaseYear ?? "Unknown year"}</span
                       ></span
                     >
                     ${saved ? '<span class="in-library">In library</span>' : ""}${icon("chevron", 17)}
@@ -848,7 +949,8 @@ export function initializeApp(data?: LibraryData) {
                   <div>
                     <strong>${escapeHtml(album.title)}</strong>
                     <p class="muted">
-                      From the demo catalog. Review the details before saving.
+                      From MusicBrainz. Review the details and artist roles
+                      before saving.
                     </p>
                   </div>
                 </div>`
@@ -1187,7 +1289,9 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     const original =
       mode === "edit"
         ? albums.find((album) => album.id === form.dataset.id)
-        : catalog.find((album) => album.id === form.dataset.id);
+        : mode === "review"
+          ? reviewAlbum
+          : undefined;
     if ((mode === "edit" || mode === "review") && !original) return;
     const title = value("title");
     const artwork = value("artwork");
@@ -1205,6 +1309,18 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (mbid && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(mbid))
       return formError(
         "Enter a valid MusicBrainz release group ID.",
+        form.querySelector<HTMLInputElement>("[name=mbid]")!,
+      );
+    if (
+      mbid &&
+      albums.some(
+        (album) =>
+          album.id !== (mode === "edit" ? original?.id : undefined) &&
+          album.musicbrainzReleaseGroupId?.toLowerCase() === mbid.toLowerCase(),
+      )
+    )
+      return formError(
+        "This MusicBrainz album is already in your library.",
         form.querySelector<HTMLInputElement>("[name=mbid]")!,
       );
     const links = [];
@@ -1227,7 +1343,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     genres = structuredClone(genreChoices);
     const saved: Album = {
       id: mode === "edit" ? original!.id : makeId(),
-      sourceId: mode === "review" ? original!.id : original?.sourceId,
+      sourceId: mode === "edit" ? original?.sourceId : undefined,
       title,
       sortTitle: value("sortTitle"),
       artists: selectedArtists.map((credit, position) => ({
@@ -1655,14 +1771,24 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       case "back-search":
         if (canDismissDialog()) openSearch(false);
         break;
+      case "retry-search":
+        updateCatalog();
+        break;
       case "pick": {
-        const result = catalog.find((entry) => entry.id === button.dataset.id);
+        const result = searchResults.find(
+          (entry) => entry.id === button.dataset.id,
+        );
         if (!result) break;
-        const saved = albums.find((entry) => entry.sourceId === result.id);
+        const saved = albums.find(
+          (entry) =>
+            entry.musicbrainzReleaseGroupId ===
+            result.musicbrainzReleaseGroupId,
+        );
         if (saved) {
           editor.close();
           location.hash = albumUrl(saved.id);
         } else {
+          reviewAlbum = result;
           openAlbumForm(result, "review");
         }
         break;
@@ -2086,6 +2212,8 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   });
 
   editor.addEventListener("close", () => {
+    clearTimeout(searchTimer);
+    searchVersion++;
     if (
       dialogOrigin?.isConnected &&
       location.hash === viewHash &&

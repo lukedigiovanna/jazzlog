@@ -7,7 +7,7 @@ import type {
 const API_BASE_URL = "https://musicbrainz.org/ws/2";
 
 const REQUEST_INTERVAL_MS = 1100;
-const DEFAULT_SEARCH_LIMIT = 10;
+const DEFAULT_SEARCH_LIMIT = 25;
 
 let requestQueue: Promise<void> = Promise.resolve();
 let nextRequestTime = 0;
@@ -111,8 +111,8 @@ export async function searchReleaseGroups(
   query: string,
   limit = DEFAULT_SEARCH_LIMIT,
 ): Promise<MusicBrainzAlbumCandidate[]> {
-  if (limit < 1 || limit > 20)
-    throw new Error("Limit must be between 1 and 20");
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25)
+    throw new Error("Limit must be an integer between 1 and 25");
 
   const trimmedQuery = query.trim();
 

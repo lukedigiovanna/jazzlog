@@ -7,6 +7,7 @@ import type {
 } from "../types/albums";
 import { mockAlbums } from "../data/mockData";
 import { instrumentCategories } from "./instruments";
+import { makeId } from "./id";
 
 // Version the demo separately from both the standalone prototype and future account data.
 const storageKey = "jazzlog-demo-v1";
@@ -101,7 +102,7 @@ export function readAlbums(): Album[] {
               if (!trimmed) continue;
               const key = trimmed.toLowerCase();
               const item: AlbumInstrument = known.get(key) ?? {
-                id: crypto.randomUUID(),
+                id: makeId(),
                 name: trimmed,
                 notes: null,
                 categories: [],
