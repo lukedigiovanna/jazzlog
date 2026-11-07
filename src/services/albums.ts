@@ -1,3 +1,4 @@
+import { readAll } from "./readAll";
 import { supabase } from "./supabase";
 import { getCurrentUser } from "./auth";
 import type { Tables, TablesUpdate } from "../types/database.types";
@@ -160,13 +161,16 @@ function mapAlbum(row: AlbumQueryRow): Album {
 
 // Retrieve the current user's albums with their related records.
 export async function getAlbums(): Promise<Album[]> {
-  const { data, error } = await supabase
-    .from("albums")
-    .select(ALBUM_SELECT)
-    .order("sort_title", { ascending: true })
-    .order("title", { ascending: true });
+  const data = await readAll((from, to) =>
+    supabase
+      .from("albums")
+      .select(ALBUM_SELECT)
+      .order("sort_title", { ascending: true })
+      .order("title", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
-  if (error) throw error;
   return (data as unknown as AlbumQueryRow[]).map(mapAlbum);
 }
 

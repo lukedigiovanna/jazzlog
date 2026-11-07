@@ -114,7 +114,7 @@ Explicitly outside the initial scope; consider only after the core app is workin
 - Keep this README updated as project scope and milestone completion evolve.
 - Document detailed implementation decisions in separate milestone plans.
 
-**Current status:** Email/password sign-in and sign-up are connected to Supabase Auth, including confirmation email redirects, persisted sessions, and sign-out across tabs. The library still uses local demo fixtures for both signed-in users and demo visitors; album synchronization, MusicBrainz, and Cover Art Archive integration remain separate work.
+**Current status:** Email/password sign-in and sign-up are connected to Supabase Auth, including confirmation email redirects, persisted sessions, and sign-out across tabs. Signed-in users fetch their albums, artist credits, genres, instruments, music links, and listening history from Supabase under the existing RLS policies. Artist, genre, and instrument catalogs include unused records. Account libraries are read only for now; create, update, and delete integration comes next. Loading failures offer retry and sign-out without falling back to demo records. Demo visitors continue to use separate browser fixtures. MusicBrainz and Cover Art Archive integration remain separate work.
 
 Run `npm install` and `npm run dev` to open the app. Run `npm run build` to check TypeScript and create the production bundle.
 

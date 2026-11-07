@@ -61,27 +61,57 @@ import {
 } from "../views/instrumentsView";
 import { focusForTyping, prefersTouchInteraction } from "./device";
 
-export function initializeApp() {
+export interface LibraryData {
+  albums: Album[];
+  artists: Artist[];
+  genres: Genre[];
+  instruments: Instrument[];
+}
+
+export function initializeApp(data?: LibraryData) {
+  const readOnly = Boolean(data);
+  const browsingActions = new Set([
+    "layout",
+    "artist-layout",
+    "clear",
+    "clear-artist-filters",
+    "clear-instrument-filters",
+  ]);
+  function hideWriteControls(root: ParentNode) {
+    if (!readOnly) return;
+    root.querySelectorAll<HTMLElement>("[data-action]").forEach((button) => {
+      if (button.dataset.action === "edit-listen") {
+        const card = document.createElement("div");
+        card.className = button.className;
+        card.append(...button.childNodes);
+        const edit = card.querySelector<HTMLElement>(".listen-edit");
+        if (edit) edit.hidden = true;
+        button.replaceWith(card);
+      } else if (!browsingActions.has(button.dataset.action ?? "")) {
+        button.hidden = true;
+      }
+    });
+  }
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
   let artistLayout = "grid";
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
-  let albums = readAlbums();
-  let genres = readGenreCatalog(albums);
-  syncAlbumGenres(albums, genres);
+  let albums = data?.albums ?? readAlbums();
+  let genres = data?.genres ?? readGenreCatalog(albums);
+  if (!readOnly) syncAlbumGenres(albums, genres);
   let selectedGenres: AlbumGenre[] = [];
   let genreChoices: Genre[] = [];
   let genreQuery = "";
   let genreAlphabetical = false;
   let genreUnused = false;
-  let artists = readArtistCatalog(albums);
+  let artists = data?.artists ?? readArtistCatalog(albums);
   let artistQuery = "";
   let artistUnused = false;
   let selectedArtists: AlbumArtist[] = [];
   let artistChoices: Artist[] = [];
-  let instruments = readInstrumentCatalog(albums);
-  syncAlbumInstruments(albums, instruments);
+  let instruments = data?.instruments ?? readInstrumentCatalog(albums);
+  if (!readOnly) syncAlbumInstruments(albums, instruments);
   const instrumentFilters = { query: "", category: "", unused: false };
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
@@ -191,6 +221,7 @@ export function initializeApp() {
       main.innerHTML = renderLibraryView(albums, state, genres);
       updateLibrary(albums, state, genres);
     }
+    hideWriteControls(document);
     document.title = genrePage
       ? `${genre?.name ?? "Genres"} — JazzLog`
       : artistPage
@@ -1253,6 +1284,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       "button[data-action]",
     );
     if (!button) return;
+    if (readOnly && !browsingActions.has(button.dataset.action ?? "")) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
       case "new-catalog-genre":
@@ -1727,6 +1759,10 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   });
 
   document.addEventListener("submit", (event) => {
+    if (readOnly) {
+      event.preventDefault();
+      return;
+    }
     if ((event.target as HTMLElement).id === "catalog-genre-form") {
       event.preventDefault();
       const form = event.target as HTMLFormElement;
@@ -2039,6 +2075,12 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     renderRoute(true);
   });
 
+  if (readOnly) {
+    new MutationObserver(() => hideWriteControls(document)).observe(main, {
+      childList: true,
+      subtree: true,
+    });
+  }
   viewHash = location.hash;
   renderRoute();
 
@@ -2064,6 +2106,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       updateLibrary(albums, state, genres, page);
     }
     // Preview content is visual only; avoid duplicate IDs and interactive controls.
+    hideWriteControls(page);
     page.inert = true;
     page.setAttribute("aria-hidden", "true");
     page

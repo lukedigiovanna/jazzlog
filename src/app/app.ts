@@ -1,6 +1,6 @@
 import { renderHeader } from "../components/header";
 
-export function renderApp(): string {
+export function renderApp(authenticated = false): string {
   return /* HTML */ `
     <a class="skip-link" href="#main-content">Skip to content</a>
     ${renderHeader()}
@@ -12,8 +12,12 @@ export function renderApp(): string {
           journal</span
         >
         <span
-          ><span class="demo-dot" aria-hidden="true"></span>Demo library ·
-          Changes saved in this browser</span
+          >${
+            authenticated
+              ? "Your library · Read only"
+              : /* HTML */ `<span class="demo-dot" aria-hidden="true"></span
+                  >Demo library · Changes saved in this browser`
+          }</span
         >
       </div>
     </footer>

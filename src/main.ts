@@ -1,7 +1,7 @@
 import "./styles/main.css";
 import { renderApp } from "./app/app";
 import { initializeNavigation } from "./app/navigation";
-import { initializeApp } from "./app/controller";
+import { initializeApp, type LibraryData } from "./app/controller";
 import { initializeMobileHeader } from "./components/header";
 import { renderAuthView, initializeAuthView } from "./views/authView";
 
@@ -13,7 +13,7 @@ let accountId: string | null = null;
 let signingOut = false;
 let stopAuth: (() => void) | undefined;
 
-function enterLibrary(authenticated = false): void {
+function enterLibrary(authenticated = false, data?: LibraryData): void {
   if (libraryMounted) {
     // The library owns document listeners. Reload rather than registering them twice
     // when switching between demo/account mode or between different accounts.
@@ -21,8 +21,8 @@ function enterLibrary(authenticated = false): void {
     return;
   }
   libraryMounted = true;
-  root!.innerHTML = renderApp();
-  const renderNavigationPage = initializeApp();
+  root!.innerHTML = renderApp(authenticated);
+  const renderNavigationPage = initializeApp(data);
   initializeMobileHeader();
   initializeNavigation(renderNavigationPage);
   const account = document.createElement("button");
@@ -48,6 +48,44 @@ function enterLibrary(authenticated = false): void {
     }
   });
   window.scrollTo(0, 0);
+}
+
+let loadVersion = 0;
+async function loadAccountLibrary(userId: string): Promise<void> {
+  const version = ++loadVersion;
+  root!.innerHTML = /* HTML */ `<main class="frame auth-loading" role="status">
+    Loading your library…
+  </main>`;
+  try {
+    const { getLibrary } = await import("./services/library");
+    const data = await getLibrary();
+    if (version !== loadVersion || accountId !== userId) return;
+    enterLibrary(true, data);
+  } catch {
+    if (version !== loadVersion || accountId !== userId) return;
+    root!.innerHTML = /* HTML */ `<main class="frame auth-loading">
+      <div class="empty">
+        <h1>Couldn’t load your library</h1>
+        <p role="alert">Please check your connection and try again.</p>
+        <button class="button primary" id="retry-library">Try again</button>
+        <button class="button secondary" id="leave-library">Sign out</button>
+      </div>
+    </main>`;
+    document.querySelector("#retry-library")!.addEventListener("click", () => {
+      void loadAccountLibrary(userId);
+    });
+    document
+      .querySelector("#leave-library")!
+      .addEventListener("click", async () => {
+        const { signOut } = await import("./services/auth");
+        try {
+          await signOut();
+        } catch {
+          document.querySelector('[role="alert"]')!.textContent =
+            "Couldn’t sign out. Please try again.";
+        }
+      });
+  }
 }
 
 function showAuth(message?: string): void {
@@ -80,10 +118,20 @@ async function start(): Promise<void> {
       // Supabase invokes this callback while holding its auth lock. Keep it
       // synchronous and do not call another auth method from here.
       if (session) {
-        if (libraryMounted && accountId === session.user.id) return;
+        if (accountId === session.user.id) return;
         accountId = session.user.id;
-        enterLibrary(true);
-      } else if (event === "SIGNED_OUT" && libraryMounted && !signingOut) {
+        if (libraryMounted) {
+          window.location.reload();
+          return;
+        }
+        // Start reads after Supabase releases the auth callback lock.
+        setTimeout(() => {
+          if (accountId === session.user.id)
+            void loadAccountLibrary(session.user.id);
+        }, 0);
+      } else if (event === "SIGNED_OUT" && !signingOut) {
+        accountId = null;
+        ++loadVersion;
         window.location.reload();
       } else if (event === "INITIAL_SESSION" && !libraryMounted) {
         const params = new URLSearchParams(window.location.hash.slice(1));

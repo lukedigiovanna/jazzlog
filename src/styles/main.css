@@ -2411,3 +2411,8 @@ select:focus,
 .account-button {
   flex-shrink: 0;
 }
+
+/* Preserve hidden controls when component styles set display. */
+[hidden] {
+  display: none !important;
+}
