@@ -65,6 +65,7 @@ export function initializeApp() {
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
+  let artistLayout = "grid";
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = readAlbums();
   let genres = readGenreCatalog(albums);
@@ -160,7 +161,7 @@ export function initializeApp() {
       main.innerHTML = renderArtistsView(artistQuery, artistUnused);
       updateArtistList();
     } else if (artist) {
-      main.innerHTML = renderArtistDetail(artist, albums);
+      main.innerHTML = renderArtistDetail(artist, albums, artistLayout);
     } else if (artistPage) {
       main.innerHTML = /* HTML */ `<div class="empty">
         <h1 id="page-title">Artist unavailable</h1>
@@ -1591,6 +1592,16 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         } else {
           openAlbumForm(result, "review");
         }
+        break;
+      }
+      case "artist-layout": {
+        artistLayout = button.dataset.layout === "list" ? "list" : "grid";
+        renderRoute();
+        main
+          .querySelector<HTMLButtonElement>(
+            `[data-action="artist-layout"][data-layout="${artistLayout}"]`,
+          )
+          ?.focus();
         break;
       }
       case "layout":

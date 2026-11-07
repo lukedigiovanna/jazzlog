@@ -1,3 +1,4 @@
+import { renderLayoutToggle } from "../components/layoutToggle";
 import type { Genre } from "../types/albums";
 import { includesGenre } from "../app/genres";
 import type { Album } from "../types/albums";
@@ -74,28 +75,7 @@ export function renderLibraryView(
           <p class="eyebrow"><span></span> THE COLLECTION</p>
           <h2 id="library-title">Your library</h2>
         </div>
-        <div class="layout-toggle" aria-label="Library layout">
-          <button
-            type="button"
-            class="icon-button"
-            aria-label="Grid view"
-            aria-pressed="${state.layout === "grid"}"
-            data-action="layout"
-            data-layout="grid"
-          >
-            ${icon("grid")}
-          </button>
-          <button
-            type="button"
-            class="icon-button"
-            aria-label="List view"
-            aria-pressed="${state.layout === "list"}"
-            data-action="layout"
-            data-layout="list"
-          >
-            ${icon("list")}
-          </button>
-        </div>
+        ${renderLayoutToggle(state.layout)}
       </div>
       <div class="toolbar">
         <label class="search-field"

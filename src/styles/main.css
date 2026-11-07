@@ -612,7 +612,7 @@ main:focus,
   gap: 7px;
 }
 .album-list .album-card {
-  grid-template-columns: 52px minmax(0, 1.55fr) minmax(0, 0.7fr) auto 18px;
+  grid-template-columns: 52px minmax(0, 1.55fr) minmax(0, 0.7fr) 112px 18px;
   align-items: center;
   min-height: 68px;
   padding: 7px 14px 7px 7px;
@@ -1301,7 +1301,7 @@ dialog::backdrop {
     gap: 13px 9px;
   }
   .album-list .album-card {
-    grid-template-columns: 43px minmax(0, 1fr) auto;
+    grid-template-columns: 43px minmax(0, 1fr) 112px;
     gap: 8px;
     min-height: 58px;
   }
@@ -1773,11 +1773,11 @@ dialog {
 .detail-artist a:hover {
   text-decoration: underline;
 }
-.artist-album-credit {
-  margin-top: 24px;
-}
-.artist-album-credit .album-grid {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 220px));
+.album-credit-role {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
 }
 @media (max-width: 480px) {
   .artist-credit-row {
@@ -2105,4 +2105,33 @@ select:focus,
   background: var(--bg);
   will-change: transform;
   z-index: 2;
+}
+
+.artist-page-heading {
+  margin-bottom: 26px;
+}
+.artist-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+.artist-title-row h1 {
+  margin: 0;
+  min-width: 0;
+}
+.artist-title-row .button {
+  flex-shrink: 0;
+}
+.artist-details {
+  margin-top: 4px;
+}
+
+.artist-country {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  white-space: nowrap;
 }

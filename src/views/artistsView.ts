@@ -1,3 +1,4 @@
+import { renderLayoutToggle } from "../components/layoutToggle";
 import { renderCatalogHeading } from "../components/catalogHeading";
 import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Artist } from "../types/albums";
@@ -57,9 +58,10 @@ export function updateArtistsView(
             return /* HTML */ `<li>
               <a class="instrument-catalog-row" href="${artistUrl(item.id)}"
                 ><span class="instrument-row-info"
-                  ><strong>${e(item.name)}</strong
-                  >${item.country ? /* HTML */ `<span class="muted">${e(item.country)}</span>` : ""}<span
-                    class="instrument-usage ${count ? "" : "unused"}"
+                  ><span
+                    ><strong>${e(item.name)}</strong
+                    >${item.country ? /* HTML */ ` <em class="artist-country">(${e(item.country)})</em>` : ""}</span
+                  ><span class="instrument-usage ${count ? "" : "unused"}"
                     >${count ? `Credited on ${count} ${count === 1 ? "album" : "albums"}` : "Not credited on any albums"}</span
                   ></span
                 >${icon("chevron", 18)}</a
@@ -76,51 +78,51 @@ export function updateArtistsView(
         ${artists.length ? '<button class="button secondary" data-action="clear-artist-filters">Clear filters</button>' : ""}
       </div>`;
 }
-export function renderArtistDetail(item: Artist, albums: Album[]) {
+export function renderArtistDetail(
+  item: Artist,
+  albums: Album[],
+  layout = "grid",
+) {
   const used = artistAlbums(albums, item.id);
   return /* HTML */ `<section
     class="instrument-page"
     aria-labelledby="page-title"
   >
     <a class="back-link" href="#artists">${icon("back", 17)} Back to artists</a>
-    <div class="instrument-page-heading">
-      <div>
-        <p class="eyebrow"><span></span> ARTIST DETAILS</p>
+    <div class="artist-page-heading">
+      <p class="eyebrow"><span></span> ARTIST DETAILS</p>
+      <div class="artist-title-row">
         <h1 id="page-title">${e(item.name)}</h1>
+        <button class="button secondary" data-action="edit-catalog-artist">
+          ${icon("edit", 16)} Edit artist
+        </button>
+      </div>
+      <div class="artist-details">
         <p class="muted">
-          ${[item.sortName ? `Sort name: ${e(item.sortName)}` : "", item.country ? `Country: ${e(item.country)}` : ""].filter(Boolean).join(" · ") || "No additional details"}
+          ${[item.country ? `Country: ${e(item.country)}` : ""].filter(Boolean).join(" · ") || "No additional details"}
         </p>
         ${item.musicbrainzId ? /* HTML */ `<p class="muted">MusicBrainz ID: ${e(item.musicbrainzId)}</p>` : ""}
       </div>
-      <button class="button secondary" data-action="edit-catalog-artist">
-        ${icon("edit", 16)} Edit artist
-      </button>
     </div>
     <section class="instrument-albums">
-      <div class="detail-heading">
-        <h2>Album credits</h2>
-        <span class="count-pill">${used.length}</span>
+      <div class="library-heading">
+        <div class="detail-heading">
+          <h2>Album credits</h2>
+          <span class="count-pill">${used.length}</span>
+        </div>
+        ${renderLayoutToggle(layout, "Album credits layout", "artist-layout")}
       </div>
-      <p class="form-hint">
-        Roles belong to each album credit. Edit an album to change its roles or
-        credit order.
-      </p>
       ${
         used.length
-          ? used
-              .map(
-                (album) =>
-                  /* HTML */ `<div class="artist-album-credit">
-                    <p class="eyebrow">
-                      ${album.artists
-                        .filter((credit) => credit.id === item.id)
-                        .map((credit) => roleLabel(credit.role))
-                        .join(" · ")}
-                    </p>
-                    ${renderAlbumGrid([album])}
-                  </div>`,
-              )
-              .join("")
+          ? renderAlbumGrid(used, layout, (album) =>
+              album.artists
+                .filter(
+                  (credit) =>
+                    credit.id === item.id && credit.role !== "primary",
+                )
+                .map((credit) => roleLabel(credit.role))
+                .join(" · "),
+            )
           : '<div class="empty detail-empty"><h3>No album credits yet</h3><p>This artist stays in your catalog until you use or delete it.</p></div>'
       }
     </section>
