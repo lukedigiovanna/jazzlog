@@ -39,6 +39,7 @@ This retrieves additional information about a specific release group using its M
 We will implement both endpoints, although search results should provide most of the information we need.
 
 References:
+
 - https://musicbrainz.org/doc/MusicBrainz_API
 - https://musicbrainz.org/doc/MusicBrainz_API/Search/ReleaseGroupSearch
 
@@ -163,19 +164,12 @@ Create a simple serialized request queue:
 let requestQueue: Promise<void> = Promise.resolve();
 let nextRequestTime = 0;
 
-function enqueueRequest<T>(
-  request: () => Promise<T>
-): Promise<T> {
+function enqueueRequest<T>(request: () => Promise<T>): Promise<T> {
   const result = requestQueue.then(async () => {
-    const waitTime = Math.max(
-      0,
-      nextRequestTime - Date.now()
-    );
+    const waitTime = Math.max(0, nextRequestTime - Date.now());
 
     if (waitTime > 0) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, waitTime)
-      );
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
     nextRequestTime = Date.now() + REQUEST_INTERVAL_MS;
@@ -186,7 +180,7 @@ function enqueueRequest<T>(
   // Keep the queue usable even if a request fails.
   requestQueue = result.then(
     () => undefined,
-    () => undefined
+    () => undefined,
   );
 
   return result;
@@ -226,7 +220,7 @@ export class MusicBrainzApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly retryAfter: string | null = null
+    public readonly retryAfter: string | null = null,
   ) {
     super(message);
     this.name = "MusicBrainzApiError";
@@ -246,7 +240,7 @@ async function request<T>(url: string): Promise<T> {
     } catch (error) {
       throw new Error(
         "Unable to reach MusicBrainz. Check your connection and browser access permissions.",
-        { cause: error }
+        { cause: error },
       );
     }
 
@@ -254,7 +248,7 @@ async function request<T>(url: string): Promise<T> {
       throw new MusicBrainzApiError(
         `MusicBrainz request failed: ${response.status} ${response.statusText}`,
         response.status,
-        response.headers.get("Retry-After")
+        response.headers.get("Retry-After"),
       );
     }
 
@@ -280,26 +274,18 @@ MusicBrainz requests a meaningful application-specific User-Agent. This direct-b
 Add a helper function:
 
 ```typescript
-function normalizeReleaseGroup(
-  group: MusicBrainzReleaseGroup
-): AlbumCandidate {
-  const yearMatch = group["first-release-date"]?.match(
-    /^(\d{4})/
-  );
+function normalizeReleaseGroup(group: MusicBrainzReleaseGroup): AlbumCandidate {
+  const yearMatch = group["first-release-date"]?.match(/^(\d{4})/);
 
-  const releaseYear = yearMatch
-    ? Number(yearMatch[1])
-    : null;
+  const releaseYear = yearMatch ? Number(yearMatch[1]) : null;
 
-  const artists = (group["artist-credit"] ?? []).map(
-    (credit, index) => ({
-      musicbrainzId: credit.artist.id,
-      name: credit.artist.name,
-      creditedName: credit.name,
-      joinPhrase: credit.joinphrase ?? "",
-      position: index,
-    })
-  );
+  const artists = (group["artist-credit"] ?? []).map((credit, index) => ({
+    musicbrainzId: credit.artist.id,
+    name: credit.artist.name,
+    creditedName: credit.name,
+    joinPhrase: credit.joinphrase ?? "",
+    position: index,
+  }));
 
   return {
     musicbrainzId: group.id,
@@ -363,7 +349,7 @@ Add the main public search function:
 ```typescript
 export async function searchReleaseGroups(
   query: string,
-  limit = DEFAULT_SEARCH_LIMIT
+  limit = DEFAULT_SEARCH_LIMIT,
 ): Promise<AlbumCandidate[]> {
   const trimmedQuery = query.trim();
 
@@ -379,13 +365,9 @@ export async function searchReleaseGroups(
 
   const url = `${API_BASE_URL}/release-group?${params}`;
 
-  const response = await request<MusicBrainzSearchResponse>(
-    url
-  );
+  const response = await request<MusicBrainzSearchResponse>(url);
 
-  return response["release-groups"].map(
-    normalizeReleaseGroup
-  );
+  return response["release-groups"].map(normalizeReleaseGroup);
 }
 ```
 
@@ -411,18 +393,16 @@ Add the lookup function:
 
 ```typescript
 export async function getReleaseGroup(
-  musicbrainzId: string
+  musicbrainzId: string,
 ): Promise<AlbumCandidate> {
   const url = new URL(
-    `${API_BASE_URL}/release-group/${encodeURIComponent(musicbrainzId)}`
+    `${API_BASE_URL}/release-group/${encodeURIComponent(musicbrainzId)}`,
   );
 
   url.searchParams.set("inc", "artist-credits");
   url.searchParams.set("fmt", "json");
 
-  const response = await request<MusicBrainzReleaseGroup>(
-    url.toString()
-  );
+  const response = await request<MusicBrainzReleaseGroup>(url.toString());
 
   return normalizeReleaseGroup(response);
 }
@@ -439,23 +419,16 @@ Before building the UI, temporarily test the functions from `src/main.ts`.
 For example:
 
 ```typescript
-import {
-  searchReleaseGroups,
-  getReleaseGroup,
-} from "./services/musicbrainz";
+import { searchReleaseGroups, getReleaseGroup } from "./services/musicbrainz";
 
 async function testMusicBrainz() {
   try {
-    const results = await searchReleaseGroups(
-      "Kind of Blue"
-    );
+    const results = await searchReleaseGroups("Kind of Blue");
 
     console.log("Search results:", results);
 
     if (results.length > 0) {
-      const album = await getReleaseGroup(
-        results[0].musicbrainzId
-      );
+      const album = await getReleaseGroup(results[0].musicbrainzId);
 
       console.log("Release group details:", album);
     }
