@@ -3,6 +3,7 @@ import type {
   AlbumInstrument,
   Instrument,
   Artist,
+  Genre,
 } from "../types/albums";
 import { mockAlbums } from "../data/mockData";
 import { instrumentCategories } from "./instruments";
@@ -163,11 +164,12 @@ export function saveAlbums(
   albums: Album[],
   instruments: Instrument[],
   artists: Artist[],
+  genres: Genre[],
 ): boolean {
   try {
     localStorage.setItem(
       storageKey,
-      JSON.stringify({ albums, instruments, artists }),
+      JSON.stringify({ albums, instruments, artists, genres }),
     );
     return true;
   } catch {
@@ -215,6 +217,41 @@ export function readArtistCatalog(albums: Album[]): Artist[] {
       };
       catalog.set(artist.id, artist);
       Object.assign(credit, artist);
+    }
+  return [...catalog.values()];
+}
+
+export function readGenreCatalog(albums: Album[]): Genre[] {
+  let saved: Genre[] = [];
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+    if (
+      Array.isArray(snapshot?.genres) &&
+      snapshot.genres.every(
+        (g: unknown) =>
+          object(g) &&
+          typeof g.id === "string" &&
+          typeof g.name === "string" &&
+          optionalString(g.parentGenreId),
+      )
+    )
+      saved = snapshot.genres;
+  } catch {
+    /* Albums supply the catalog. */
+  }
+  const catalog = new Map(saved.map((g) => [g.id, g]));
+  for (const album of albums)
+    for (const credit of album.genres) {
+      const existing = [...catalog.values()].find(
+        (g) => g.name.toLowerCase() === credit.name.toLowerCase(),
+      );
+      const genre = existing ?? {
+        id: credit.id,
+        name: credit.name,
+        parentGenreId: credit.parentGenreId ?? null,
+      };
+      catalog.set(genre.id, genre);
+      Object.assign(credit, genre);
     }
   return [...catalog.values()];
 }

@@ -1,4 +1,6 @@
 const paths: Record<string, string> = {
+  filter:
+    '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor"/><circle cx="15" cy="17" r="2" fill="currentColor"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   search: '<circle cx="10.75" cy="10.75" r="6.25"/><path d="m16 16 4 4"/>',
   arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',

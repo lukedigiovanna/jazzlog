@@ -1,4 +1,13 @@
 import {
+  ancestors,
+  genreUrl,
+  normalizeGenres,
+  syncAlbumGenres,
+} from "./genres";
+import { renderGenresView, renderGenreDetail } from "../views/genresView";
+import { readGenreCatalog } from "./storage";
+import type { Genre, AlbumGenre } from "../types/albums";
+import {
   artistUrl,
   artistAlbums,
   artistRoles,
@@ -58,6 +67,13 @@ export function initializeApp(): void {
   const toast = document.querySelector<HTMLElement>("#toast")!;
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
   let albums = readAlbums();
+  let genres = readGenreCatalog(albums);
+  syncAlbumGenres(albums, genres);
+  let selectedGenres: AlbumGenre[] = [];
+  let genreChoices: Genre[] = [];
+  let genreQuery = "";
+  let genreAlphabetical = false;
+  let genreUnused = false;
   let artists = readArtistCatalog(albums);
   let artistQuery = "";
   let artistUnused = false;
@@ -101,6 +117,9 @@ export function initializeApp(): void {
   }
 
   function renderRoute(focus = false) {
+    const genre = genres.find((g) => genreUrl(g.id) === location.hash);
+    const genrePage =
+      location.hash === "#genres" || location.hash.startsWith("#genre/");
     const album = activeAlbum();
     const artist = artists.find((item) => artistUrl(item.id) === location.hash);
     const artistPage =
@@ -112,13 +131,31 @@ export function initializeApp(): void {
     for (const link of document.querySelectorAll<HTMLElement>("[data-nav]")) {
       if (
         link.dataset.nav ===
-        (artistPage ? "artists" : instrumentPage ? "instruments" : "library")
+        (genrePage
+          ? "genres"
+          : artistPage
+            ? "artists"
+            : instrumentPage
+              ? "instruments"
+              : "library")
       )
         link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
     const missing = location.hash.startsWith("#album/") && !album;
-    if (location.hash === "#artists") {
+    if (genrePage) {
+      main.innerHTML = genre
+        ? renderGenreDetail(genre, genres, albums)
+        : location.hash === "#genres"
+          ? renderGenresView(
+              genres,
+              albums,
+              genreQuery,
+              genreAlphabetical,
+              genreUnused,
+            )
+          : '<div class="empty"><h1 id="page-title">Genre unavailable</h1><a href="#genres">Back to genres</a></div>';
+    } else if (location.hash === "#artists") {
       main.innerHTML = renderArtistsView(artistQuery, artistUnused);
       updateArtistList();
     } else if (artist) {
@@ -142,16 +179,18 @@ export function initializeApp(): void {
         <a class="button secondary" href="#">${icon("back")} Back to library</a>
       </div>`;
     } else {
-      main.innerHTML = renderLibraryView(albums, state);
-      updateLibrary(albums, state);
+      main.innerHTML = renderLibraryView(albums, state, genres);
+      updateLibrary(albums, state, genres);
     }
-    document.title = artistPage
-      ? `${artist?.name ?? "Artists"} — JazzLog`
-      : instrumentPage
-        ? `${instrument?.name ?? "Instruments"} — JazzLog`
-        : album
-          ? album.title + " — JazzLog"
-          : "JazzLog — The Listening Room";
+    document.title = genrePage
+      ? `${genre?.name ?? "Genres"} — JazzLog`
+      : artistPage
+        ? `${artist?.name ?? "Artists"} — JazzLog`
+        : instrumentPage
+          ? `${instrument?.name ?? "Instruments"} — JazzLog`
+          : album
+            ? album.title + " — JazzLog"
+            : "JazzLog — The Listening Room";
     if (focus) {
       window.scrollTo(0, 0);
       const heading = document.querySelector<HTMLElement>("#page-title");
@@ -478,13 +517,14 @@ export function initializeApp(): void {
   }
 
   function finishCatalogSave(message: string, destination: string) {
+    syncAlbumGenres(albums, genres);
     syncAlbumInstruments(albums, instruments);
     for (const album of albums)
       for (const credit of album.artists) {
         const artist = artists.find((item) => item.id === credit.id);
         if (artist) Object.assign(credit, artist);
       }
-    const stored = saveAlbums(albums, instruments, artists);
+    const stored = saveAlbums(albums, instruments, artists, genres);
     editor.close();
     if (location.hash === destination) renderRoute(true);
     else location.hash = destination;
@@ -559,9 +599,9 @@ export function initializeApp(): void {
           <div class="field-grid">
             ${field("Album title", "title", album.title, { attributes: 'required maxlength="150"', placeholder: "Album title" })}
             ${field("Release year", "year", album.releaseYear, { type: "number", attributes: 'min="1000" max="9999" step="1"', placeholder: "e.g. 1976" })}
-            ${field("Genres", "genres", album.genres?.map((genre) => genre.name).join(", "), { attributes: 'maxlength="220"', placeholder: "Separate genres with commas" })}
           </div>
           ${artistPicker(album.artists ?? [])}
+          ${genrePicker(album.genres ?? [])}
           ${instrumentPicker(album.instruments ?? [])}
           <details class="extra-fields">
             <summary>More album details</summary>
@@ -606,6 +646,119 @@ export function initializeApp(): void {
     );
     updateInstruments();
     updateArtists();
+    updateGenres();
+  }
+
+  function updateGenreFilters(focusId: string) {
+    renderRoute();
+    const dropdown = main.querySelector<HTMLDetailsElement>(
+      ".genre-filter-dropdown",
+    );
+    if (dropdown) dropdown.open = true;
+    main.querySelector<HTMLElement>(`#${focusId}`)?.focus();
+  }
+  document.addEventListener("click", (event) => {
+    const dropdown = main.querySelector<HTMLDetailsElement>(
+      ".genre-filter-dropdown[open]",
+    );
+    if (dropdown && !dropdown.contains(event.target as Node))
+      dropdown.open = false;
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const dropdown = main.querySelector<HTMLDetailsElement>(
+      ".genre-filter-dropdown[open]",
+    );
+    if (dropdown) {
+      dropdown.open = false;
+      dropdown.querySelector<HTMLElement>("summary")?.focus();
+    }
+  });
+
+  function genrePicker(selected: AlbumGenre[]) {
+    genreChoices = structuredClone(genres);
+    selectedGenres = normalizeGenres(
+      selected.map((g) => ({
+        ...g,
+        id:
+          genres.find((c) => c.name.toLowerCase() === g.name.toLowerCase())
+            ?.id ?? g.id,
+      })),
+      [
+        ...genreChoices,
+        ...selected.filter((g) => !genreChoices.some((c) => c.id === g.id)),
+      ],
+    );
+    for (const g of selectedGenres)
+      if (!genreChoices.some((c) => c.id === g.id))
+        genreChoices.push({
+          id: g.id,
+          name: g.name,
+          parentGenreId: g.parentGenreId,
+        });
+    return `<div class="instrument-picker"><label class="field" for="genre-query"><span>Genres <span class="muted">(optional)</span></span></label><p id="genre-help" class="form-hint">Choose specific genres. Parent filters include their descendants. At most one may be primary.</p><div id="genre-selected" aria-live="polite"></div><input id="genre-query" type="search" maxlength="80" autocomplete="off" placeholder="Search or create a genre…" aria-describedby="genre-help" /><div id="genre-results" class="instrument-results" aria-label="Available genres"></div><a class="manage-instruments" href="#genres">Manage genre catalog ${icon("arrow", 14)}</a></div>`;
+  }
+  function updateGenres() {
+    const input = editor.querySelector<HTMLInputElement>("#genre-query");
+    if (!input) return;
+    const query = input.value.trim();
+    editor.querySelector("#genre-selected")!.innerHTML = selectedGenres
+      .map(
+        (g) =>
+          `<div class="genre-credit-row"><strong>${escapeHtml(g.name)}</strong><label><input type="checkbox" data-genre-primary="${escapeHtml(g.id)}" ${g.isPrimary ? "checked" : ""}> Primary</label><button type="button" class="button secondary compact" data-action="remove-genre" data-id="${escapeHtml(g.id)}">Remove</button></div>`,
+      )
+      .join("");
+    editor.querySelector("#genre-results")!.innerHTML =
+      genreChoices
+        .filter(
+          (g) =>
+            !selectedGenres.some((c) => c.id === g.id) &&
+            matches(
+              query,
+              g.name,
+              ...ancestors(g.id, genreChoices).map((p) => p.name),
+            ),
+        )
+        .map((g) => {
+          const descendant = selectedGenres.find((c) =>
+            ancestors(c.id, genreChoices).some((p) => p.id === g.id),
+          );
+          return `<button type="button" class="button secondary compact" data-action="select-genre" data-id="${escapeHtml(g.id)}" ${descendant ? "disabled" : ""}>${icon("plus", 14)} ${escapeHtml(g.name)}${
+            descendant
+              ? ` — Included through ${escapeHtml(descendant.name)}`
+              : ancestors(g.id, genreChoices).length
+                ? ` (${ancestors(g.id, genreChoices)
+                    .map((p) => escapeHtml(p.name))
+                    .join(" › ")})`
+                : ""
+          }</button>`;
+        })
+        .join("") +
+      (query &&
+      !genreChoices.some((g) => g.name.toLowerCase() === query.toLowerCase())
+        ? `<button type="button" class="button secondary compact" data-action="create-genre">${icon("plus", 14)} Create “${escapeHtml(query)}”</button>`
+        : "");
+  }
+  function openCatalogGenre(item?: Genre) {
+    showDialog(
+      item ? "Edit genre" : "Add genre",
+      "GENRE CATALOG",
+      `<form id="catalog-genre-form" data-id="${escapeHtml(item?.id ?? "")}"><div class="dialog-body">${field("Genre name", "genreName", item?.name ?? "", { attributes: 'required maxlength="80"' })}<label class="field"><span>Parent genre (optional)</span><select name="parentGenreId"><option value="">No parent</option>${genres
+        .filter(
+          (g) =>
+            g.id !== item?.id &&
+            !ancestors(g.id, genres).some((p) => p.id === item?.id),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(
+          (g) =>
+            `<option value="${escapeHtml(g.id)}" ${g.id === item?.parentGenreId ? "selected" : ""}>${escapeHtml([...ancestors(g.id, genres), g].map((p) => p.name).join(" › "))}</option>`,
+        )
+        .join(
+          "",
+        )}</select></label><p id="form-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button type="button" class="button secondary" data-action="close">Cancel</button><button class="button primary" type="submit">Save genre</button></div></form>`,
+      '[name="genreName"]',
+    );
   }
 
   function openListen(album: Album, entry?: ListeningEntry) {
@@ -667,17 +820,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       `${displayRating(rating)} / 5 · ${ratingLabels[rating - 1]}`;
   }
 
-  function separated(value: string) {
-    return [
-      ...new Set(
-        value
-          .split(",")
-          .map((part) => part.trim())
-          .filter(Boolean),
-      ),
-    ];
-  }
-
   function formError(message: string, input: HTMLInputElement) {
     const error = document.querySelector<HTMLElement>("#form-error")!;
     error.hidden = false;
@@ -730,6 +872,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
     commitInstrumentChoices();
     artists = structuredClone(artistChoices);
+    genres = structuredClone(genreChoices);
     const saved: Album = {
       id: mode === "edit" ? original!.id : makeId(),
       sourceId: mode === "review" ? original!.id : original?.sourceId,
@@ -740,12 +883,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         position,
       })),
       releaseYear: Number(value("year")) || null,
-      genres: separated(value("genres")).map((name, i) => ({
-        id: makeId(),
-        name,
-        parentGenreId: null,
-        isPrimary: i === 0,
-      })),
+      genres: structuredClone(selectedGenres),
       recordLabel: value("label"),
       artworkUrl:
         artwork ||
@@ -795,7 +933,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   }
 
   function finishSave(id: string, message: string) {
-    const stored = saveAlbums(albums, instruments, artists);
+    const stored = saveAlbums(albums, instruments, artists, genres);
     editor.close();
     if (location.hash === albumUrl(id)) {
       renderRoute();
@@ -822,6 +960,83 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (!button) return;
     const album = activeAlbum();
     switch (button.dataset.action) {
+      case "new-catalog-genre":
+        openCatalogGenre();
+        break;
+      case "edit-catalog-genre":
+        openCatalogGenre(genres.find((g) => genreUrl(g.id) === location.hash));
+        break;
+      case "delete-catalog-genre": {
+        const item = genres.find((g) => genreUrl(g.id) === location.hash);
+        if (
+          !item ||
+          genres.some((g) => g.parentGenreId === item.id) ||
+          albums.some((a) => a.genres.some((g) => g.id === item.id))
+        )
+          break;
+        showDialog(
+          "Delete genre?",
+          "GENRE CATALOG",
+          `<div class="dialog-body">Delete ${escapeHtml(item.name)}?</div><div class="dialog-footer"><button class="button secondary" data-action="close">Cancel</button><button class="button primary danger" data-action="confirm-delete-genre" data-id="${escapeHtml(item.id)}">Delete genre</button></div>`,
+          '[data-action="close"]',
+        );
+        break;
+      }
+      case "confirm-delete-genre":
+        if (
+          !genres.some((g) => g.parentGenreId === button.dataset.id) &&
+          !albums.some((a) => a.genres.some((g) => g.id === button.dataset.id))
+        ) {
+          genres = genres.filter((g) => g.id !== button.dataset.id);
+          finishCatalogSave("Genre deleted.", "#genres");
+        }
+        break;
+      case "select-genre":
+      case "create-genre": {
+        const input = editor.querySelector<HTMLInputElement>("#genre-query")!;
+        let item = genreChoices.find((g) => g.id === button.dataset.id);
+        if (button.dataset.action === "create-genre") {
+          const name = input.value.trim();
+          if (!name) break;
+          item = genreChoices.find(
+            (g) => g.name.toLowerCase() === name.toLowerCase(),
+          );
+          if (!item) {
+            item = { id: makeId(), name, parentGenreId: null };
+            genreChoices.push(item);
+          }
+        }
+        if (
+          !item ||
+          selectedGenres.some(
+            (g) =>
+              g.id === item.id ||
+              ancestors(g.id, genreChoices).some((p) => p.id === item!.id),
+          )
+        )
+          break;
+        const replaced = selectedGenres.filter((g) =>
+          ancestors(item!.id, genreChoices).some((p) => p.id === g.id),
+        );
+        selectedGenres = normalizeGenres(
+          [...selectedGenres, { ...item, isPrimary: false }],
+          genreChoices,
+        );
+        if (replaced.length)
+          announce(
+            `${replaced.map((g) => g.name).join(", ")} replaced by ${item.name}.`,
+          );
+        input.value = "";
+        updateGenres();
+        focusForTyping(input);
+        break;
+      }
+      case "remove-genre":
+        selectedGenres = selectedGenres.filter(
+          (g) => g.id !== button.dataset.id,
+        );
+        updateGenres();
+        break;
       case "new-catalog-artist":
         openCatalogArtist();
         break;
@@ -1052,14 +1267,14 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
             toggle === button ? "true" : "false",
           );
         }
-        updateLibrary(albums, state);
+        updateLibrary(albums, state, genres);
         break;
       case "clear":
         state.query = "";
         state.genre = "";
         document.querySelector<HTMLInputElement>("#library-query")!.value = "";
         document.querySelector<HTMLSelectElement>("#genre-filter")!.value = "";
-        updateLibrary(albums, state);
+        updateLibrary(albums, state, genres);
         focusForTyping(
           document.querySelector<HTMLInputElement>("#library-query"),
         );
@@ -1085,6 +1300,15 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       instrumentFilters.query = input.value;
       updateInstrumentList();
     }
+    if (input.id === "genre-query") updateGenres();
+    if (input.id === "genres-search") {
+      genreQuery = input.value;
+      const start = input.selectionStart;
+      renderRoute();
+      const next = main.querySelector<HTMLInputElement>("#genres-search")!;
+      next.focus();
+      next.setSelectionRange(start, start);
+    }
     if (input.id === "artists-search") {
       artistQuery = input.value;
       updateArtistList();
@@ -1093,7 +1317,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (input.id === "instrument-query") updateInstruments();
     if (input.id === "library-query") {
       state.query = input.value;
-      updateLibrary(albums, state);
+      updateLibrary(albums, state, genres);
     }
     if (input.id === "catalog-query") {
       searchQuery = input.value;
@@ -1103,6 +1327,21 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.dataset.genrePrimary) {
+      selectedGenres = selectedGenres.map((g) => ({
+        ...g,
+        isPrimary: g.id === input.dataset.genrePrimary && input.checked,
+      }));
+      updateGenres();
+    }
+    if (input.id === "genres-alphabetical") {
+      genreAlphabetical = input.checked;
+      updateGenreFilters(input.id);
+    }
+    if (input.id === "genres-unused") {
+      genreUnused = input.checked;
+      updateGenreFilters(input.id);
+    }
     if (input.id === "artists-unused") {
       artistUnused = input.checked;
       updateArtistList();
@@ -1126,16 +1365,62 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
     if (input.id === "genre-filter") {
       state.genre = input.value;
-      updateLibrary(albums, state);
+      updateLibrary(albums, state, genres);
     }
     if (input.id === "sort-order") {
       state.sort = input.value;
-      updateLibrary(albums, state);
+      updateLibrary(albums, state, genres);
     }
     if (input.name === "rating") updateRating(Number(input.value));
   });
 
   document.addEventListener("submit", (event) => {
+    if ((event.target as HTMLElement).id === "catalog-genre-form") {
+      event.preventDefault();
+      const form = event.target as HTMLFormElement;
+      const data = new FormData(form);
+      const input = form.querySelector<HTMLInputElement>('[name="genreName"]')!;
+      const name = input.value.trim();
+      const id = form.dataset.id || makeId();
+      const parentGenreId = String(data.get("parentGenreId") || "") || null;
+      if (
+        !name ||
+        genres.some(
+          (g) => g.id !== id && g.name.toLowerCase() === name.toLowerCase(),
+        )
+      )
+        return formError("Enter a unique genre name.", input);
+      if (
+        parentGenreId &&
+        (parentGenreId === id ||
+          ancestors(parentGenreId, genres).some((g) => g.id === id))
+      )
+        return formError(
+          "Choose a parent that does not create a cycle.",
+          input,
+        );
+      const next = genres
+        .filter((g) => g.id !== id)
+        .concat({ id, name, parentGenreId });
+      const affected = albums.filter(
+        (a) => normalizeGenres(a.genres, next).length < a.genres.length,
+      );
+      const apply = () => {
+        genres = next;
+        finishCatalogSave("Genre saved.", genreUrl(id));
+      };
+      if (affected.length) {
+        showDialog(
+          "Review genre changes",
+          "GENRE CATALOG",
+          `<div class="dialog-body"><p>This change removes redundant parent assignments from these albums, keeping their more specific genres:</p><ul>${affected.map((a) => `<li>${escapeHtml(a.title)}</li>`).join("")}</ul></div><div class="dialog-footer"><button class="button secondary" data-action="close">Cancel</button><button class="button primary" id="apply-genre-change">Apply changes</button></div>`,
+          "#apply-genre-change",
+        );
+        editor
+          .querySelector("#apply-genre-change")!
+          .addEventListener("click", apply, { once: true });
+      } else apply();
+    }
     if ((event.target as HTMLElement).id === "catalog-artist-form") {
       event.preventDefault();
       const form = event.target as HTMLFormElement;
@@ -1234,7 +1519,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   editor.addEventListener("keydown", (event) => {
     if (
       event.key === "Enter" &&
-      ["instrument-query", "artist-query"].includes(
+      ["instrument-query", "artist-query", "genre-query"].includes(
         (event.target as HTMLElement).id,
       )
     ) {
@@ -1243,7 +1528,9 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         .querySelector<HTMLButtonElement>(
           (event.target as HTMLElement).id === "artist-query"
             ? "#artist-results button"
-            : "#instrument-results button",
+            : (event.target as HTMLElement).id === "genre-query"
+              ? "#genre-results button:not([disabled])"
+              : "#instrument-results button",
         )
         ?.click();
       return;

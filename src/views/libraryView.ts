@@ -1,3 +1,5 @@
+import type { Genre } from "../types/albums";
+import { includesGenre } from "../app/genres";
 import type { Album } from "../types/albums";
 import {
   cover,
@@ -17,14 +19,14 @@ export interface LibraryState {
   layout: string;
 }
 
-export function renderLibraryView(albums: Album[], state: LibraryState) {
+export function renderLibraryView(
+  albums: Album[],
+  state: LibraryState,
+  catalog: Genre[],
+) {
   const featured =
     albums.find((album) => album.id === "seychelles") ?? albums[0];
-  const genres = [
-    ...new Set(
-      albums.flatMap((album) => album.genres.map((genre) => genre.name)),
-    ),
-  ].sort((a, b) => a.localeCompare(b));
+  const genres = catalog.map((g) => g.name).sort((a, b) => a.localeCompare(b));
   if (!genres.includes(state.genre)) state.genre = "";
   const listenCount = albums.reduce(
     (sum, album) => sum + album.listeningEntries.length,
@@ -139,7 +141,11 @@ export function renderLibraryView(albums: Album[], state: LibraryState) {
     </section>`;
 }
 
-export function updateLibrary(albums: Album[], state: LibraryState) {
+export function updateLibrary(
+  albums: Album[],
+  state: LibraryState,
+  catalog: Genre[],
+) {
   const list = document.querySelector("#library-results");
   if (!list) return;
   const titleOrder = (a: Album, b: Album) =>
@@ -156,7 +162,11 @@ export function updateLibrary(albums: Album[], state: LibraryState) {
   const filtered = albums.filter(
     (album) =>
       (!state.genre ||
-        album.genres.some((genre) => genre.name === state.genre)) &&
+        includesGenre(
+          album,
+          catalog.find((g) => g.name === state.genre)?.id ?? "",
+          catalog,
+        )) &&
       matches(
         state.query,
         album.title,

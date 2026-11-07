@@ -43,6 +43,8 @@ export interface AlbumArtist {
   position: number;
 }
 
+export type Genre = Omit<AlbumGenre, "isPrimary">;
+
 // A genre attached to an album. At most one genre per album is primary.
 export interface AlbumGenre {
   id: string;
