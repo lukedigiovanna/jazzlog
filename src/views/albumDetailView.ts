@@ -125,6 +125,7 @@ export function renderAlbumDetailView(album: Album) {
       <div class="album-sidebar">
         <section aria-labelledby="instruments-title">
           <div class="detail-heading">
+            ${icon("music", 21)}
             <h2 id="instruments-title">Instrumentation</h2>
           </div>
           ${album.instruments.length ? /* HTML */ `<div class="tags">${album.instruments.map((item) => /* HTML */ `<a class="chip" href="${instrumentUrl(item.id)}">${escapeHtml(item.name)}</a>`).join("")}</div>` : '<p class="muted">No instruments added yet. Add them whenever you know what you heard.</p>'}
