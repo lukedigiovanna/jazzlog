@@ -91,6 +91,16 @@ export function initializeApp(data?: LibraryData) {
   let artists = data?.artists ?? readArtistCatalog(albums);
   let artistQuery = "";
   let artistUnused = false;
+  // Keep the pressed option mounted while a mobile keyboard commits text.
+  let pickerPress: {
+    button: HTMLButtonElement;
+    pointerId: number;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null = null;
+  let pickerRenderPending = false;
+  let suppressPickerClick = false;
   let selectedArtists: AlbumArtist[] = [];
   let artistChoices: Artist[] = [];
   let instruments = data?.instruments ?? readInstrumentCatalog(albums);
@@ -645,6 +655,10 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function updateArtists() {
+    if (pickerPress) {
+      pickerRenderPending = true;
+      return;
+    }
     const input = editor.querySelector<HTMLInputElement>("#artist-query");
     if (!input) return;
     const query = input.value.trim();
@@ -1077,6 +1091,10 @@ export function initializeApp(data?: LibraryData) {
     </div>`;
   }
   function updateGenres() {
+    if (pickerPress) {
+      pickerRenderPending = true;
+      return;
+    }
     const input = editor.querySelector<HTMLInputElement>("#genre-query");
     if (!input) return;
     const query = input.value.trim();
@@ -2096,13 +2114,51 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     updateSearchDropdowns(event.target);
   });
   document.addEventListener("focusin", (event) => {
-    updateSearchDropdowns(event.target);
+    if (!pickerPress) updateSearchDropdowns(event.target);
+  });
+
+  function finishPickerPress() {
+    pickerPress = null;
+    if (pickerRenderPending) {
+      pickerRenderPending = false;
+      updateArtists();
+      updateGenres();
+    }
+  }
+
+  document.addEventListener("pointermove", (event) => {
+    if (pickerPress?.pointerId !== event.pointerId) return;
+    if (
+      Math.hypot(event.clientX - pickerPress.x, event.clientY - pickerPress.y) >
+      8
+    )
+      pickerPress.moved = true;
   });
   document.addEventListener(
     "pointerdown",
     (event) => {
-      // Safari may blur the input without focusing a tapped option. Keep the
-      // dropdown mounted until its click runs; outside interactions close it.
+      finishPickerPress();
+      suppressPickerClick = false;
+      const option = (event.target as Element).closest<HTMLButtonElement>(
+        ".catalog-search .instrument-results button:not([disabled])",
+      );
+      if (
+        option &&
+        editor.contains(option) &&
+        event.isPrimary &&
+        event.button === 0
+      ) {
+        pickerPress = {
+          button: option,
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          moved: false,
+        };
+        // Keep input focus and the software keyboard stable. Touch scrolling
+        // remains native; pointercancel or movement prevents selection.
+        event.preventDefault();
+      }
       updateSearchDropdowns(event.target);
       suppressBackdropClick = false;
       pointerStartedOutside = isOutsideDialog(event);
@@ -2110,11 +2166,33 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     true,
   );
   document.addEventListener("pointercancel", () => {
+    if (pickerPress) suppressPickerClick = true;
+    finishPickerPress();
     pointerStartedOutside = false;
   });
   document.addEventListener(
     "pointerup",
     (event) => {
+      if (pickerPress?.pointerId === event.pointerId) {
+        const press = pickerPress;
+        pickerPress = null;
+        suppressPickerClick = true;
+        const releasedOn = document.elementFromPoint(
+          event.clientX,
+          event.clientY,
+        );
+        if (
+          !press.moved &&
+          press.button.isConnected &&
+          releasedOn &&
+          press.button.contains(releasedOn)
+        ) {
+          // Activate the original option once, before focus or keyboard changes
+          // can retarget the browser's subsequent compatibility click.
+          press.button.click();
+        }
+        finishPickerPress();
+      }
       // Handle the release directly, before a synthesized click or focus change.
       // Dragging from a field to the backdrop must not dismiss the form.
       const dismiss = pointerStartedOutside && isOutsideDialog(event);
@@ -2131,6 +2209,12 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   document.addEventListener(
     "click",
     (event) => {
+      if (suppressPickerClick && event.detail > 0) {
+        suppressPickerClick = false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (!suppressBackdropClick) return;
       suppressBackdropClick = false;
       // iOS can send a click to the control exposed by closing the dialog.
