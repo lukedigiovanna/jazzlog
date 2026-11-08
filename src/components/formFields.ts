@@ -67,3 +67,16 @@ export function catalogImageField(
     </div>
   </div>`;
 }
+
+export function updateCatalogImage(input: HTMLInputElement) {
+  const form = input.closest("form")!;
+  const container = form.querySelector<HTMLElement>(".catalog-image-editor")!;
+  container.querySelector(".catalog-image-preview")!.innerHTML = catalogImage(
+    container.dataset.name ?? "",
+    form.querySelector<HTMLInputElement>('[name="catalogImage"]')!.value,
+    container.dataset.artist === "true",
+    [
+      ...form.querySelectorAll<HTMLInputElement>('[name="category"]:checked'),
+    ].map((input) => input.value as InstrumentCategory),
+  );
+}

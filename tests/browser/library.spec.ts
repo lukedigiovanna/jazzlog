@@ -358,3 +358,203 @@ test("dialog mount and disposal remove listeners and queued work", async ({
   });
   expect(result).toEqual({ dismissals: 2, rendered: 0 });
 });
+
+test("listening edits and deletion persist independently of other entries", async ({
+  page,
+}) => {
+  await openAlbum(page);
+  await page.locator('[data-action="listen"]').first().click();
+  await page.locator('[name="rating"][value="6"]').check();
+  await page.locator('[name="notes"]').fill("Entry to edit");
+  await page.locator('#listen-form button[type="submit"]').click();
+  await page
+    .locator('[data-action="edit-listen"]')
+    .filter({ hasText: "Entry to edit" })
+    .click();
+  await page.locator('[name="rating"][value="9"]').check();
+  await page.locator('[name="notes"]').fill("Edited entry");
+  await page.locator('#listen-form button[type="submit"]').click();
+  await reloadDemo(page);
+  const entries = page.locator('[data-action="edit-listen"]');
+  const count = await entries.count();
+  await entries.filter({ hasText: "Edited entry" }).click();
+  await expect(page.locator('[name="rating"][value="9"]')).toBeChecked();
+  await page.getByText("Delete listening entry", { exact: true }).click();
+  await page.locator('[data-action="delete-listen"]').click();
+  await expect(page.locator("#editor")).not.toBeVisible();
+  await reloadDemo(page);
+  await expect(entries).toHaveCount(count - 1);
+  await expect(page.getByText("Edited entry", { exact: true })).toHaveCount(0);
+});
+
+test("catalog artist and instrument editors validate and retain details", async ({
+  page,
+}) => {
+  await page.goto("/#artists");
+  await page.locator('[data-action="new-catalog-artist"]').click();
+  await page.locator('[name="artistName"]').fill("Catalog regression artist");
+  await page.locator('[name="artistMbid"]').fill("invalid");
+  await page.locator('#catalog-artist-form button[type="submit"]').click();
+  await expect(page.locator("#form-error")).toContainText(
+    "valid MusicBrainz artist ID",
+  );
+  await page.locator('[name="artistMbid"]').fill("");
+  await page.locator('[name="country"]').fill("us");
+  await page.locator('#catalog-artist-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText(
+    "Catalog regression artist",
+  );
+  await reloadDemo(page);
+  await page.locator('[data-action="edit-catalog-artist"]').click();
+  await expect(page.locator('[name="country"]')).toHaveValue("US");
+  await page.keyboard.press("Escape");
+  await page.goto("/#instruments");
+  await page.locator('[data-action="new-catalog-instrument"]').click();
+  await page
+    .locator('[name="instrumentName"]')
+    .fill("Catalog regression instrument");
+  const category = page.locator('[name="category"]').first();
+  const categoryValue = await category.inputValue();
+  await category.check();
+  await page.locator('#catalog-instrument-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText(
+    "Catalog regression instrument",
+  );
+  await reloadDemo(page);
+  await page.locator('[data-action="edit-catalog-instrument"]').click();
+  await expect(
+    page.locator(`[name="category"][value="${categoryValue}"]`),
+  ).toBeChecked();
+  await page
+    .locator('[name="instrumentName"]')
+    .fill("Renamed regression instrument");
+  await page.locator('#catalog-instrument-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText(
+    "Renamed regression instrument",
+  );
+});
+
+test("artist and instrument draft selections stay separate from committed catalogs", async ({
+  page,
+}) => {
+  await openAlbum(page);
+  await page.locator('[data-action="edit"]').click();
+  await page.locator("#artist-query").fill("Draft only artist");
+  await page.locator('[data-action="create-artist"]').click();
+  await page.locator("#instrument-query").fill("Draft only instrument");
+  await page.locator('[data-action="create-instrument"]').click();
+  await reloadDemo(page);
+  await expect(page.locator("#artist-selected")).toContainText(
+    "Draft only artist",
+  );
+  await expect(page.locator("#instrument-selected")).toContainText(
+    "Draft only instrument",
+  );
+  await page.locator('#album-form [data-action="close"]').click();
+  await page.locator("[data-draft-discard]").click();
+  await page.goto("/#artists");
+  await page.locator("#artists-search").fill("Draft only artist");
+  await expect(page.locator('main a[href^="#artist/"]')).toHaveCount(0);
+  await page.goto("/#instruments");
+  await page.locator("#instruments-search").fill("Draft only instrument");
+  await expect(page.locator('main a[href^="#instrument/"]')).toHaveCount(0);
+});
+
+test("a delayed metadata result cannot replace a manual editor", async ({
+  page,
+}) => {
+  let release!: () => void;
+  let requested!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  const response = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    "https://musicbrainz.org/ws/2/release-group*",
+    async (route) => {
+      requested();
+      await response;
+      await route.fulfill({ json: { "release-groups": [] } });
+    },
+  );
+  await page.locator("#top-add").click();
+  await page.locator("#catalog-query").fill("Delayed search");
+  await waiting;
+  await page.locator('[data-action="manual"]').click();
+  await page.locator('[name="title"]').fill("Manual editor survives");
+  const completed = page.waitForResponse(
+    "https://musicbrainz.org/ws/2/release-group*",
+  );
+  release();
+  await completed;
+  await expect(page.locator('[name="title"]')).toHaveValue(
+    "Manual editor survives",
+  );
+  await page.locator('#album-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText(
+    "Manual editor survives",
+  );
+});
+
+test("route previews match live lists and remounting handles each save once", async ({
+  page,
+}) => {
+  // Start at the auth screen so this test owns the controller lifecycle.
+  await page.goto("/");
+  const previews = await page.evaluate(async () => {
+    const appPath = "/src/app/app.ts";
+    const controllerPath = "/src/app/controller.ts";
+    const { renderApp } = await import(/* @vite-ignore */ appPath);
+    const { initializeApp } = await import(/* @vite-ignore */ controllerPath);
+    document.querySelector("#app")!.innerHTML = renderApp();
+    const first = initializeApp();
+    const results = [];
+    for (const hash of ["#artists", "#genres", "#instruments", "#"]) {
+      const changed = new Promise<void>((resolve) =>
+        window.addEventListener("hashchange", () => resolve(), { once: true }),
+      );
+      location.hash = hash;
+      await changed;
+      const preview = first(hash);
+      const live = document
+        .querySelector("main")!
+        .cloneNode(true) as HTMLElement;
+      live.querySelector("#page-title")?.removeAttribute("tabindex");
+      live
+        .querySelectorAll("[id]")
+        .forEach((element) => element.removeAttribute("id"));
+      results.push({
+        hash,
+        same: preview.innerHTML === live.innerHTML,
+        inert: preview.inert,
+        hidden: preview.getAttribute("aria-hidden"),
+        ids: preview.querySelectorAll("[id]").length,
+      });
+    }
+    first.dispose();
+    initializeApp();
+    return results;
+  });
+  for (const preview of previews) {
+    expect(preview).toEqual({
+      hash: preview.hash,
+      same: true,
+      inert: true,
+      hidden: "true",
+      ids: 0,
+    });
+  }
+  await openAlbum(page);
+  await page.locator('[data-action="listen"]').first().click();
+  await page.locator('[name="rating"][value="8"]').check();
+  await page.locator('[name="notes"]').fill("Saved once after remount");
+  await page.locator('#listen-form button[type="submit"]').click();
+  await expect(page.locator("#editor")).not.toBeVisible();
+  await expect(
+    page
+      .locator('[data-action="edit-listen"]')
+      .filter({ hasText: "Saved once after remount" }),
+  ).toHaveCount(1);
+});

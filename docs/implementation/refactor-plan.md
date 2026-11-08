@@ -43,13 +43,23 @@ Acceptance: editor state has an identifiable owner; mounting and disposing does 
 - Validation: 18 Node tests, 26 browser checks across desktop and mobile Chromium, production build, and formatting of changed files pass.
 - Limitations: account isolation is characterized using a foreign account’s stored draft, without a live authenticated session. Chromium touch emulation does not replace a real iOS Safari check. Sections 3–5 remain deferred; begin with section 3 next.
 
-## 3. Feature ownership
+## 3. Feature ownership (completed)
 
 Extract one feature at a time: listening entries, album editor, catalog editors/pickers, then metadata import search. Each owns temporary state, rendering, validation, and its event handlers. Keep durable library data separate from form selections and search state. Pass specific operations through small typed interfaces rather than handing every module a mutable application context.
 
 Keep routing and feature wiring in the application controller. Share route rendering with swipe previews where practical, preserving inert previews and ID removal. Do not generalize all catalog pickers unless their actual differences remain easy to express.
 
 Acceptance: a feature can be understood without tracing a document-wide event switch and unrelated closure variables. Tests pass after each extraction.
+
+### Completed third-slice handoff
+
+- Extracted listening form rendering, rating updates, save/edit/delete handling into `src/app/listening.ts`; album form/link editing, imported review state, validation, and Apple Music search into `src/app/albumEditor.ts`.
+- Extracted catalog editors, distinct pickers, selections, filters, validation, and event handlers into `src/app/artistFeature.ts`, `src/app/genreFeature.ts`, and `src/app/instrumentFeature.ts`. Draft serialization/restoration accesses each feature’s owned selections; temporary catalog choices stay separate from durable library arrays.
+- Extracted MusicBrainz/Wikipedia candidate conversion, query/cache/results, debounce/version handling, and import selection into `src/app/metadataSearch.ts`. Preserved close/disposal cancellation and stale-response guards. Shared date formatting lives in `src/app/date.ts`; catalog image preview rendering stays with the form components.
+- The controller retains routing, event delegation/wiring, dialog/draft coordination, and existing persistence. Features receive typed operations and only the library collections they use, with live accessors preserving replacement/rollback behavior. Normal list routes and swipe previews share rendering; previews remain inert, hidden from accessibility APIs, and free of IDs.
+- Added browser coverage for listening edits/deletion, artist/instrument catalog validation and persistence, draft-only artist/instrument choices, delayed metadata responses, route/preview parity, and controller disposal/remount without duplicate saves.
+- Validation: 18 Node tests, 36 browser checks across desktop and mobile Chromium, production build, and formatting of changed files pass. No intended changes to storage keys, serialized data, DOM selectors, routes, or service contracts.
+- Limitations: authenticated persistence characterization remains required before section 4; Chromium touch emulation does not replace a real iOS Safari check. Sections 4–5 remain deferred. Begin with section 4 next.
 
 ## 4. Library state and persistence
 
@@ -69,4 +79,4 @@ Acceptance: no layout, cascade, overflow, focus, or reduced-motion regressions.
 
 Run `npm test`, `npm run test:browser`, and `npm run build` for each completed slice. Install browser binaries with `npx playwright install chromium` when needed. Browser tests use a dedicated local port and mocked metadata; they do not write to a real account. Record limitations honestly: Chromium touch emulation does not replace a real iOS Safari check for pointer/keyboard changes.
 
-Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 3; authenticated persistence characterization remains required before section 4.
+Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 4; authenticated persistence characterization remains required before section 4.
