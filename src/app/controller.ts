@@ -1,7 +1,6 @@
 import {
   findAppleMusicAlbums,
   relevantAppleMusicAlbums,
-  exactAppleMusicMatch,
   type AppleMusicAlbum,
 } from "../services/appleMusic";
 import { findArtist, commitAlbumArtists } from "./artistIdentity";
@@ -1313,7 +1312,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     finishCatalogSave("Instrument saved.", instrumentUrl(item.id));
   }
 
-  let appleTimer: ReturnType<typeof setTimeout>;
   let appleVersion = 0;
   let appleResults: AppleMusicAlbum[] = [];
 
@@ -1342,12 +1340,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     captureDraft();
   }
 
-  function scheduleAppleLookup(force = false) {
-    clearTimeout(appleTimer);
+  async function searchAppleMusic() {
     const version = ++appleVersion;
     const form = editor.querySelector<HTMLFormElement>("#album-form");
     const status = editor.querySelector<HTMLElement>("#apple-music-status");
-    if (!form || !status) return;
+    const button = editor.querySelector<HTMLButtonElement>(
+      '[data-action="find-apple-music"]',
+    );
+    if (!form || !status || !button) return;
     appleResults = [];
     const title = form
       .querySelector<HTMLInputElement>('[name="title"]')!
@@ -1356,55 +1356,70 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       .filter((artist) => artist.role === "primary")
       .map((artist) => artist.name);
     if (hasAppleLink()) {
-      status.textContent = "Apple Music link added.";
+      status.textContent =
+        "Remove the existing Apple Music link to choose a different album.";
       return;
     }
     if (!title || !names.length) {
       status.textContent =
-        "Add a title and primary artist to find an Apple Music link.";
+        "Add an album title and primary artist before searching.";
       return;
     }
-    status.textContent = "Looking for an Apple Music link (US)…";
-    appleTimer = setTimeout(
-      async () => {
-        const current = () =>
-          version === appleVersion &&
-          editor.open &&
-          !saving &&
-          editor.querySelector("#album-form") === form;
-        try {
-          const results = relevantAppleMusicAlbums(
-            await findAppleMusicAlbums(title, names.join(" ")),
-            title,
-            names,
-          );
-          if (!current()) return;
-          if (hasAppleLink()) {
-            status.textContent = "Apple Music link added.";
-            return;
-          }
-          appleResults = results;
-          const exact = exactAppleMusicMatch(results, title, names);
-          if (exact) {
-            addAppleLink(exact);
-            status.textContent =
-              "Apple Music link added. You can edit or remove it below.";
-          } else {
-            status.innerHTML = results.length
-              ? /* HTML */ `<p>Choose an Apple Music album (US):</p>
-                  ${results.map((item, index) => /* HTML */ `<button type="button" class="button secondary compact" data-action="pick-apple-music" data-index="${index}">${escapeHtml(item.title)} · ${escapeHtml(item.artist)}${item.year ? ` · ${item.year}` : ""}</button>`).join(" ")}`
-              : "No Apple Music match found. You can add a link manually.";
-          }
-        } catch (error) {
-          if (current())
-            status.textContent =
-              error instanceof Error
-                ? error.message
-                : "Couldn’t look up Apple Music. You can still save or add a link manually.";
-        }
-      },
-      force ? 0 : 800,
-    );
+    const current = () =>
+      version === appleVersion &&
+      editor.open &&
+      !saving &&
+      editor.querySelector("#album-form") === form;
+    button.disabled = true;
+    button.textContent = "Searching…";
+    status.textContent = `Searching Apple Music (US) for ${title} by ${names.join(", ")}…`;
+    try {
+      const results = relevantAppleMusicAlbums(
+        await findAppleMusicAlbums(title, names.join(" ")),
+        title,
+        names,
+      );
+      if (!current()) return;
+      if (hasAppleLink()) {
+        status.textContent = "An Apple Music link is already added.";
+        return;
+      }
+      appleResults = results;
+      status.innerHTML = results.length
+        ? /* HTML */ `<p class="form-hint">Choose the album to add its link.</p>
+            <div class="apple-music-results">
+              ${results
+                .map(
+                  (item, index) =>
+                    /* HTML */ `<button
+                      type="button"
+                      class="apple-music-result"
+                      data-action="pick-apple-music"
+                      data-index="${index}"
+                    >
+                      <span
+                        ><strong>${escapeHtml(item.title)}</strong
+                        ><small
+                          >${escapeHtml(item.artist)}${item.year ? ` · ${item.year}` : ""}</small
+                        ></span
+                      ><span class="apple-music-add"
+                        >${icon("plus", 15)} Add</span
+                      >
+                    </button>`,
+                )
+                .join("")}
+            </div>`
+        : "No albums found. Try updating the title or artist, or add a link manually.";
+    } catch (error) {
+      if (current())
+        status.textContent =
+          error instanceof Error
+            ? error.message
+            : "Couldn’t search Apple Music. Try again or add a link manually.";
+    } finally {
+      button.disabled = false;
+      button.innerHTML = /* HTML */ `${icon("music", 15)} Search Apple Music`;
+    }
   }
 
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
@@ -1424,7 +1439,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
               class="button secondary compact"
               data-action="add-link"
             >
-              ${icon("plus", 15)} Add link
+              ${icon("plus", 15)} Add link manually
             </button>
             <p class="form-error" id="form-error" role="alert" hidden></p>
           </div>
@@ -1473,28 +1488,23 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
           ${artistPicker(album.artists ?? [])}
           ${genrePicker(album.genres ?? [])}
           ${instrumentPicker(album.instruments ?? [])}
-          <details class="extra-fields">
-            <summary>More album details</summary>
-            <div class="field-grid">
-              ${field("Sort title", "sortTitle", album.sortTitle, { attributes: 'maxlength="150"', placeholder: "Optional" })}
-              ${field("Record label", "label", album.recordLabel, { attributes: 'maxlength="100"', placeholder: "Optional" })}
-              ${field("Artwork URL", "artwork", webUrl(album.artworkUrl)?.href, { type: "url", attributes: 'maxlength="2000"', placeholder: "https://…" })}
-              ${field("MusicBrainz ID", "mbid", album.musicbrainzReleaseGroupId, { attributes: 'maxlength="36"', placeholder: "Release group ID" })}
+          <section class="link-form" aria-labelledby="music-links-title">
+            <h3 id="music-links-title">Music links</h3>
+            <div class="apple-music-search">
+              <button
+                type="button"
+                class="button secondary compact"
+                data-action="find-apple-music"
+              >
+                ${icon("music", 15)} Search Apple Music
+              </button>
+              <div
+                id="apple-music-status"
+                class="apple-music-status"
+                role="status"
+                aria-live="polite"
+              ></div>
             </div>
-          </details>
-          <div class="link-form">
-            <h3>Music links</h3>
-            <p class="form-hint">
-              Add Apple Music, YouTube, or another music link.
-            </p>
-            <div id="apple-music-status" class="form-hint" role="status"></div>
-            <button
-              type="button"
-              class="button secondary compact"
-              data-action="find-apple-music"
-            >
-              Find Apple Music link
-            </button>
             <div id="link-rows">
               ${(album.links ?? []).map(linkRow).join("")}
             </div>
@@ -1503,9 +1513,16 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
               class="button secondary compact"
               data-action="add-link"
             >
-              ${icon("plus", 15)} Add link
+              ${icon("plus", 15)} Add link manually
             </button>
-          </div>
+          </section>
+          <section class="extra-fields" aria-labelledby="album-details-title">
+            <h3 id="album-details-title">More album details</h3>
+            <div class="field-grid">
+              ${field("Record label", "label", album.recordLabel, { attributes: 'maxlength="100"', placeholder: "Optional" })}
+              ${field("Artwork URL", "artwork", webUrl(album.artworkUrl)?.href, { type: "url", attributes: 'maxlength="2000"', placeholder: "https://…" })}
+            </div>
+          </section>
           <p class="form-error" id="form-error" role="alert" hidden></p>
         </div>
         <div class="dialog-footer">
@@ -1522,7 +1539,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     updateInstruments();
     updateArtists();
     updateGenres();
-    scheduleAppleLookup();
   }
 
   function updateCatalogFilters(focusId: string) {
@@ -1819,7 +1835,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if ((mode === "edit" || mode === "review") && !original) return;
     const title = value("title");
     const artwork = value("artwork");
-    const mbid = value("mbid");
+    const mbid = original?.musicbrainzReleaseGroupId;
     if (!title)
       return formError(
         "Enter an album title.",
@@ -1829,11 +1845,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       return formError(
         "Enter an HTTP or HTTPS artwork URL.",
         form.querySelector<HTMLInputElement>("[name=artwork]")!,
-      );
-    if (mbid && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(mbid))
-      return formError(
-        "Enter a valid MusicBrainz release group ID.",
-        form.querySelector<HTMLInputElement>("[name=mbid]")!,
       );
     if (
       mbid &&
@@ -1845,7 +1856,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     )
       return formError(
         "This MusicBrainz album is already in your library.",
-        form.querySelector<HTMLInputElement>("[name=mbid]")!,
+        form.querySelector<HTMLInputElement>("[name=title]")!,
       );
     const links = [];
     for (const row of form.querySelectorAll(".link-fields")) {
@@ -1870,7 +1881,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       id: mode === "edit" ? original!.id : makeId(),
       sourceId: mode === "edit" ? original?.sourceId : undefined,
       title,
-      sortTitle: value("sortTitle"),
+      sortTitle: original?.sortTitle ?? null,
       artists: committedArtists.credits,
       releaseYear: Number(value("year")) || null,
       genres: structuredClone(selectedGenres),
@@ -2124,7 +2135,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           });
         input.value = "";
         updateArtists();
-        scheduleAppleLookup();
         focusForTyping(input);
         updateSearchDropdowns(null);
         break;
@@ -2134,7 +2144,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           (item) => item.id !== button.dataset.id,
         );
         updateArtists();
-        scheduleAppleLookup();
         focusForTyping(editor.querySelector("#artist-query"));
         break;
       case "move-artist": {
@@ -2393,14 +2402,14 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         );
         break;
       case "find-apple-music":
-        scheduleAppleLookup(true);
+        searchAppleMusic();
         break;
       case "pick-apple-music": {
         const item = appleResults[Number(button.dataset.index)];
         if (item) {
           addAppleLink(item);
-          editor.querySelector("#apple-music-status")!.textContent =
-            "Apple Music link added.";
+          editor.querySelector("#apple-music-status")!.replaceChildren();
+          appleResults = [];
         }
         break;
       }
@@ -2421,8 +2430,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("input", (event) => {
     const input = event.target as HTMLInputElement;
-    if (input.name === "title" && input.closest("#album-form"))
-      scheduleAppleLookup();
     if (input.id === "instruments-search") {
       instrumentFilters.query = input.value;
       updateInstrumentList();
@@ -2454,8 +2461,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
-    if (input.name === "title" && input.closest("#album-form"))
-      scheduleAppleLookup();
     if (input.id === "genres-alphabetical") {
       genreAlphabetical = input.checked;
       updateCatalogFilters(input.id);
@@ -2476,7 +2481,6 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         (item) => item.id === input.dataset.artistRole,
       );
       if (credit) credit.role = input.value as ArtistRole;
-      scheduleAppleLookup();
     }
     if (input.id === "instrument-category-filter") {
       instrumentFilters.category = input.value;
