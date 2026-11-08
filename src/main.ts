@@ -9,7 +9,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 import { renderApp } from "./app/app";
 import { initializeNavigation } from "./app/navigation";
-import { initializeApp, type LibraryData } from "./app/controller";
+import { initializeApp } from "./app/controller";
+import type { LibraryData } from "./types/library";
 import { initializeMobileHeader } from "./components/header";
 import { renderAuthView, initializeAuthView } from "./views/authView";
 

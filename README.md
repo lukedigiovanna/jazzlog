@@ -30,6 +30,22 @@ The app is initially for personal use, but its data model should support multipl
 
 No frontend framework or separately hosted application backend. The browser communicates with Supabase directly, with access controlled by Row Level Security (RLS).
 
+## Tests
+
+Use Node.js 22.18+ (or a newer supported release) for the tests that import TypeScript directly.
+
+```sh
+npm ci
+npx playwright install chromium
+npm test
+npm run test:browser
+npm run build
+```
+
+The browser suite starts its own Vite server on port 5180 and runs in desktop Chromium and mobile Chromium touch emulation. Each test has isolated storage. Supabase configuration is disabled for this server; metadata search is mocked, and tests do not write to a real account. Failed browser tests retain traces in `test-results/`.
+
+The [refactoring plan](docs/implementation/refactor-plan.md) records the completed first slice and the remaining regression coverage required before later refactors.
+
 ## Product decisions
 
 - **Single-page application:** Start with one library view and streamlined album-logging workflow. No router or tabbed navigation initially.
