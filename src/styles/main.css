@@ -806,6 +806,15 @@ main:focus,
   gap: 32px;
   margin-top: 30px;
 }
+.album-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.album-footer .button {
+  color: var(--muted);
+  font-size: 12px;
+}
 .detail-heading {
   display: flex;
   align-items: center;

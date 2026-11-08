@@ -2263,6 +2263,40 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       case "edit":
         if (album) openAlbumForm(album, "edit");
         break;
+      case "delete-album":
+        if (album)
+          showDialog(
+            "Delete album?",
+            "YOUR LIBRARY",
+            /* HTML */ `<div class="dialog-body">
+                <p>
+                  Delete <strong>${escapeHtml(album.title)}</strong> from your
+                  library? All of its listening history, ratings, notes, and
+                  music links will also be deleted. This cannot be undone.
+                </p>
+                <p id="form-error" class="form-error" role="alert" hidden></p>
+              </div>
+              <div class="dialog-footer">
+                <button class="button secondary" data-action="close">
+                  Cancel
+                </button>
+                <button
+                  class="button primary danger"
+                  data-action="confirm-delete-album"
+                  data-id="${escapeHtml(album.id)}"
+                >
+                  Delete album
+                </button>
+              </div>`,
+            '.dialog-footer [data-action="close"]',
+          );
+        break;
+      case "confirm-delete-album":
+        if (albums.some((item) => item.id === button.dataset.id)) {
+          albums = albums.filter((item) => item.id !== button.dataset.id);
+          finishCatalogSave("Album deleted.", "#");
+        }
+        break;
       case "edit-listen": {
         const entry = album?.listeningEntries.find(
           (item) => item.id === button.dataset.id,

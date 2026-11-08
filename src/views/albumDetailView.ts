@@ -231,5 +231,10 @@ export function renderAlbumDetailView(album: Album) {
         </section>
       </div>
     </div>
+    <div class="album-footer">
+      <button type="button" class="button secondary" data-action="delete-album">
+        Delete album
+      </button>
+    </div>
   </div>`;
 }
