@@ -136,6 +136,16 @@ Auth verification uses mocked Supabase HTTP responses to cover signup confirmati
 
 Run `npm run format` to format the project with Prettier, or `npm run format:check` to check formatting without changing files.
 
+## Install on a phone
+
+The production build includes a web app manifest, Android and Apple icons, and a service worker. Deploy with `npm run deploy` using Cloudflare credentials. Vite embeds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time; configure them before building. Set the deployed HTTPS URL as the Supabase Authentication Site URL and allow it as a redirect URL for confirmation emails.
+
+On iPhone, open the deployed URL in Safari, choose Share → Add to Home Screen, and enable Open as Web App when offered. On Android, open it in Chrome and choose Install app or Add to Home screen. Launch JazzLog from its icon and sign in; browser and installed-app sessions may be separate.
+
+The app requires an internet connection for account access, album lookup, and saving. Only a standalone offline message is cached; personal library data and API responses are not stored by the service worker. Offline editing and synchronization are not implemented. Existing open pages can retain their current UI while disconnected; saving still requires a connection. Application code is loaded from the network on launch. Service worker updates take over once the previous app windows close; no forced reload interrupts an editor.
+
+Before using the installed app, verify sign-in, opening and saving a listen, session restoration after closing and reopening, and form/keyboard layout on your phone. After an online launch, airplane mode plus a reload should show the offline page; reconnecting and choosing Try again should return to the app.
+
 The demo includes library search, genre filters, sorting, grid/list layouts, album details, listening history, half-star ratings (stored as integers from 1–10), catalog result review, manual entry, album editing, music links, and an instrument catalog with category filters, album usage, and deletion of unused instruments. Edits persist in this browser under `jazzlog-demo-v1`; remove that localStorage key to restore the fixtures. If storage is unavailable, changes last for the current visit.
 
 Instruments are stored independently of albums in the same demo snapshot. Existing album-only snapshots migrate automatically, preserving uncategorized instruments. Removing an instrument from an album keeps it in your catalog; renaming or recategorizing it updates all album appearances.
