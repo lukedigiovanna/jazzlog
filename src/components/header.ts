@@ -1,6 +1,8 @@
-export function initializeMobileHeader(): void {
+import { createLifecycle } from "../app/lifecycle";
+export function initializeMobileHeader(): () => void {
+  const lifecycle = createLifecycle();
   const header = document.querySelector<HTMLElement>(".masthead");
-  if (!header) return;
+  if (!header) return () => lifecycle.dispose();
 
   const mobile = window.matchMedia("(max-width: 700px)");
   let lastY = window.scrollY;
@@ -12,7 +14,7 @@ export function initializeMobileHeader(): void {
     lastY = window.scrollY;
   }
 
-  window.addEventListener(
+  lifecycle.listen(window).addEventListener(
     "scroll",
     () => {
       // Clamp elastic overscroll so bouncing at either end cannot hide the nav.
@@ -41,9 +43,10 @@ export function initializeMobileHeader(): void {
     },
     { passive: true },
   );
-  header.addEventListener("focusin", showHeader);
-  window.addEventListener("hashchange", showHeader);
-  mobile.addEventListener("change", showHeader);
+  lifecycle.listen(header).addEventListener("focusin", showHeader);
+  lifecycle.listen(window).addEventListener("hashchange", showHeader);
+  lifecycle.listen(mobile).addEventListener("change", showHeader);
+  return () => lifecycle.dispose();
 }
 
 export function renderHeader(): string {

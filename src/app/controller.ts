@@ -1,3 +1,6 @@
+import { createDialog } from "./dialog";
+import { createEditorDrafts } from "./editorDrafts";
+import { createLifecycle } from "./lifecycle";
 import { catalogImage } from "../components/catalogSummary";
 import type { LibraryData } from "../types/library";
 import { field, linkRow, catalogImageField } from "../components/formFields";
@@ -77,9 +80,10 @@ import {
   updateInstrumentsView,
   renderInstrumentDetail,
 } from "../views/instrumentsView";
-import { focusForTyping, prefersTouchInteraction } from "./device";
+import { focusForTyping } from "./device";
 
 export function initializeApp(data?: LibraryData, accountId = "demo") {
+  const lifecycle = createLifecycle();
   const authenticated = Boolean(data);
   let saving = false;
   const main = document.querySelector<HTMLElement>("main")!;
@@ -100,16 +104,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   let artistUnused = false;
   let artistSort = "albums";
   let artistPrimary = false;
-  // Keep the pressed option mounted while a mobile keyboard commits text.
-  let pickerPress: {
-    button: HTMLButtonElement;
-    pointerId: number;
-    x: number;
-    y: number;
-    moved: boolean;
-  } | null = null;
-  let pickerRenderPending = false;
-  let suppressPickerClick = false;
   let selectedArtists: AlbumArtist[] = [];
   let artistChoices: Artist[] = [];
   let instruments = data?.instruments ?? readInstrumentCatalog(albums);
@@ -122,8 +116,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   };
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
-  let dialogOrigin: HTMLElement | undefined;
-  let dialogBaseline = "";
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
   let searchQuery = "";
@@ -133,152 +125,61 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   let searchVersion = 0;
   const searchCache = new Map<string, Album[]>();
 
-  type DraftTarget = {
-    kind: string;
-    item?: unknown;
-    mode?: string;
-    entry?: ListeningEntry;
-  };
-  type Draft = {
-    version: 1;
-    target: DraftTarget;
-    hash: string;
-    open: boolean;
-    baseline: string;
-    source: string;
-    fields: { name: string; id: string; value: string; checked: boolean }[];
-    links: number;
-    artists: AlbumArtist[];
-    genres: AlbumGenre[];
-    instruments: AlbumInstrument[];
-    artistChoices: Artist[];
-    genreChoices: Genre[];
-    instrumentChoices: AlbumInstrument[];
-  };
-  const draftKey = `jazzlog:editor-draft:v1:${accountId}`;
-  let draft: Draft | undefined;
-  let draftTarget: DraftTarget | undefined;
-  let restoringDraft = false;
-  let draftSource = "";
-  const resumeButton = document.createElement("button");
-  resumeButton.className = "button secondary draft-resume";
-  resumeButton.textContent = "Resume draft";
-  resumeButton.hidden = true;
-  document.querySelector(".masthead-inner")!.append(resumeButton);
-  function writeDraft() {
-    try {
-      if (draft) localStorage.setItem(draftKey, JSON.stringify(draft));
-      else localStorage.removeItem(draftKey);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function clearDraft() {
-    draft = undefined;
-    draftTarget = undefined;
-    writeDraft();
-    resumeButton.hidden = true;
-  }
-  function captureDraft() {
-    if (restoringDraft || saving || !editor.open || !draftTarget) return;
-    const form = editor.querySelector("form");
-    if (!form) return;
-    draft = {
-      version: 1,
-      target: draftTarget,
-      hash: location.hash,
-      open: true,
-      baseline: dialogBaseline,
-      source: draftSource,
-      fields: [
-        ...form.querySelectorAll<HTMLInputElement>("input, select, textarea"),
-      ].map((input) => ({
-        name: input.name,
-        id: input.id,
-        value: input.value,
-        checked: input.checked ?? false,
-      })),
-      links: form.querySelectorAll(".link-fields").length,
+  const dialog = createDialog({
+    editor,
+    main,
+    formState: dialogFormState,
+    dismissDialog,
+    updateArtists,
+    updateGenres,
+    routeHash: () => viewHash,
+    onClose: () => {
+      clearTimeout(searchTimer);
+      searchVersion++;
+    },
+    onRendered: () => {
+      if (drafts.state.target && editor.querySelector("form")) {
+        const status = document.createElement("p");
+        status.className = "form-hint draft-status";
+        status.dataset.draftStatus = "";
+        status.setAttribute("role", "status");
+        editor.querySelector(".dialog-body")?.prepend(status);
+        captureDraft();
+      }
+    },
+  });
+  const { showDialog } = dialog;
+  const drafts = createEditorDrafts({
+    editor,
+    accountId,
+    isSaving: () => saving,
+    baseline: () => dialog.baseline,
+    setBaseline: (value) => {
+      dialog.baseline = value;
+    },
+    updateRating,
+    serializeSelections: () => ({
       artists: structuredClone(selectedArtists),
       genres: structuredClone(selectedGenres),
       instruments: structuredClone(selectedInstruments),
       artistChoices: structuredClone(artistChoices),
       genreChoices: structuredClone(genreChoices),
       instrumentChoices: structuredClone(instrumentChoices),
-    };
-    const stored = writeDraft();
-    const status = editor.querySelector("[data-draft-status]");
-    const message = stored
-      ? "Draft saved on this device"
-      : "Draft could not be saved on this device";
-    if (status && status.textContent !== message) status.textContent = message;
-    resumeButton.hidden = true;
-  }
-  function beginDraft(target: DraftTarget) {
-    if (!restoringDraft && draft && !editor.open) {
-      resumeDraft();
-      announce(
-        "Resume or discard your unfinished edit before starting another.",
-      );
-      return false;
-    }
-    draftTarget = target;
-    draftSource = JSON.stringify(target.item ?? null);
-    return true;
-  }
-  function draftCloseChoices() {
-    if (editor.querySelector("[data-draft-close]")) return;
-    const panel = document.createElement("div");
-    panel.className = "dialog-body";
-    panel.dataset.draftClose = "";
-    panel.innerHTML = /* HTML */ `<p>Keep this unfinished edit for later?</p>
-      <div class="draft-actions">
-        <button type="button" class="button primary" data-draft-keep>
-          Keep draft
-        </button>
-        <button type="button" class="button secondary" data-draft-discard>
-          Discard changes
-        </button>
-        <button type="button" class="button secondary" data-draft-continue>
-          Continue editing
-        </button>
-      </div>`;
-    editor.append(panel);
-    panel.querySelector("button")?.focus();
-    panel.querySelector("[data-draft-keep]")!.addEventListener("click", () => {
-      captureDraft();
-      if (!draft || !writeDraft()) {
-        announce(
-          "Couldn’t keep the draft. Continue editing or discard changes.",
-        );
-        return;
-      }
-      draft.open = false;
-      if (!writeDraft()) {
-        draft.open = true;
-        return;
-      }
-      draftTarget = undefined;
-      resumeButton.hidden = false;
-      editor.close();
-    });
-    panel
-      .querySelector("[data-draft-discard]")!
-      .addEventListener("click", () => {
-        clearDraft();
-        editor.close();
-      });
-    panel
-      .querySelector("[data-draft-continue]")!
-      .addEventListener("click", () => {
-        panel.remove();
-        editor.querySelector<HTMLElement>("#dialog-title")?.focus();
-      });
-  }
+    }),
+    resumeDraft,
+    announce,
+  });
+  const {
+    writeDraft,
+    clearDraft,
+    captureDraft,
+    beginDraft,
+    draftCloseChoices,
+    resumeButton,
+  } = drafts;
   function resumeDraft() {
-    if (!draft) return;
-    const saved = structuredClone(draft);
+    if (!drafts.current) return;
+    const saved = structuredClone(drafts.current);
     const target = saved.target;
     const item = target.item as { id?: string } | undefined;
     const catalog =
@@ -316,133 +217,46 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       )
     )
       return;
-    restoringDraft = true;
-    history.replaceState(
-      null,
-      "",
-      saved.hash || location.pathname + location.search,
-    );
-    viewHash = location.hash;
-    renderRoute();
-    switch (target.kind) {
-      case "album":
-        reviewAlbum = target.item as Album;
-        openAlbumForm(target.item as Partial<Album>, target.mode);
-        break;
-      case "artist":
-        openCatalogArtist(target.item as Artist | undefined);
-        break;
-      case "genre":
-        openCatalogGenre(target.item as Genre | undefined);
-        break;
-      case "instrument":
-        openCatalogInstrument(target.item as Instrument | undefined);
-        break;
-      case "instruments":
-        openInstruments(existing as Album);
-        break;
-      case "listen":
-        openListen(existing as Album, target.entry);
-        break;
-    }
-    selectedArtists = saved.artists;
-    selectedGenres = saved.genres;
-    selectedInstruments = saved.instruments;
-    artistChoices = saved.artistChoices;
-    genreChoices = saved.genreChoices;
-    instrumentChoices = saved.instrumentChoices;
-    if (editor.querySelector("#artist-selected")) updateArtists();
-    if (editor.querySelector("#genre-selected")) updateGenres();
-    if (editor.querySelector("#instrument-selected")) updateInstruments();
-    const rows = editor.querySelector("#link-rows");
-    if (rows)
-      rows.innerHTML = Array.from({ length: saved.links }, () =>
-        linkRow(),
-      ).join("");
-    const controls = [
-      ...editor.querySelectorAll<HTMLInputElement>("input, select, textarea"),
-    ];
-    const used = new Set<HTMLInputElement>();
-    for (const field of saved.fields) {
-      const input = controls.find(
-        (control) =>
-          !used.has(control) &&
-          control.name === field.name &&
-          control.id === field.id,
+    drafts.restore(saved, () => {
+      history.replaceState(
+        null,
+        "",
+        saved.hash || location.pathname + location.search,
       );
-      if (input) {
-        input.value = field.value;
-        if (input.type === "checkbox" || input.type === "radio")
-          input.checked = field.checked;
-        used.add(input);
+      viewHash = location.hash;
+      renderRoute();
+      switch (target.kind) {
+        case "album":
+          reviewAlbum = target.item as Album;
+          openAlbumForm(target.item as Partial<Album>, target.mode);
+          break;
+        case "artist":
+          openCatalogArtist(target.item as Artist | undefined);
+          break;
+        case "genre":
+          openCatalogGenre(target.item as Genre | undefined);
+          break;
+        case "instrument":
+          openCatalogInstrument(target.item as Instrument | undefined);
+          break;
+        case "instruments":
+          openInstruments(existing as Album);
+          break;
+        case "listen":
+          openListen(existing as Album, target.entry);
+          break;
       }
-    }
-    const rating = editor.querySelector<HTMLInputElement>(
-      '[name="rating"]:checked',
-    );
-    if (rating) updateRating(Number(rating.value));
-    queueMicrotask(() => {
-      dialogBaseline = saved.baseline;
-      draftSource = saved.source;
-      restoringDraft = false;
-      captureDraft();
-      const status = editor.querySelector("[data-draft-status]");
-      if (status && status.textContent === "Draft saved on this device")
-        status.textContent =
-          "Your unfinished edit was restored. Draft saved on this device.";
-      editor
-        .querySelector<HTMLElement>("#dialog-title")
-        ?.focus({ preventScroll: true });
+      selectedArtists = saved.artists;
+      selectedGenres = saved.genres;
+      selectedInstruments = saved.instruments;
+      artistChoices = saved.artistChoices;
+      genreChoices = saved.genreChoices;
+      instrumentChoices = saved.instrumentChoices;
+      if (editor.querySelector("#artist-selected")) updateArtists();
+      if (editor.querySelector("#genre-selected")) updateGenres();
+      if (editor.querySelector("#instrument-selected")) updateInstruments();
     });
   }
-  resumeButton.addEventListener("click", resumeDraft);
-  try {
-    const stored = JSON.parse(localStorage.getItem(draftKey) ?? "null");
-    if (
-      stored?.version === 1 &&
-      [
-        "album",
-        "artist",
-        "genre",
-        "instrument",
-        "instruments",
-        "listen",
-      ].includes(stored.target?.kind) &&
-      typeof stored.hash === "string" &&
-      (stored.hash === "" || stored.hash.startsWith("#")) &&
-      typeof stored.baseline === "string" &&
-      typeof stored.source === "string" &&
-      Number.isInteger(stored.links) &&
-      stored.links >= 0 &&
-      stored.links <= 1000 &&
-      [
-        stored.fields,
-        stored.artists,
-        stored.genres,
-        stored.instruments,
-        stored.artistChoices,
-        stored.genreChoices,
-        stored.instrumentChoices,
-      ].every(Array.isArray) &&
-      stored.fields.every(
-        (field: Draft["fields"][number]) =>
-          field &&
-          typeof field.name === "string" &&
-          typeof field.id === "string" &&
-          typeof field.value === "string" &&
-          typeof field.checked === "boolean",
-      )
-    )
-      draft = stored;
-  } catch {
-    /* An unavailable or damaged draft must not prevent opening the library. */
-  }
-  for (const event of ["input", "change", "click"])
-    editor.addEventListener(event, () => queueMicrotask(captureDraft));
-  window.addEventListener("pagehide", captureDraft);
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) captureDraft();
-  });
 
   function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
     return {
@@ -658,7 +472,9 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
   function canDismissDialog() {
     if (saving) return false;
-    return dialogFormState() === dialogBaseline || (draftCloseChoices(), false);
+    return (
+      dialogFormState() === dialog.baseline || (draftCloseChoices(), false)
+    );
   }
 
   function dismissDialog() {
@@ -668,71 +484,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     }
   }
 
-  function showDialog(
-    title: string,
-    eyebrow: string,
-    content: string,
-    focusSelector: string,
-    backToSearch = false,
-  ) {
-    const opening = !editor.open;
-    if (opening) dialogOrigin = document.activeElement as HTMLElement;
-    editor.innerHTML = /* HTML */ `<div
-        class="dialog-heading ${backToSearch ? "dialog-heading-with-back" : ""}"
-      >
-        <div>
-          ${
-            backToSearch
-              ? /* HTML */ `<button
-                  class="dialog-back"
-                  type="button"
-                  data-action="back-search"
-                >
-                  ${icon("back", 16)} Back to search
-                </button>`
-              : ""
-          }
-          <p class="eyebrow"><span></span> ${eyebrow}</p>
-          <h2 id="dialog-title" tabindex="-1">${title}</h2>
-        </div>
-        <button
-          class="icon-button close"
-          type="button"
-          aria-label="Close dialog"
-          data-action="close"
-        >
-          ${icon("close", 22)}
-        </button>
-      </div>
-      ${content}`;
-    // Picker controls finish rendering synchronously after showDialog returns.
-    queueMicrotask(() => {
-      dialogBaseline = dialogFormState();
-      if (draftTarget && editor.querySelector("form")) {
-        const status = document.createElement("p");
-        status.className = "form-hint draft-status";
-        status.dataset.draftStatus = "";
-        status.setAttribute("role", "status");
-        editor.querySelector(".dialog-body")?.prepend(status);
-        captureDraft();
-      }
-    });
-    if (opening) editor.showModal();
-    editor.scrollTop = 0;
-    // Keep dialog focus accessible without opening a touch keyboard.
-    editor
-      .querySelector<HTMLElement>(
-        prefersTouchInteraction() ? "#dialog-title" : focusSelector,
-      )
-      ?.focus({ preventScroll: true });
-  }
-
   function openSearch(reset = true) {
-    if (draft && !editor.open) {
+    if (drafts.current && !editor.open) {
       resumeDraft();
       return;
     }
-    draftTarget = undefined;
+    drafts.state.target = undefined;
     if (reset) searchQuery = "";
     showDialog(
       "Add an album",
@@ -800,6 +557,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     </div>`;
     searchTimer = setTimeout(async () => {
       const current = () =>
+        lifecycle.active &&
         version === searchVersion &&
         editor.open &&
         editor.querySelector("#catalog-results") === container;
@@ -995,8 +753,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   function updateArtists() {
-    if (pickerPress) {
-      pickerRenderPending = true;
+    if (dialog.pickerPress) {
+      dialog.pickerRenderPending = true;
       return;
     }
     const input = editor.querySelector<HTMLInputElement>("#artist-query");
@@ -1351,6 +1109,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       return;
     }
     const current = () =>
+      lifecycle.active &&
       version === appleVersion &&
       editor.open &&
       !saving &&
@@ -1534,14 +1293,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     if (dropdown) dropdown.open = true;
     main.querySelector<HTMLElement>(`#${focusId}`)?.focus();
   }
-  document.addEventListener("click", (event) => {
+  lifecycle.listen(document).addEventListener("click", (event) => {
     const dropdown = main.querySelector<HTMLDetailsElement>(
       ".genre-filter-dropdown[open]",
     );
     if (dropdown && !dropdown.contains(event.target as Node))
       dropdown.open = false;
   });
-  document.addEventListener("keydown", (event) => {
+  lifecycle.listen(document).addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     const dropdown = main.querySelector<HTMLDetailsElement>(
       ".genre-filter-dropdown[open]",
@@ -1596,8 +1355,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     </div>`;
   }
   function updateGenres() {
-    if (pickerPress) {
-      pickerRenderPending = true;
+    if (dialog.pickerPress) {
+      dialog.pickerRenderPending = true;
       return;
     }
     const input = editor.querySelector<HTMLInputElement>("#genre-query");
@@ -1941,7 +1700,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     );
   }
 
-  document.addEventListener("click", (event) => {
+  lifecycle.listen(document).addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>(
       "button[data-action]",
     );
@@ -2031,7 +1790,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         input.value = "";
         updateGenres();
         focusForTyping(input);
-        updateSearchDropdowns(null);
+        dialog.updateSearchDropdowns(null);
         break;
       }
       case "remove-genre":
@@ -2122,7 +1881,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         input.value = "";
         updateArtists();
         focusForTyping(input);
-        updateSearchDropdowns(null);
+        dialog.updateSearchDropdowns(null);
         break;
       }
       case "remove-artist":
@@ -2414,7 +2173,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
   });
 
-  document.addEventListener("input", (event) => {
+  lifecycle.listen(document).addEventListener("input", (event) => {
     const imageInput = event.target as HTMLInputElement;
     if (
       imageInput.name === "catalogImage" ||
@@ -2467,7 +2226,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
   });
 
-  document.addEventListener("change", (event) => {
+  lifecycle.listen(document).addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
     if (input.id === "genres-alphabetical") {
       genreAlphabetical = input.checked;
@@ -2521,7 +2280,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (input.name === "rating") updateRating(Number(input.value));
   });
 
-  document.addEventListener("submit", (event) => {
+  lifecycle.listen(document).addEventListener("submit", (event) => {
     if (saving) {
       event.preventDefault();
       return;
@@ -2693,7 +2452,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     }
   });
 
-  document.addEventListener(
+  lifecycle.listen(document).addEventListener(
     "invalid",
     (event) => {
       if ((event.target as HTMLElement).closest("details"))
@@ -2702,7 +2461,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     true,
   );
 
-  document.addEventListener(
+  lifecycle.listen(document).addEventListener(
     "error",
     (event) => {
       if ((event.target as Element).matches?.(".cover img, .catalog-image img"))
@@ -2711,234 +2470,18 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     true,
   );
 
-  function isOutsideDialog(event: PointerEvent | MouseEvent) {
-    const bounds = editor.getBoundingClientRect();
-    return (
-      editor.open &&
-      (event.clientX < bounds.left ||
-        event.clientX > bounds.right ||
-        event.clientY < bounds.top ||
-        event.clientY > bounds.bottom)
-    );
-  }
+  dialog.mount();
 
-  let pointerStartedOutside = false;
-  let suppressBackdropClick = false;
-  function updateSearchDropdowns(target: EventTarget | null) {
-    for (const search of editor.querySelectorAll(".catalog-search")) {
-      search.classList.toggle(
-        "is-open",
-        target instanceof Node && search.contains(target),
-      );
-    }
-  }
-  editor.addEventListener("input", (event) => {
-    updateSearchDropdowns(event.target);
-  });
-  document.addEventListener("focusin", (event) => {
-    if (!pickerPress) updateSearchDropdowns(event.target);
-  });
-
-  function finishPickerPress() {
-    pickerPress = null;
-    if (pickerRenderPending) {
-      pickerRenderPending = false;
-      updateArtists();
-      updateGenres();
-    }
-  }
-
-  document.addEventListener("pointermove", (event) => {
-    if (pickerPress?.pointerId !== event.pointerId) return;
-    if (
-      Math.hypot(event.clientX - pickerPress.x, event.clientY - pickerPress.y) >
-      8
-    )
-      pickerPress.moved = true;
-  });
-  document.addEventListener(
-    "pointerdown",
-    (event) => {
-      finishPickerPress();
-      suppressPickerClick = false;
-      const option = (event.target as Element).closest<HTMLButtonElement>(
-        ".catalog-search .instrument-results button:not([disabled])",
-      );
-      if (
-        option &&
-        editor.contains(option) &&
-        event.isPrimary &&
-        event.button === 0
-      ) {
-        pickerPress = {
-          button: option,
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-          moved: false,
-        };
-        // Keep input focus and the software keyboard stable. Touch scrolling
-        // remains native; pointercancel or movement prevents selection.
-        event.preventDefault();
-      }
-      updateSearchDropdowns(event.target);
-      suppressBackdropClick = false;
-      pointerStartedOutside = isOutsideDialog(event);
-    },
-    true,
-  );
-  document.addEventListener("pointercancel", () => {
-    if (pickerPress) suppressPickerClick = true;
-    finishPickerPress();
-    pointerStartedOutside = false;
-  });
-  document.addEventListener(
-    "pointerup",
-    (event) => {
-      if (pickerPress?.pointerId === event.pointerId) {
-        const press = pickerPress;
-        pickerPress = null;
-        suppressPickerClick = true;
-        const releasedOn = document.elementFromPoint(
-          event.clientX,
-          event.clientY,
-        );
-        if (
-          !press.moved &&
-          press.button.isConnected &&
-          releasedOn &&
-          press.button.contains(releasedOn)
-        ) {
-          // Activate the original option once, before focus or keyboard changes
-          // can retarget the browser's subsequent compatibility click.
-          press.button.click();
-        }
-        finishPickerPress();
-      }
-      // Handle the release directly, before a synthesized click or focus change.
-      // Dragging from a field to the backdrop must not dismiss the form.
-      const dismiss = pointerStartedOutside && isOutsideDialog(event);
-      pointerStartedOutside = false;
-      if (dismiss) {
-        suppressBackdropClick = true;
-        event.preventDefault();
-        event.stopPropagation();
-        dismissDialog();
-      }
-    },
-    true,
-  );
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (suppressPickerClick && event.detail > 0) {
-        suppressPickerClick = false;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-      }
-      if (!suppressBackdropClick) return;
-      suppressBackdropClick = false;
-      // iOS can send a click to the control exposed by closing the dialog.
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    },
-    true,
-  );
-  editor.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    dismissDialog();
-  });
-
-  // Keep Tab at the dialog boundaries rather than moving into browser chrome.
-  editor.addEventListener("keydown", (event) => {
-    const search = (event.target as HTMLElement).closest(".catalog-search");
-    if (search) {
-      const input = search.querySelector<HTMLInputElement>("input")!;
-      const options = [
-        ...search.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
-      ];
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const index = options.indexOf(
-          document.activeElement as HTMLButtonElement,
-        );
-        const next =
-          event.key === "ArrowDown"
-            ? index + 1
-            : index < 0
-              ? options.length - 1
-              : index - 1;
-        (options[next] ?? input).focus();
-        return;
-      }
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        updateSearchDropdowns(null);
-        editor
-          .querySelector<HTMLElement>("#dialog-title")
-          ?.focus({ preventScroll: true });
-        return;
-      }
-    }
-    if (
-      event.key === "Enter" &&
-      ["instrument-query", "artist-query", "genre-query"].includes(
-        (event.target as HTMLElement).id,
-      )
-    ) {
-      event.preventDefault();
-      editor
-        .querySelector<HTMLButtonElement>(
-          (event.target as HTMLElement).id === "artist-query"
-            ? "#artist-results button"
-            : (event.target as HTMLElement).id === "genre-query"
-              ? "#genre-results button:not([disabled])"
-              : "#instrument-create:not([hidden]) button, #instrument-results button",
-        )
-        ?.click();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const controls = [
-      ...editor.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary",
-      ),
-    ].filter((element) => element.getClientRects().length > 0);
-    const first = controls[0];
-    const last = controls.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  });
-
-  editor.addEventListener("close", () => {
-    clearTimeout(searchTimer);
-    searchVersion++;
-    if (
-      dialogOrigin?.isConnected &&
-      location.hash === viewHash &&
-      !main.contains(document.activeElement)
-    )
-      dialogOrigin.focus();
-    dialogOrigin = undefined;
-  });
-
-  window.addEventListener("hashchange", () => {
+  lifecycle.listen(window).addEventListener("hashchange", () => {
     if (location.hash === "#main-content") return;
     if (editor.open) {
       captureDraft();
-      if (draft) {
-        draft.open = false;
+      if (drafts.current) {
+        drafts.current.open = false;
         writeDraft();
         resumeButton.hidden = false;
       }
-      draftTarget = undefined;
+      drafts.state.target = undefined;
       editor.close();
     }
     viewHash = location.hash;
@@ -2947,12 +2490,12 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   viewHash = location.hash;
   renderRoute();
-  if (draft) {
+  if (drafts.current) {
     resumeButton.hidden = false;
-    if (draft.open) queueMicrotask(resumeDraft);
+    if (drafts.current.open) lifecycle.queue(resumeDraft);
   }
 
-  return (hash: string): HTMLElement => {
+  const renderPreview = (hash: string): HTMLElement => {
     const page = document.createElement("div");
     page.className = "frame swipe-preview";
     if (hash === "#artists") {
@@ -2994,6 +2537,18 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       .forEach((element) => element.removeAttribute("id"));
     return page;
   };
+
+  return Object.assign(renderPreview, {
+    dispose() {
+      captureDraft();
+      lifecycle.dispose();
+      drafts.dispose();
+      dialog.dispose();
+      clearTimeout(searchTimer);
+      clearTimeout(toastTimer);
+      searchVersion++;
+    },
+  });
 
   function today() {
     return new Intl.DateTimeFormat("sv-SE", {
