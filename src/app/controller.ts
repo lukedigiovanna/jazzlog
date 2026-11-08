@@ -1,3 +1,9 @@
+import {
+  findAppleMusicAlbums,
+  relevantAppleMusicAlbums,
+  exactAppleMusicMatch,
+  type AppleMusicAlbum,
+} from "../services/appleMusic";
 import { findArtist, commitAlbumArtists } from "./artistIdentity";
 import {
   parseWikipediaUrl,
@@ -1307,6 +1313,100 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     finishCatalogSave("Instrument saved.", instrumentUrl(item.id));
   }
 
+  let appleTimer: ReturnType<typeof setTimeout>;
+  let appleVersion = 0;
+  let appleResults: AppleMusicAlbum[] = [];
+
+  function hasAppleLink() {
+    return [
+      ...editor.querySelectorAll<HTMLInputElement>('[name="linkUrl"]'),
+    ].some((input) => {
+      try {
+        return ["music.apple.com", "itunes.apple.com"].includes(
+          new URL(input.value).hostname,
+        );
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  function addAppleLink(item: AppleMusicAlbum) {
+    if (hasAppleLink()) return;
+    editor
+      .querySelector("#link-rows")
+      ?.insertAdjacentHTML(
+        "beforeend",
+        linkRow({ url: item.url, label: "Apple Music" }),
+      );
+    captureDraft();
+  }
+
+  function scheduleAppleLookup(force = false) {
+    clearTimeout(appleTimer);
+    const version = ++appleVersion;
+    const form = editor.querySelector<HTMLFormElement>("#album-form");
+    const status = editor.querySelector<HTMLElement>("#apple-music-status");
+    if (!form || !status) return;
+    appleResults = [];
+    const title = form
+      .querySelector<HTMLInputElement>('[name="title"]')!
+      .value.trim();
+    const names = selectedArtists
+      .filter((artist) => artist.role === "primary")
+      .map((artist) => artist.name);
+    if (hasAppleLink()) {
+      status.textContent = "Apple Music link added.";
+      return;
+    }
+    if (!title || !names.length) {
+      status.textContent =
+        "Add a title and primary artist to find an Apple Music link.";
+      return;
+    }
+    status.textContent = "Looking for an Apple Music link (US)…";
+    appleTimer = setTimeout(
+      async () => {
+        const current = () =>
+          version === appleVersion &&
+          editor.open &&
+          !saving &&
+          editor.querySelector("#album-form") === form;
+        try {
+          const results = relevantAppleMusicAlbums(
+            await findAppleMusicAlbums(title, names.join(" ")),
+            title,
+            names,
+          );
+          if (!current()) return;
+          if (hasAppleLink()) {
+            status.textContent = "Apple Music link added.";
+            return;
+          }
+          appleResults = results;
+          const exact = exactAppleMusicMatch(results, title, names);
+          if (exact) {
+            addAppleLink(exact);
+            status.textContent =
+              "Apple Music link added. You can edit or remove it below.";
+          } else {
+            status.innerHTML = results.length
+              ? /* HTML */ `<p>Choose an Apple Music album (US):</p>
+                  ${results.map((item, index) => /* HTML */ `<button type="button" class="button secondary compact" data-action="pick-apple-music" data-index="${index}">${escapeHtml(item.title)} · ${escapeHtml(item.artist)}${item.year ? ` · ${item.year}` : ""}</button>`).join(" ")}`
+              : "No Apple Music match found. You can add a link manually.";
+          }
+        } catch (error) {
+          if (current())
+            status.textContent =
+              error instanceof Error
+                ? error.message
+                : "Couldn’t look up Apple Music. You can still save or add a link manually.";
+        }
+      },
+      force ? 0 : 800,
+    );
+  }
+
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
     if (!beginDraft({ kind: "album", item: album, mode })) return;
     if (mode === "links") {
@@ -1387,6 +1487,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
             <p class="form-hint">
               Add Apple Music, YouTube, or another music link.
             </p>
+            <div id="apple-music-status" class="form-hint" role="status"></div>
+            <button
+              type="button"
+              class="button secondary compact"
+              data-action="find-apple-music"
+            >
+              Find Apple Music link
+            </button>
             <div id="link-rows">
               ${(album.links ?? []).map(linkRow).join("")}
             </div>
@@ -1414,6 +1522,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     updateInstruments();
     updateArtists();
     updateGenres();
+    scheduleAppleLookup();
   }
 
   function updateCatalogFilters(focusId: string) {
@@ -2015,6 +2124,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           });
         input.value = "";
         updateArtists();
+        scheduleAppleLookup();
         focusForTyping(input);
         updateSearchDropdowns(null);
         break;
@@ -2024,6 +2134,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           (item) => item.id !== button.dataset.id,
         );
         updateArtists();
+        scheduleAppleLookup();
         focusForTyping(editor.querySelector("#artist-query"));
         break;
       case "move-artist": {
@@ -2247,6 +2358,18 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           document.querySelector<HTMLInputElement>("#library-query"),
         );
         break;
+      case "find-apple-music":
+        scheduleAppleLookup(true);
+        break;
+      case "pick-apple-music": {
+        const item = appleResults[Number(button.dataset.index)];
+        if (item) {
+          addAppleLink(item);
+          editor.querySelector("#apple-music-status")!.textContent =
+            "Apple Music link added.";
+        }
+        break;
+      }
       case "add-link": {
         const rows = document.querySelector<HTMLElement>("#link-rows")!;
         rows.insertAdjacentHTML("beforeend", linkRow());
@@ -2264,6 +2387,8 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("input", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.name === "title" && input.closest("#album-form"))
+      scheduleAppleLookup();
     if (input.id === "instruments-search") {
       instrumentFilters.query = input.value;
       updateInstrumentList();
@@ -2295,6 +2420,8 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   document.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.name === "title" && input.closest("#album-form"))
+      scheduleAppleLookup();
     if (input.id === "genres-alphabetical") {
       genreAlphabetical = input.checked;
       updateCatalogFilters(input.id);
@@ -2315,6 +2442,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         (item) => item.id === input.dataset.artistRole,
       );
       if (credit) credit.role = input.value as ArtistRole;
+      scheduleAppleLookup();
     }
     if (input.id === "instrument-category-filter") {
       instrumentFilters.category = input.value;
