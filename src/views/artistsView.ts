@@ -99,9 +99,8 @@ export function renderArtistDetail(
       </div>
       <div class="artist-details">
         <p class="muted">
-          ${[item.country ? `Country: ${e(item.country)}` : ""].filter(Boolean).join(" · ") || "No additional details"}
+          ${item.country ? `Country: ${e(item.country)}` : ""}
         </p>
-        ${item.musicbrainzId ? /* HTML */ `<p class="muted">MusicBrainz ID: ${e(item.musicbrainzId)}</p>` : ""}
       </div>
     </div>
     <section class="instrument-albums">

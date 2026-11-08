@@ -20,9 +20,7 @@ export function renderRating(rating: number | undefined) {
     ? /* HTML */ `<span
         class="rating"
         aria-label="${displayRating(rating)} out of 5 stars"
-        >${stars(rating)}<span aria-hidden="true"
-          >${displayRating(rating)}</span
-        ></span
+        >${stars(rating)}</span
       >`
     : '<span class="unrated">Unrated</span>';
 }

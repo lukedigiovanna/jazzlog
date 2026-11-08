@@ -2294,7 +2294,10 @@ select:focus,
 }
 
 .artist-page-heading {
-  margin-bottom: 26px;
+  margin-bottom: 12px;
+}
+.artist-page-heading + .instrument-albums {
+  margin-top: 12px;
 }
 .artist-title-row {
   display: flex;
