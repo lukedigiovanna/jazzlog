@@ -1,7 +1,9 @@
+import { createLifecycle } from "./lifecycle";
 /** Keep the moving highlight and touch navigation in the same order as the links. */
 export function initializeNavigation(
   renderPage: (hash: string) => HTMLElement,
-): void {
+): () => void {
+  const lifecycle = createLifecycle();
   const nav = document.querySelector<HTMLElement>(".main-nav")!;
   const main = document.querySelector<HTMLElement>("main")!;
   const links = [...nav.querySelectorAll<HTMLAnchorElement>("[data-nav]")];
@@ -52,14 +54,20 @@ export function initializeNavigation(
     initialized = true;
   }
 
-  new MutationObserver(() => updateHighlight()).observe(nav, {
+  const mutation = new MutationObserver(() => updateHighlight());
+  mutation.observe(nav, {
     subtree: true,
     attributes: true,
     attributeFilter: ["aria-current"],
   });
-  new ResizeObserver(() => updateHighlight(false)).observe(nav);
-  document.fonts.ready.then(() => updateHighlight(false));
-  reducedMotion.addEventListener("change", () => updateHighlight(false));
+  const resize = new ResizeObserver(() => updateHighlight(false));
+  resize.observe(nav);
+  document.fonts.ready.then(() => {
+    if (lifecycle.active) updateHighlight(false);
+  });
+  lifecycle
+    .listen(reducedMotion)
+    .addEventListener("change", () => updateHighlight(false));
   updateHighlight(false);
 
   type Gesture = {
@@ -133,7 +141,7 @@ export function initializeNavigation(
     }, duration);
   }
 
-  main.addEventListener(
+  lifecycle.listen(main).addEventListener(
     "touchstart",
     (event) => {
       if (settling) return;
@@ -162,7 +170,7 @@ export function initializeNavigation(
     { passive: true },
   );
 
-  main.addEventListener(
+  lifecycle.listen(main).addEventListener(
     "touchmove",
     (event) => {
       const start = gesture;
@@ -196,7 +204,7 @@ export function initializeNavigation(
     { passive: false },
   );
 
-  main.addEventListener(
+  lifecycle.listen(main).addEventListener(
     "touchend",
     () => {
       if (settling) return;
@@ -205,7 +213,7 @@ export function initializeNavigation(
     },
     { passive: true },
   );
-  main.addEventListener(
+  lifecycle.listen(main).addEventListener(
     "touchcancel",
     () => {
       if (!settling) finish();
@@ -213,7 +221,7 @@ export function initializeNavigation(
     { passive: true },
   );
   // A drag starting on an album link must not open it after the swipe.
-  main.addEventListener(
+  lifecycle.listen(main).addEventListener(
     "click",
     (event) => {
       if (gesture?.horizontal || settling) {
@@ -223,6 +231,14 @@ export function initializeNavigation(
     },
     true,
   );
-  window.addEventListener("hashchange", cleanup);
-  window.addEventListener("resize", cleanup);
+  lifecycle.listen(window).addEventListener("hashchange", cleanup);
+  lifecycle.listen(window).addEventListener("resize", cleanup);
+  return () => {
+    lifecycle.dispose();
+    mutation.disconnect();
+    resize.disconnect();
+    animation?.cancel();
+    cleanup();
+    highlight.remove();
+  };
 }

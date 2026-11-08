@@ -18,6 +18,7 @@ const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error('Missing "#app" root element.');
 
 let libraryMounted = false;
+let disposeLibrary: (() => void) | undefined;
 let accountId: string | null = null;
 let signingOut = false;
 let stopAuth: (() => void) | undefined;
@@ -35,8 +36,14 @@ function enterLibrary(authenticated = false, data?: LibraryData): void {
     data,
     authenticated ? accountId! : "demo",
   );
-  initializeMobileHeader();
-  initializeNavigation(renderNavigationPage);
+  const disposeHeader = initializeMobileHeader();
+  const disposeNavigation = initializeNavigation(renderNavigationPage);
+  disposeLibrary = () => {
+    renderNavigationPage.dispose();
+    disposeNavigation();
+    disposeHeader();
+    libraryMounted = false;
+  };
   const account = document.createElement("button");
   account.type = "button";
   account.className = "auth-text-button account-button";
@@ -167,4 +174,8 @@ async function start(): Promise<void> {
 }
 
 void start();
-if (import.meta.hot) import.meta.hot.dispose(() => stopAuth?.());
+if (import.meta.hot)
+  import.meta.hot.dispose(() => {
+    stopAuth?.();
+    disposeLibrary?.();
+  });

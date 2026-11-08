@@ -26,13 +26,22 @@ Acceptance: extracted helpers have explicit inputs and no controller state depen
 - Production build passes. No intended product behavior, storage format, or schema changes.
 - Remaining coverage includes authenticated save rejection/retry, broader catalog operations, Tab boundaries, and detailed pointer/backdrop interactions. Sections 2–5 are intentionally deferred.
 
-## 2. Dialog lifecycle and editor drafts (next agent)
+## 2. Dialog lifecycle and editor drafts (completed)
 
 Before moving code, extend browser coverage for dirty-form keep/discard/continue, navigation while editing, Tab boundaries, focus restoration, backdrop drags, and picker selection with touch and keyboard. Include blocked draft storage and account-scoped draft isolation.
 
 Extract dialog ownership (open/close, focus, backdrop and keyboard interactions) and draft persistence/restoration into separate modules. Define narrow callbacks for serializing/restoring the active editor. Preserve event capture order, microtasks, request versions, and mobile compatibility-click suppression. Give listeners, timers, and observers explicit disposal; wire disposal through application teardown/HMR.
 
 Acceptance: editor state has an identifiable owner; mounting and disposing does not duplicate listeners; existing pointer behavior and draft data format remain compatible.
+
+### Completed second-slice handoff
+
+- Added browser characterization before extraction for dirty-form continue/keep/discard, navigation during editing, Tab wrapping, focus restoration, backdrop drags, keyboard/touch picker selection, blocked draft writes, and isolation from another account’s draft key.
+- Extracted dialog rendering, focus, keyboard, backdrop, and picker press handling into `src/app/dialog.ts`. Extracted version-1 draft storage, validation, close choices, and form restoration into `src/app/editorDrafts.ts`, with callbacks for feature-specific editor setup and selections.
+- Preserved storage keys/data format, deferred baseline/restoration microtasks, request versions, listener capture order, and mobile compatibility-click suppression. Dialog listeners mount at their original registration point.
+- Added explicit listener/queued-work disposal, timer cancellation, navigation observer/animation cleanup, and application teardown wired to HMR. Browser coverage checks repeated mount/dispose without duplicate handling or queued rendering after disposal.
+- Validation: 18 Node tests, 26 browser checks across desktop and mobile Chromium, production build, and formatting of changed files pass.
+- Limitations: account isolation is characterized using a foreign account’s stored draft, without a live authenticated session. Chromium touch emulation does not replace a real iOS Safari check. Sections 3–5 remain deferred; begin with section 3 next.
 
 ## 3. Feature ownership
 
@@ -60,4 +69,4 @@ Acceptance: no layout, cascade, overflow, focus, or reduced-motion regressions.
 
 Run `npm test`, `npm run test:browser`, and `npm run build` for each completed slice. Install browser binaries with `npx playwright install chromium` when needed. Browser tests use a dedicated local port and mocked metadata; they do not write to a real account. Record limitations honestly: Chromium touch emulation does not replace a real iOS Safari check for pointer/keyboard changes.
 
-Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 2; authenticated persistence characterization remains required before section 4.
+Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 3; authenticated persistence characterization remains required before section 4.
