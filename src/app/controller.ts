@@ -1,4 +1,7 @@
 import { catalogImage } from "../components/catalogSummary";
+import type { LibraryData } from "../types/library";
+import { field, linkRow, catalogImageField } from "../components/formFields";
+import { formValue } from "./formValues";
 import {
   findAppleMusicAlbums,
   relevantAppleMusicAlbums,
@@ -75,13 +78,6 @@ import {
   renderInstrumentDetail,
 } from "../views/instrumentsView";
 import { focusForTyping, prefersTouchInteraction } from "./device";
-
-export interface LibraryData {
-  albums: Album[];
-  artists: Artist[];
-  genres: Genre[];
-  instruments: Instrument[];
-}
 
 export function initializeApp(data?: LibraryData, accountId = "demo") {
   const authenticated = Boolean(data);
@@ -922,50 +918,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
           </div>`;
   }
 
-  function field(
-    label: string,
-    name: string,
-    value: unknown = "",
-    options: {
-      type?: string;
-      attributes?: string;
-      placeholder?: string;
-      help?: string;
-    } = {},
-  ) {
-    const {
-      type = "text",
-      attributes = "",
-      placeholder = "",
-      help = "",
-    } = options;
-    return /* HTML */ `<label class="field"
-      ><span>${label}</span
-      ><input
-        name="${name}"
-        type="${type}"
-        value="${escapeHtml(value)}"
-        placeholder="${placeholder}"
-        ${attributes}
-      />${help ? /* HTML */ `<small>${help}</small>` : ""}</label
-    >`;
-  }
-
-  function linkRow(link: Partial<AlbumLink> = {}) {
-    return /* HTML */ `<div class="link-fields">
-      ${field("URL", "linkUrl", link.url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
-      ${field("Label", "linkLabel", link.label, { placeholder: "Optional", attributes: 'maxlength="60"' })}
-      <button
-        class="icon-button remove-link"
-        type="button"
-        aria-label="Remove music link"
-        data-action="remove-link"
-      >
-        ${icon("close", 17)}
-      </button>
-    </div>`;
-  }
-
   function updateArtistList() {
     updateArtistsView(
       artists,
@@ -976,25 +928,6 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       artistSort,
       artistPrimary,
     );
-  }
-
-  function catalogImageField(
-    label: string,
-    name: string,
-    url?: string | null,
-    artist = false,
-    categories: InstrumentCategory[] = [],
-  ) {
-    return /* HTML */ `<div
-      class="catalog-image-editor"
-      data-artist="${artist}"
-      data-name="${escapeHtml(name)}"
-    >
-      ${field(label, "catalogImage", url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
-      <div class="catalog-image-preview">
-        ${catalogImage(name, url, artist, categories)}
-      </div>
-    </div>`;
   }
 
   function openCatalogArtist(item?: Artist) {
@@ -1876,7 +1809,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   function saveAlbumForm(form: HTMLFormElement) {
     const data = new FormData(form);
-    const value = (name: string) => String(data.get(name) ?? "").trim();
+    const value = (name: string) => formValue(data, name);
     const mode = form.dataset.mode;
     const original =
       mode === "edit"
@@ -2658,7 +2591,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       event.preventDefault();
       const form = event.target as HTMLFormElement;
       const data = new FormData(form);
-      const value = (key: string) => String(data.get(key) ?? "").trim();
+      const value = (key: string) => formValue(data, key);
       const input = form.querySelector<HTMLInputElement>(
         '[name="artistName"]',
       )!;

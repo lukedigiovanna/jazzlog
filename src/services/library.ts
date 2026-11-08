@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { getAlbums } from "./albums";
-import type { LibraryData } from "../app/controller";
+import type { LibraryData } from "../types/library";
 
 import { readAll } from "./readAll";
 

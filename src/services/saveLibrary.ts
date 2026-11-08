@@ -1,4 +1,4 @@
-import type { LibraryData } from "../app/controller";
+import type { LibraryData } from "../types/library";
 import type { Json } from "../types/database.types";
 import { supabase } from "./supabase";
 
