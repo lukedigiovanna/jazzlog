@@ -278,7 +278,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     const existing = catalog.find((value) => value.id === item?.id);
     const requiresExisting =
       ["listen", "instruments"].includes(target.kind) ||
-      target.mode === "edit" ||
+      ["edit", "links"].includes(target.mode ?? "") ||
       (["artist", "genre", "instrument"].includes(target.kind) && !!item?.id);
     const entryMissing =
       target.entry &&
@@ -1273,6 +1273,36 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
     if (!beginDraft({ kind: "album", item: album, mode })) return;
+    if (mode === "links") {
+      showDialog(
+        "Edit music links",
+        "ALBUM DETAILS",
+        /* HTML */ `<form id="links-form" data-id="${escapeHtml(album.id)}">
+          <div class="dialog-body">
+            <p class="dialog-intro">${escapeHtml(album.title)}</p>
+            <div id="link-rows">
+              ${(album.links?.length ? album.links : [{}]).map(linkRow).join("")}
+            </div>
+            <button
+              type="button"
+              class="button secondary compact"
+              data-action="add-link"
+            >
+              ${icon("plus", 15)} Add link
+            </button>
+            <p class="form-error" id="form-error" role="alert" hidden></p>
+          </div>
+          <div class="dialog-footer">
+            <button type="button" class="button secondary" data-action="close">
+              Cancel
+            </button>
+            <button type="submit" class="button primary">Save links</button>
+          </div>
+        </form>`,
+        '[name="linkUrl"]',
+      );
+      return;
+    }
     const isEdit = mode === "edit";
     const fromSearch = mode === "review";
     const title = isEdit ? "Edit album" : "Create album";
@@ -2036,6 +2066,9 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       case "edit-instruments":
         if (album) openInstruments(album);
         break;
+      case "edit-links":
+        if (album) openAlbumForm(album, "links");
+        break;
       case "select-instrument": {
         const item = instrumentChoices.find(
           (item) => item.id === button.dataset.id,
@@ -2395,6 +2428,30 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         album.updatedAt = new Date().toISOString();
         finishSave(album.id, "Album instruments updated.");
       }
+    }
+    if ((event.target as HTMLElement).id === "links-form") {
+      event.preventDefault();
+      const form = event.target as HTMLFormElement;
+      const album = albums.find((item) => item.id === form.dataset.id);
+      if (!album) return;
+      const links: AlbumLink[] = [];
+      for (const row of form.querySelectorAll(".link-fields")) {
+        const input = row.querySelector<HTMLInputElement>('[name="linkUrl"]')!;
+        const url = input.value.trim();
+        const label = row
+          .querySelector<HTMLInputElement>('[name="linkLabel"]')!
+          .value.trim();
+        if (!url && !label) continue;
+        if (!webUrl(url))
+          return formError(
+            "Enter an HTTP or HTTPS URL for each music link.",
+            input,
+          );
+        links.push({ id: makeId(), url, label });
+      }
+      album.links = links;
+      album.updatedAt = new Date().toISOString();
+      finishSave(album.id, "Album music links updated.");
     }
     if ((event.target as HTMLElement).id === "album-form") {
       event.preventDefault();

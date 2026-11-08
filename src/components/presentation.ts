@@ -31,7 +31,11 @@ export function cover(album: Partial<Album>, eager = false) {
 
 export function artistText(album: Album) {
   return (
-    album.artists.map((artist) => artist.name).join(" & ") || "Unknown artist"
+    album.artists
+      .filter((artist) => artist.role === "primary")
+      .sort((a, b) => a.position - b.position)
+      .map((artist) => artist.name)
+      .join(" & ") || "Unknown artist"
   );
 }
 

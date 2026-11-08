@@ -1,4 +1,6 @@
 const paths: Record<string, string> = {
+  people:
+    '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-16a3 3 0 0 1 0 6m2 4a6 6 0 0 1 3 5v1"/>',
   filter:
     '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor"/><circle cx="15" cy="17" r="2" fill="currentColor"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -15,6 +17,7 @@ const paths: Record<string, string> = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   music:
     '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6.5" cy="18" rx="2.5" ry="2"/><ellipse cx="17.5" cy="16" rx="2.5" ry="2"/>',
+  wikipedia: '<path d="M2 5h5m10 0h5M3.5 5l6 14L16 5M8 5h8m-6 0 6 14 5-14"/>',
   play: '<rect x="3" y="6" width="18" height="12" rx="4"/><path d="m10 9 5 3-5 3Z" fill="currentColor" stroke="none"/>',
   link: '<path d="m10 13 4-4m-6 5-1 1a3 3 0 0 0 4 4l4-4a3 3 0 0 0 0-4M9 13a3 3 0 0 1 0-4l4-4a3 3 0 0 1 4 4l-1 1"/>',
   history: '<path d="M3 11a9 9 0 1 1 2 7m-2-12v5h5m4-4v5l3 2"/>',
