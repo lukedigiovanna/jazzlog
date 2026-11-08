@@ -22,7 +22,10 @@ function enterLibrary(authenticated = false, data?: LibraryData): void {
   }
   libraryMounted = true;
   root!.innerHTML = renderApp(authenticated);
-  const renderNavigationPage = initializeApp(data);
+  const renderNavigationPage = initializeApp(
+    data,
+    authenticated ? accountId! : "demo",
+  );
   initializeMobileHeader();
   initializeNavigation(renderNavigationPage);
   const account = document.createElement("button");

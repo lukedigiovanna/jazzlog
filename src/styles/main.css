@@ -2416,3 +2416,15 @@ select:focus,
 [hidden] {
   display: none !important;
 }
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.draft-status {
+  margin-bottom: 1rem;
+}
+.draft-resume[hidden] {
+  display: none;
+}

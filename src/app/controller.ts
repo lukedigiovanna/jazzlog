@@ -72,7 +72,7 @@ export interface LibraryData {
   instruments: Instrument[];
 }
 
-export function initializeApp(data?: LibraryData) {
+export function initializeApp(data?: LibraryData, accountId = "demo") {
   const authenticated = Boolean(data);
   let saving = false;
   const main = document.querySelector<HTMLElement>("main")!;
@@ -118,6 +118,317 @@ export function initializeApp(data?: LibraryData) {
   let searchTimer: ReturnType<typeof setTimeout>;
   let searchVersion = 0;
   const searchCache = new Map<string, Album[]>();
+
+  type DraftTarget = {
+    kind: string;
+    item?: unknown;
+    mode?: string;
+    entry?: ListeningEntry;
+  };
+  type Draft = {
+    version: 1;
+    target: DraftTarget;
+    hash: string;
+    open: boolean;
+    baseline: string;
+    source: string;
+    fields: { name: string; id: string; value: string; checked: boolean }[];
+    links: number;
+    artists: AlbumArtist[];
+    genres: AlbumGenre[];
+    instruments: AlbumInstrument[];
+    artistChoices: Artist[];
+    genreChoices: Genre[];
+    instrumentChoices: AlbumInstrument[];
+  };
+  const draftKey = `jazzlog:editor-draft:v1:${accountId}`;
+  let draft: Draft | undefined;
+  let draftTarget: DraftTarget | undefined;
+  let restoringDraft = false;
+  let draftSource = "";
+  const resumeButton = document.createElement("button");
+  resumeButton.className = "button secondary draft-resume";
+  resumeButton.textContent = "Resume draft";
+  resumeButton.hidden = true;
+  document.querySelector(".masthead-inner")!.append(resumeButton);
+  function writeDraft() {
+    try {
+      if (draft) localStorage.setItem(draftKey, JSON.stringify(draft));
+      else localStorage.removeItem(draftKey);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function clearDraft() {
+    draft = undefined;
+    draftTarget = undefined;
+    writeDraft();
+    resumeButton.hidden = true;
+  }
+  function captureDraft() {
+    if (restoringDraft || saving || !editor.open || !draftTarget) return;
+    const form = editor.querySelector("form");
+    if (!form) return;
+    draft = {
+      version: 1,
+      target: draftTarget,
+      hash: location.hash,
+      open: true,
+      baseline: dialogBaseline,
+      source: draftSource,
+      fields: [
+        ...form.querySelectorAll<HTMLInputElement>("input, select, textarea"),
+      ].map((input) => ({
+        name: input.name,
+        id: input.id,
+        value: input.value,
+        checked: input.checked ?? false,
+      })),
+      links: form.querySelectorAll(".link-fields").length,
+      artists: structuredClone(selectedArtists),
+      genres: structuredClone(selectedGenres),
+      instruments: structuredClone(selectedInstruments),
+      artistChoices: structuredClone(artistChoices),
+      genreChoices: structuredClone(genreChoices),
+      instrumentChoices: structuredClone(instrumentChoices),
+    };
+    const stored = writeDraft();
+    const status = editor.querySelector("[data-draft-status]");
+    const message = stored
+      ? "Draft saved on this device"
+      : "Draft could not be saved on this device";
+    if (status && status.textContent !== message) status.textContent = message;
+    resumeButton.hidden = true;
+  }
+  function beginDraft(target: DraftTarget) {
+    if (!restoringDraft && draft && !editor.open) {
+      resumeDraft();
+      announce(
+        "Resume or discard your unfinished edit before starting another.",
+      );
+      return false;
+    }
+    draftTarget = target;
+    draftSource = JSON.stringify(target.item ?? null);
+    return true;
+  }
+  function draftCloseChoices() {
+    if (editor.querySelector("[data-draft-close]")) return;
+    const panel = document.createElement("div");
+    panel.className = "dialog-body";
+    panel.dataset.draftClose = "";
+    panel.innerHTML = /* HTML */ `<p>Keep this unfinished edit for later?</p>
+      <div class="draft-actions">
+        <button type="button" class="button primary" data-draft-keep>
+          Keep draft
+        </button>
+        <button type="button" class="button secondary" data-draft-discard>
+          Discard changes
+        </button>
+        <button type="button" class="button secondary" data-draft-continue>
+          Continue editing
+        </button>
+      </div>`;
+    editor.append(panel);
+    panel.querySelector("button")?.focus();
+    panel.querySelector("[data-draft-keep]")!.addEventListener("click", () => {
+      captureDraft();
+      if (!draft || !writeDraft()) {
+        announce(
+          "Couldn’t keep the draft. Continue editing or discard changes.",
+        );
+        return;
+      }
+      draft.open = false;
+      if (!writeDraft()) {
+        draft.open = true;
+        return;
+      }
+      draftTarget = undefined;
+      resumeButton.hidden = false;
+      editor.close();
+    });
+    panel
+      .querySelector("[data-draft-discard]")!
+      .addEventListener("click", () => {
+        clearDraft();
+        editor.close();
+      });
+    panel
+      .querySelector("[data-draft-continue]")!
+      .addEventListener("click", () => {
+        panel.remove();
+        editor.querySelector<HTMLElement>("#dialog-title")?.focus();
+      });
+  }
+  function resumeDraft() {
+    if (!draft) return;
+    const saved = structuredClone(draft);
+    const target = saved.target;
+    const item = target.item as { id?: string } | undefined;
+    const catalog =
+      target.kind === "artist"
+        ? artists
+        : target.kind === "genre"
+          ? genres
+          : target.kind === "instrument"
+            ? instruments
+            : albums;
+    const existing = catalog.find((value) => value.id === item?.id);
+    const requiresExisting =
+      ["listen", "instruments"].includes(target.kind) ||
+      target.mode === "edit" ||
+      (["artist", "genre", "instrument"].includes(target.kind) && !!item?.id);
+    const entryMissing =
+      target.entry &&
+      !(existing as Album | undefined)?.listeningEntries?.some(
+        (entry) => entry.id === target.entry!.id,
+      );
+    if (requiresExisting && (!existing || entryMissing)) {
+      if (
+        window.confirm(
+          "The item for this draft was deleted. Discard the draft?",
+        )
+      )
+        clearDraft();
+      return;
+    }
+    if (
+      requiresExisting &&
+      JSON.stringify(existing) !== saved.source &&
+      !window.confirm(
+        "This item changed since your draft began. Resume your draft? Saving it may replace newer changes.",
+      )
+    )
+      return;
+    restoringDraft = true;
+    history.replaceState(
+      null,
+      "",
+      saved.hash || location.pathname + location.search,
+    );
+    viewHash = location.hash;
+    renderRoute();
+    switch (target.kind) {
+      case "album":
+        reviewAlbum = target.item as Album;
+        openAlbumForm(target.item as Partial<Album>, target.mode);
+        break;
+      case "artist":
+        openCatalogArtist(target.item as Artist | undefined);
+        break;
+      case "genre":
+        openCatalogGenre(target.item as Genre | undefined);
+        break;
+      case "instrument":
+        openCatalogInstrument(target.item as Instrument | undefined);
+        break;
+      case "instruments":
+        openInstruments(existing as Album);
+        break;
+      case "listen":
+        openListen(existing as Album, target.entry);
+        break;
+    }
+    selectedArtists = saved.artists;
+    selectedGenres = saved.genres;
+    selectedInstruments = saved.instruments;
+    artistChoices = saved.artistChoices;
+    genreChoices = saved.genreChoices;
+    instrumentChoices = saved.instrumentChoices;
+    if (editor.querySelector("#artist-selected")) updateArtists();
+    if (editor.querySelector("#genre-selected")) updateGenres();
+    if (editor.querySelector("#instrument-selected")) updateInstruments();
+    const rows = editor.querySelector("#link-rows");
+    if (rows)
+      rows.innerHTML = Array.from({ length: saved.links }, () =>
+        linkRow(),
+      ).join("");
+    const controls = [
+      ...editor.querySelectorAll<HTMLInputElement>("input, select, textarea"),
+    ];
+    const used = new Set<HTMLInputElement>();
+    for (const field of saved.fields) {
+      const input = controls.find(
+        (control) =>
+          !used.has(control) &&
+          control.name === field.name &&
+          control.id === field.id,
+      );
+      if (input) {
+        input.value = field.value;
+        if (input.type === "checkbox" || input.type === "radio")
+          input.checked = field.checked;
+        used.add(input);
+      }
+    }
+    const rating = editor.querySelector<HTMLInputElement>(
+      '[name="rating"]:checked',
+    );
+    if (rating) updateRating(Number(rating.value));
+    queueMicrotask(() => {
+      dialogBaseline = saved.baseline;
+      draftSource = saved.source;
+      restoringDraft = false;
+      captureDraft();
+      const status = editor.querySelector("[data-draft-status]");
+      if (status && status.textContent === "Draft saved on this device")
+        status.textContent =
+          "Your unfinished edit was restored. Draft saved on this device.";
+      editor
+        .querySelector<HTMLElement>("#dialog-title")
+        ?.focus({ preventScroll: true });
+    });
+  }
+  resumeButton.addEventListener("click", resumeDraft);
+  try {
+    const stored = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+    if (
+      stored?.version === 1 &&
+      [
+        "album",
+        "artist",
+        "genre",
+        "instrument",
+        "instruments",
+        "listen",
+      ].includes(stored.target?.kind) &&
+      typeof stored.hash === "string" &&
+      (stored.hash === "" || stored.hash.startsWith("#")) &&
+      typeof stored.baseline === "string" &&
+      typeof stored.source === "string" &&
+      Number.isInteger(stored.links) &&
+      stored.links >= 0 &&
+      stored.links <= 1000 &&
+      [
+        stored.fields,
+        stored.artists,
+        stored.genres,
+        stored.instruments,
+        stored.artistChoices,
+        stored.genreChoices,
+        stored.instrumentChoices,
+      ].every(Array.isArray) &&
+      stored.fields.every(
+        (field: Draft["fields"][number]) =>
+          field &&
+          typeof field.name === "string" &&
+          typeof field.id === "string" &&
+          typeof field.value === "string" &&
+          typeof field.checked === "boolean",
+      )
+    )
+      draft = stored;
+  } catch {
+    /* An unavailable or damaged draft must not prevent opening the library. */
+  }
+  for (const event of ["input", "change", "click"])
+    editor.addEventListener(event, () => queueMicrotask(captureDraft));
+  window.addEventListener("pagehide", captureDraft);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) captureDraft();
+  });
 
   function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
     return {
@@ -328,14 +639,14 @@ export function initializeApp(data?: LibraryData) {
 
   function canDismissDialog() {
     if (saving) return false;
-    return (
-      dialogFormState() === dialogBaseline ||
-      window.confirm("Discard unsaved changes? Your changes will be lost.")
-    );
+    return dialogFormState() === dialogBaseline || (draftCloseChoices(), false);
   }
 
   function dismissDialog() {
-    if (canDismissDialog()) editor.close();
+    if (canDismissDialog()) {
+      clearDraft();
+      editor.close();
+    }
   }
 
   function showDialog(
@@ -378,6 +689,14 @@ export function initializeApp(data?: LibraryData) {
     // Picker controls finish rendering synchronously after showDialog returns.
     queueMicrotask(() => {
       dialogBaseline = dialogFormState();
+      if (draftTarget && editor.querySelector("form")) {
+        const status = document.createElement("p");
+        status.className = "form-hint draft-status";
+        status.dataset.draftStatus = "";
+        status.setAttribute("role", "status");
+        editor.querySelector(".dialog-body")?.prepend(status);
+        captureDraft();
+      }
     });
     if (opening) editor.showModal();
     editor.scrollTop = 0;
@@ -390,6 +709,11 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openSearch(reset = true) {
+    if (draft && !editor.open) {
+      resumeDraft();
+      return;
+    }
+    draftTarget = undefined;
     if (reset) searchQuery = "";
     showDialog(
       "Add an album",
@@ -587,6 +911,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openCatalogArtist(item?: Artist) {
+    if (!beginDraft({ kind: "artist", item })) return;
     showDialog(
       item ? "Edit artist" : "Add artist",
       "YOUR ARTIST CATALOG",
@@ -832,6 +1157,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openInstruments(album: Album) {
+    if (!beginDraft({ kind: "instruments", item: album })) return;
     showDialog(
       "Edit instruments",
       "ALBUM INSTRUMENTATION",
@@ -866,6 +1192,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openCatalogInstrument(item?: Instrument) {
+    if (!beginDraft({ kind: "instrument", item })) return;
     showDialog(
       item ? "Edit instrument" : "Add instrument",
       "YOUR INSTRUMENT CATALOG",
@@ -903,6 +1230,7 @@ export function initializeApp(data?: LibraryData) {
       }
     const stored = await persistChanges();
     if (stored === null) return;
+    clearDraft();
     editor.close();
     if (location.hash === destination) renderRoute(true);
     else location.hash = destination;
@@ -944,6 +1272,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openAlbumForm(album: Partial<Album> = {}, mode = "manual") {
+    if (!beginDraft({ kind: "album", item: album, mode })) return;
     const isEdit = mode === "edit";
     const fromSearch = mode === "review";
     const title = isEdit ? "Edit album" : "Create album";
@@ -1170,6 +1499,7 @@ export function initializeApp(data?: LibraryData) {
         : "");
   }
   function openCatalogGenre(item?: Genre) {
+    if (!beginDraft({ kind: "genre", item })) return;
     showDialog(
       item ? "Edit genre" : "Add genre",
       "GENRE CATALOG",
@@ -1215,6 +1545,7 @@ export function initializeApp(data?: LibraryData) {
   }
 
   function openListen(album: Album, entry?: ListeningEntry) {
+    if (!beginDraft({ kind: "listen", item: album, entry })) return;
     showDialog(
       entry ? "Edit listen" : "Log a listen",
       "LISTENING ENTRY",
@@ -1421,6 +1752,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   async function finishSave(id: string, message: string) {
     const stored = await persistChanges();
     if (stored === null) return;
+    clearDraft();
     editor.close();
     if (location.hash === albumUrl(id)) {
       renderRoute();
@@ -1787,7 +2119,10 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         openAlbumForm();
         break;
       case "back-search":
-        if (canDismissDialog()) openSearch(false);
+        if (canDismissDialog()) {
+          clearDraft();
+          openSearch(false);
+        }
         break;
       case "retry-search":
         updateCatalog();
@@ -2309,13 +2644,26 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
 
   window.addEventListener("hashchange", () => {
     if (location.hash === "#main-content") return;
-    if (editor.open) editor.close();
+    if (editor.open) {
+      captureDraft();
+      if (draft) {
+        draft.open = false;
+        writeDraft();
+        resumeButton.hidden = false;
+      }
+      draftTarget = undefined;
+      editor.close();
+    }
     viewHash = location.hash;
     renderRoute(true);
   });
 
   viewHash = location.hash;
   renderRoute();
+  if (draft) {
+    resumeButton.hidden = false;
+    if (draft.open) queueMicrotask(resumeDraft);
+  }
 
   return (hash: string): HTMLElement => {
     const page = document.createElement("div");
