@@ -1,3 +1,8 @@
+import { findArtist, commitAlbumArtists } from "./artistIdentity";
+import {
+  parseWikipediaUrl,
+  resolveWikipediaArticle,
+} from "../services/wikipedia";
 import { makeId } from "./id";
 import { searchReleaseGroups } from "../services/musicbrainz";
 import { getReleaseGroupArtworkUrl } from "../services/coverArt";
@@ -720,19 +725,21 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       "NEW RECORD",
       /* HTML */ `<div class="dialog-body">
           <p class="dialog-intro">
-            Find an album on MusicBrainz, or enter the details yourself.
+            Find an album on MusicBrainz, paste a Wikipedia article URL, or
+            enter the details yourself.
           </p>
           <label class="search-field dialog-search"
-            >${icon("search")}<span class="sr-only">Search MusicBrainz</span
+            >${icon("search")}<span class="sr-only"
+              >Search MusicBrainz or paste a Wikipedia URL</span
             ><input
               id="catalog-query"
               type="search"
-              placeholder="Try Miles Davis or Blue Train…"
+              placeholder="Album, artist, or Wikipedia URL…"
               value="${escapeHtml(searchQuery)}"
               autocomplete="off"
           /></label>
           <div class="search-results-heading">
-            <span>MusicBrainz results</span
+            <span>Album results</span
             ><span id="catalog-count" aria-live="polite"></span>
           </div>
           <div id="catalog-results"></div>
@@ -775,7 +782,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       class="empty catalog-empty"
       role="status"
     >
-      <p>Searching MusicBrainz…</p>
+      <p>Finding album…</p>
     </div>`;
     searchTimer = setTimeout(async () => {
       const current = () =>
@@ -785,9 +792,39 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       if (!current()) return;
       try {
         // Preserve the indexed search syntax used by MusicBrainz's website.
-        const candidates = await searchReleaseGroups(query);
-        if (!current()) return;
-        searchResults = candidates.map(candidateAlbum);
+        if (/^https?:\/\//i.test(query)) {
+          const imported = await resolveWikipediaArticle(
+            parseWikipediaUrl(query),
+          );
+          if (!current()) return;
+          searchResults = [
+            {
+              ...candidateAlbum({
+                musicbrainzId: "",
+                title: imported.title,
+                releaseYear: imported.releaseYear,
+                primaryType: "Album",
+                artists: [],
+              }),
+              id: imported.url,
+              musicbrainzReleaseGroupId: null,
+              artworkUrl: imported.artworkUrl,
+              links: [{ id: makeId(), url: imported.url, label: "Wikipedia" }],
+              artists: imported.artists.map((artist, position) => ({
+                ...artist,
+                id: makeId(),
+                sortName: null,
+                country: null,
+                role: "primary",
+                position,
+              })),
+            },
+          ];
+        } else {
+          const candidates = await searchReleaseGroups(query);
+          if (!current()) return;
+          searchResults = candidates.map(candidateAlbum);
+        }
         if (searchCache.size >= 20)
           searchCache.delete(searchCache.keys().next().value!);
         searchCache.set(query, searchResults);
@@ -799,7 +836,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
           class="empty catalog-empty"
           role="alert"
         >
-          <h3>Couldn’t search MusicBrainz</h3>
+          <h3>Couldn’t find album</h3>
           <p>
             ${escapeHtml(error instanceof Error ? error.message : "Please try again.")}
           </p>
@@ -822,7 +859,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     const inLibrary = (album: Album) =>
       albums.find(
         (item) =>
-          item.musicbrainzReleaseGroupId === album.musicbrainzReleaseGroupId,
+          (album.musicbrainzReleaseGroupId &&
+            item.musicbrainzReleaseGroupId ===
+              album.musicbrainzReleaseGroupId) ||
+          album.links.some((link) =>
+            item.links.some((savedLink) => savedLink.url === link.url),
+          ),
       );
     const sorted = [...results].sort(
       (a, b) => Number(Boolean(inLibrary(a))) - Number(Boolean(inLibrary(b))),
@@ -943,13 +985,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   function artistPicker(credits: AlbumArtist[]) {
     artistChoices = structuredClone(artists);
     selectedArtists = credits.map((credit) => {
-      const existing = artistChoices.find(
-        (item) =>
-          item.id === credit.id ||
-          (credit.musicbrainzId
-            ? item.musicbrainzId === credit.musicbrainzId
-            : item.name.toLowerCase() === credit.name.toLowerCase()),
-      );
+      const existing = findArtist(artistChoices, credit);
       if (!existing) {
         const { role, position, ...artist } = credit;
         artistChoices.push(artist);
@@ -1322,8 +1358,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
                   <div>
                     <strong>${escapeHtml(album.title)}</strong>
                     <p class="muted">
-                      From MusicBrainz. Review the details and artist roles
-                      before saving.
+                      Imported album. Review the artwork, details, and artist
+                      roles before saving.
                     </p>
                   </div>
                 </div>`
@@ -1718,17 +1754,15 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
       links.push({ id: makeId(), url, label });
     }
     commitInstrumentChoices();
-    artists = structuredClone(artistChoices);
+    const committedArtists = commitAlbumArtists(artists, selectedArtists);
+    artists = committedArtists.artists;
     genres = structuredClone(genreChoices);
     const saved: Album = {
       id: mode === "edit" ? original!.id : makeId(),
       sourceId: mode === "edit" ? original?.sourceId : undefined,
       title,
       sortTitle: value("sortTitle"),
-      artists: selectedArtists.map((credit, position) => ({
-        ...credit,
-        position,
-      })),
+      artists: committedArtists.credits,
       releaseYear: Number(value("year")) || null,
       genres: structuredClone(selectedGenres),
       recordLabel: value("label"),
@@ -2167,8 +2201,12 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         if (!result) break;
         const saved = albums.find(
           (entry) =>
-            entry.musicbrainzReleaseGroupId ===
-            result.musicbrainzReleaseGroupId,
+            (result.musicbrainzReleaseGroupId &&
+              entry.musicbrainzReleaseGroupId ===
+                result.musicbrainzReleaseGroupId) ||
+            result.links.some((link) =>
+              entry.links.some((savedLink) => savedLink.url === link.url),
+            ),
         );
         if (saved) {
           editor.close();
