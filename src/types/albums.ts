@@ -30,10 +30,11 @@ export interface Album {
 // position stored on the album/artist link.
 export type Artist = Pick<
   AlbumArtist,
-  "id" | "name" | "sortName" | "country" | "musicbrainzId"
+  "id" | "name" | "sortName" | "country" | "musicbrainzId" | "photoUrl"
 >;
 
 export interface AlbumArtist {
+  photoUrl?: string | null;
   id: string;
   musicbrainzId: string | null;
   name: string;
@@ -56,6 +57,7 @@ export interface AlbumGenre {
 // An instrument associated with an album, including its categories and any
 // album-specific notes.
 export interface Instrument {
+  imageUrl?: string | null;
   id: string;
   name: string;
   categories: InstrumentCategory[];

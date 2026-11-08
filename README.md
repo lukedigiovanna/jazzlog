@@ -122,7 +122,7 @@ For authentication, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE
 
 In the hosted Supabase project's Authentication → URL Configuration, set the production Site URL and allow the development URL (normally `http://localhost:5173/`, or `http://127.0.0.1:5173/` if using that host). Signup confirmation emails return to the current origin and pathname, which must be allowed by Supabase. Local Supabase configuration uses Vite's default port 5173. No hosted settings or migrations are changed by the frontend.
 
-Apply all migrations in `supabase/migrations` before running the account library. In particular, `20261107120000_save_library_changes.sql` adds record-label storage and the RLS-protected `save_library_changes` function used by the editor. The frontend does not apply migrations automatically.
+Apply all migrations in `supabase/migrations` before running the account library. In particular, `20261107120000_save_library_changes.sql` adds record-label storage and the RLS-protected `save_library_changes` function used by the editor. `20261108120000_catalog_images.sql` adds artist photo and instrument image URLs and updates that save function. Apply it before using the updated catalog editors. The frontend does not apply migrations automatically.
 
 Database write regression checks cover related creation, updates, server timestamps, transaction rollback, genre cycles, and cross-user access. Run them against a disposable database with all migrations applied:
 

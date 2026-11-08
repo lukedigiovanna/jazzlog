@@ -24,6 +24,7 @@ function rows(library: LibraryData): Record<string, Row[]> {
     id: a.id,
     name: a.name,
     sort_name: a.sortName || null,
+    photo_url: a.photoUrl || null,
     country: a.country || null,
     musicbrainz_id: a.musicbrainzId || null,
   }));
@@ -35,6 +36,7 @@ function rows(library: LibraryData): Record<string, Row[]> {
   result.instruments = library.instruments.map((i) => ({
     id: i.id,
     name: i.name,
+    image_url: i.imageUrl || null,
   }));
   result.instrument_categories = library.instruments.flatMap((i) =>
     i.categories.map((category) => ({ instrument_id: i.id, category })),

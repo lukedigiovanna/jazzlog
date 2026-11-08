@@ -1,3 +1,10 @@
+import {
+  catalogImage,
+  catalogSummary,
+  catalogSort,
+  catalogStats,
+  compareCatalog,
+} from "../components/catalogSummary";
 import { renderCatalogHeading } from "../components/catalogHeading";
 import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Instrument, InstrumentCategory } from "../types/albums";
@@ -17,6 +24,7 @@ export interface InstrumentFilters {
   query: string;
   category: string;
   unused: boolean;
+  sort?: string;
 }
 
 export function categoryFields(
@@ -48,7 +56,8 @@ export function renderInstrumentsView(filters: InstrumentFilters) {
           value="${escapeHtml(filters.query)}"
       /></label>
       ${renderCatalogFilters(
-        /* HTML */ `<label class="field"
+        /* HTML */ `${catalogSort("instruments-sort", filters.sort ?? "albums", false)}<label
+            class="field"
             ><span>Category</span
             ><select id="instrument-category-filter">
               <option value="">All categories</option>
@@ -95,23 +104,33 @@ export function updateInstrumentsView(
               ))) &&
         (!filters.unused || !albumsUsing(albums, item.id).length),
     )
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        compareCatalog(
+          catalogStats(albumsUsing(albums, a.id)),
+          catalogStats(albumsUsing(albums, b.id)),
+          filters.sort ?? "albums",
+        ) || a.name.localeCompare(b.name),
+    );
   root.querySelector("#instruments-count")!.textContent =
     `${results.length} ${results.length === 1 ? "instrument" : "instruments"}`;
   root.querySelector("#instruments-list")!.innerHTML = results.length
     ? /* HTML */ `<ul class="instrument-catalog-list">
         ${results
           .map((item) => {
-            const count = albumsUsing(albums, item.id).length;
             return /* HTML */ `<li>
               <a class="instrument-catalog-row" href="${instrumentUrl(item.id)}"
-                ><span class="instrument-row-info"
-                  ><strong>${escapeHtml(item.name)}</strong
-                  ><span class="muted"
-                    >${item.categories.length ? item.categories.map(categoryLabel).join(" · ") : "Uncategorized"}</span
-                  ><span class="instrument-usage ${count ? "" : "unused"}"
-                    >${count ? `Used on ${count} ${count === 1 ? "album" : "albums"}` : "Not used on any albums"}</span
-                  ></span
+                >${catalogImage(item.name, item.imageUrl, false, item.categories)}<span
+                  class="catalog-card-content"
+                  ><span class="instrument-row-info"
+                    ><span
+                      ><strong>${escapeHtml(item.name)}</strong
+                      ><span class="muted instrument-inline-category">
+                        <span class="instrument-category-dot">· </span>
+                        ${item.categories.length ? item.categories.map(categoryLabel).join(", ") : "Uncategorized"}</span
+                      ></span
+                    ></span
+                  >${catalogSummary(albumsUsing(albums, item.id), false)}</span
                 >${icon("chevron", 18)}</a
               >
             </li>`;
@@ -141,6 +160,9 @@ export function renderInstrumentDetail(item: Instrument, albums: Album[]) {
     <div class="instrument-page-heading">
       <div>
         <p class="eyebrow"><span></span> INSTRUMENT DETAILS</p>
+        <div class="catalog-detail-summary">
+          ${catalogImage(item.name, item.imageUrl, false, item.categories)}${catalogSummary(used, false)}
+        </div>
         <h1 id="page-title">${escapeHtml(item.name)}</h1>
         <div class="tags">
           ${item.categories.length ? chips(item.categories.map(categoryLabel)) : '<span class="muted">Uncategorized</span>'}

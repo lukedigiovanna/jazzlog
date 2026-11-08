@@ -1,3 +1,10 @@
+import {
+  catalogImage,
+  catalogSummary,
+  catalogSort,
+  catalogStats,
+  compareCatalog,
+} from "../components/catalogSummary";
 import { renderLayoutToggle } from "../components/layoutToggle";
 import { renderCatalogHeading } from "../components/catalogHeading";
 import { renderCatalogFilters } from "../components/catalogFilters";
@@ -14,7 +21,12 @@ export const artistRoles = ["primary", "featured", "other"] as const;
 export const roleLabel = (role: string) =>
   role.charAt(0).toUpperCase() + role.slice(1);
 
-export function renderArtistsView(query: string, unused: boolean) {
+export function renderArtistsView(
+  query: string,
+  unused: boolean,
+  sort = "albums",
+  primary = false,
+) {
   return /* HTML */ `<section
     class="instrument-page catalog-page"
     aria-labelledby="page-title"
@@ -28,7 +40,7 @@ export function renderArtistsView(query: string, unused: boolean) {
           type="search"
           placeholder="Find an artist…"
           value="${e(query)}" /></label
-      >${renderCatalogFilters(/* HTML */ `<label><input id="artists-unused" type="checkbox" ${unused ? "checked" : ""} /> Unused only</label>`, Number(unused))}
+      >${renderCatalogFilters(/* HTML */ `${catalogSort("artists-sort", sort)}<label><input id="artists-unused" type="checkbox" ${unused ? "checked" : ""} /> Unused only</label><label><input id="artists-primary" type="checkbox" ${primary ? "checked" : ""} /> Primary artist only</label>`, Number(unused) + Number(primary))}
     </div>
     <p id="artists-count" class="muted" role="status"></p>
     <div id="artists-list"></div>
@@ -40,30 +52,48 @@ export function updateArtistsView(
   query: string,
   unused: boolean,
   root: ParentNode = document,
+  sort = "albums",
+  primary = false,
 ) {
+  const credits = (id: string) =>
+    artistAlbums(albums, id).filter(
+      (album) =>
+        !primary ||
+        album.artists.some(
+          (artist) => artist.id === id && artist.role === "primary",
+        ),
+    );
   const results = artists
     .filter(
       (item) =>
         matches(query, item.name, item.sortName ?? "", item.country ?? "") &&
-        (!unused || !artistAlbums(albums, item.id).length),
+        (!unused || !credits(item.id).length),
     )
-    .sort((a, b) => (a.sortName || a.name).localeCompare(b.sortName || b.name));
+    .sort(
+      (a, b) =>
+        compareCatalog(
+          catalogStats(credits(a.id)),
+          catalogStats(credits(b.id)),
+          sort,
+        ) || (a.sortName || a.name).localeCompare(b.sortName || b.name),
+    );
   root.querySelector("#artists-count")!.textContent =
     `${results.length} ${results.length === 1 ? "artist" : "artists"}`;
   root.querySelector("#artists-list")!.innerHTML = results.length
     ? /* HTML */ `<ul class="instrument-catalog-list">
         ${results
           .map((item) => {
-            const count = artistAlbums(albums, item.id).length;
+            const used = credits(item.id);
             return /* HTML */ `<li>
               <a class="instrument-catalog-row" href="${artistUrl(item.id)}"
-                ><span class="instrument-row-info"
-                  ><span
-                    ><strong>${e(item.name)}</strong
-                    >${item.country ? /* HTML */ ` <em class="artist-country">(${e(item.country)})</em>` : ""}</span
-                  ><span class="instrument-usage ${count ? "" : "unused"}"
-                    >${count ? `Credited on ${count} ${count === 1 ? "album" : "albums"}` : "Not credited on any albums"}</span
-                  ></span
+                >${catalogImage(item.name, item.photoUrl, true)}<span
+                  class="catalog-card-content"
+                  ><span class="instrument-row-info"
+                    ><span
+                      ><strong>${e(item.name)}</strong
+                      >${item.country ? /* HTML */ ` <em class="artist-country">(${e(item.country)})</em>` : ""}</span
+                    ></span
+                  >${catalogSummary(used)}</span
                 >${icon("chevron", 18)}</a
               >
             </li>`;
@@ -91,6 +121,9 @@ export function renderArtistDetail(
     <a class="back-link" href="#artists">${icon("back", 17)} Back to artists</a>
     <div class="artist-page-heading">
       <p class="eyebrow"><span></span> ARTIST DETAILS</p>
+      <div class="catalog-detail-summary">
+        ${catalogImage(item.name, item.photoUrl, true)}${catalogSummary(used)}
+      </div>
       <div class="artist-title-row">
         <h1 id="page-title">${e(item.name)}</h1>
         <button class="button secondary" data-action="edit-catalog-artist">

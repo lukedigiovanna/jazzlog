@@ -1,4 +1,21 @@
 const paths: Record<string, string> = {
+  "instrument-keyboard":
+    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 5v14M12 5v14M16.5 5v14"/><path d="M7.5 5v7M12 5v7M16.5 5v7" stroke-width="3"/>',
+  "instrument-strings":
+    '<path d="m13 11 6-7 2 2-7 6M9 9c-2-2-5 0-4 3-4 1-3 5-1 7s6 3 7-1c3 1 5-2 3-4l-1-3-4-2Z"/><circle cx="9" cy="15" r="2"/><path d="m17 4 3 3M6 18l1-1"/>',
+  "instrument-woodwind":
+    '<path d="m5 19 14-14 2 2L7 21l-2-2ZM16 4l2-2 4 4-2 2M6 16l2 2M9 13l2 2M12 10l2 2"/>',
+  "instrument-brass":
+    '<path d="M3 10h11l6-5v14l-6-5H7a3 3 0 0 0 0 6h6a3 3 0 0 0 3-3v-3M6 8v2M10 8v2M20 5h2v14h-2"/>',
+  "instrument-percussion":
+    '<ellipse cx="12" cy="10" rx="9" ry="3"/><path d="M3 10v8c0 4 18 4 18 0v-8M3 12l4 7 5-6 5 6 4-7M5 3l9 5M19 3l-5 5"/>',
+  "instrument-voice":
+    '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M6 10v2a6 6 0 0 0 12 0v-2M12 18v4M8 22h8"/>',
+  "instrument-electronic":
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8M12 8v8M17 8v8M5 11h4M10 14h4M15 10h4"/>',
+  "instrument-other":
+    '<path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6.5" cy="18" rx="2.5" ry="2"/><ellipse cx="17.5" cy="16" rx="2.5" ry="2"/>',
+
   people:
     '<circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2m1-16a3 3 0 0 1 0 6m2 4a6 6 0 0 1 3 5v1"/>',
   filter:

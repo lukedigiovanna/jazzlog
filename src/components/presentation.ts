@@ -1,6 +1,6 @@
 import type { Album } from "../types/albums";
-import { icon } from "./icons";
-import { escapeHtml } from "./html";
+import { icon } from "./icons.ts";
+import { escapeHtml } from "./html.ts";
 export function webUrl(value: string | null | undefined) {
   try {
     const parsed = new URL(value ?? "");

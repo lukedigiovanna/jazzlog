@@ -210,6 +210,7 @@ export type Database = {
       };
       artists: {
         Row: {
+          photo_url: string | null;
           country: string | null;
           created_at: string;
           id: string;
@@ -220,6 +221,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          photo_url?: string | null;
           country?: string | null;
           created_at?: string;
           id?: string;
@@ -230,6 +232,7 @@ export type Database = {
           user_id?: string;
         };
         Update: {
+          photo_url?: string | null;
           country?: string | null;
           created_at?: string;
           id?: string;
@@ -301,18 +304,21 @@ export type Database = {
       };
       instruments: {
         Row: {
+          image_url: string | null;
           created_at: string;
           id: string;
           name: string;
           user_id: string;
         };
         Insert: {
+          image_url?: string | null;
           created_at?: string;
           id?: string;
           name: string;
           user_id?: string;
         };
         Update: {
+          image_url?: string | null;
           created_at?: string;
           id?: string;
           name?: string;

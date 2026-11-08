@@ -11,6 +11,27 @@ export const instrumentCategories: InstrumentCategory[] = [
   "other",
 ];
 
+// Prefer the playing family over broad electronic/other classifications.
+export const instrumentIconPriority: readonly InstrumentCategory[] = [
+  "keyboard",
+  "strings",
+  "woodwind",
+  "brass",
+  "percussion",
+  "voice",
+  "electronic",
+  "other",
+];
+
+export function instrumentCategoryIcon(
+  categories: readonly InstrumentCategory[] = [],
+) {
+  const category =
+    instrumentIconPriority.find((category) => categories.includes(category)) ??
+    "other";
+  return `instrument-${category}`;
+}
+
 export const categoryLabel = (category: string) =>
   category.charAt(0).toUpperCase() + category.slice(1);
 

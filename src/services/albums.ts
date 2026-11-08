@@ -45,7 +45,8 @@ const ALBUM_SELECT = `
             musicbrainz_id,
             name,
             sort_name,
-            country
+            country,
+            photo_url
         )
     ),
     album_genres (
@@ -61,6 +62,7 @@ const ALBUM_SELECT = `
         instruments (
             id,
             name,
+            image_url,
             instrument_categories (
                 category
             )
@@ -94,6 +96,7 @@ function mapAlbum(row: AlbumQueryRow): Album {
       name: artist.name,
       sortName: artist.sort_name,
       country: artist.country,
+      photoUrl: artist.photo_url,
       role: entry.role,
       position: entry.position,
     }));
@@ -120,6 +123,7 @@ function mapAlbum(row: AlbumQueryRow): Album {
     .map(({ entry, instrument }) => ({
       id: instrument.id,
       name: instrument.name,
+      imageUrl: instrument.image_url,
       notes: entry.notes,
       categories: instrument.instrument_categories.map(
         (category) => category.category,

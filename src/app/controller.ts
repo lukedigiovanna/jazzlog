@@ -1,3 +1,4 @@
+import { catalogImage } from "../components/catalogSummary";
 import {
   findAppleMusicAlbums,
   relevantAppleMusicAlbums,
@@ -101,6 +102,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   let artists = data?.artists ?? readArtistCatalog(albums);
   let artistQuery = "";
   let artistUnused = false;
+  let artistSort = "albums";
+  let artistPrimary = false;
   // Keep the pressed option mounted while a mobile keyboard commits text.
   let pickerPress: {
     button: HTMLButtonElement;
@@ -115,7 +118,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   let artistChoices: Artist[] = [];
   let instruments = data?.instruments ?? readInstrumentCatalog(albums);
   if (!authenticated) syncAlbumInstruments(albums, instruments);
-  const instrumentFilters = { query: "", category: "", unused: false };
+  const instrumentFilters = {
+    query: "",
+    category: "",
+    unused: false,
+    sort: "albums",
+  };
   let selectedInstruments: AlbumInstrument[] = [];
   let instrumentChoices: AlbumInstrument[] = [];
   let dialogOrigin: HTMLElement | undefined;
@@ -582,7 +590,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
             )
           : '<div class="empty"><h1 id="page-title">Genre unavailable</h1><a href="#genres">Back to genres</a></div>';
     } else if (location.hash === "#artists") {
-      main.innerHTML = renderArtistsView(artistQuery, artistUnused);
+      main.innerHTML = renderArtistsView(
+        artistQuery,
+        artistUnused,
+        artistSort,
+        artistPrimary,
+      );
       updateArtistList();
     } else if (artist) {
       main.innerHTML = renderArtistDetail(artist, albums, artistLayout);
@@ -954,7 +967,34 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   function updateArtistList() {
-    updateArtistsView(artists, albums, artistQuery, artistUnused);
+    updateArtistsView(
+      artists,
+      albums,
+      artistQuery,
+      artistUnused,
+      document,
+      artistSort,
+      artistPrimary,
+    );
+  }
+
+  function catalogImageField(
+    label: string,
+    name: string,
+    url?: string | null,
+    artist = false,
+    categories: InstrumentCategory[] = [],
+  ) {
+    return /* HTML */ `<div
+      class="catalog-image-editor"
+      data-artist="${artist}"
+      data-name="${escapeHtml(name)}"
+    >
+      ${field(label, "catalogImage", url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
+      <div class="catalog-image-preview">
+        ${catalogImage(name, url, artist, categories)}
+      </div>
+    </div>`;
   }
 
   function openCatalogArtist(item?: Artist) {
@@ -968,6 +1008,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       >
         <div class="dialog-body">
           ${field("Artist name", "artistName", item?.name, { attributes: 'required maxlength="150"', placeholder: "e.g. Miles Davis" })}
+          ${catalogImageField("Photo URL", item?.name ?? "Artist", item?.photoUrl, true)}
           ${field("Sort name", "sortName", item?.sortName, { attributes: 'maxlength="150"', placeholder: "e.g. Davis, Miles" })}
           ${field("Country code", "country", item?.country, { attributes: 'maxlength="2" pattern="[A-Za-z]{2}"', placeholder: "e.g. US" })}
           ${field("MusicBrainz artist ID", "artistMbid", item?.musicbrainzId, { attributes: 'maxlength="36"', placeholder: "Optional artist ID" })}
@@ -1225,11 +1266,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   function commitInstrumentChoices() {
-    instruments = instrumentChoices.map(({ id, name, categories }) => ({
-      id,
-      name,
-      categories,
-    }));
+    instruments = instrumentChoices.map(
+      ({ id, name, categories, imageUrl }) => ({
+        imageUrl,
+        id,
+        name,
+        categories,
+      }),
+    );
   }
 
   function openCatalogInstrument(item?: Instrument) {
@@ -1243,6 +1287,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       >
         <div class="dialog-body">
           ${field("Instrument name", "instrumentName", item?.name ?? "", { attributes: 'required maxlength="80"', placeholder: "e.g. Vibraphone" })}
+          ${catalogImageField("Image URL", item?.name ?? "Instrument", item?.imageUrl, false, item?.categories)}
           ${categoryFields(item?.categories)}
           <p class="form-hint">
             Name and category changes apply everywhere this instrument is used.
@@ -1297,7 +1342,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     )
       return formError("An instrument with this name already exists.", input);
     const data = new FormData(form);
+    const imageUrl = String(data.get("catalogImage") ?? "").trim();
+    if (imageUrl && !webUrl(imageUrl))
+      return formError(
+        "Enter an HTTP or HTTPS image URL.",
+        form.querySelector('[name="catalogImage"]')!,
+      );
     const item: Instrument = {
+      imageUrl: imageUrl || null,
       id: form.dataset.id || makeId(),
       name,
       categories: data
@@ -2101,6 +2153,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
         }
         break;
       case "clear-artist-filters":
+        artistPrimary = false;
         artistQuery = "";
         artistUnused = false;
         renderRoute();
@@ -2429,6 +2482,28 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   });
 
   document.addEventListener("input", (event) => {
+    const imageInput = event.target as HTMLInputElement;
+    if (
+      imageInput.name === "catalogImage" ||
+      (imageInput.name === "category" &&
+        imageInput.closest("#catalog-instrument-form"))
+    ) {
+      const form = imageInput.closest("form")!;
+      const container = form.querySelector<HTMLElement>(
+        ".catalog-image-editor",
+      )!;
+      container.querySelector(".catalog-image-preview")!.innerHTML =
+        catalogImage(
+          container.dataset.name ?? "",
+          form.querySelector<HTMLInputElement>('[name="catalogImage"]')!.value,
+          container.dataset.artist === "true",
+          [
+            ...form.querySelectorAll<HTMLInputElement>(
+              '[name="category"]:checked',
+            ),
+          ].map((input) => input.value as InstrumentCategory),
+        );
+    }
     const input = event.target as HTMLInputElement;
     if (input.id === "instruments-search") {
       instrumentFilters.query = input.value;
@@ -2468,6 +2543,18 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     if (input.id === "genres-unused") {
       genreUnused = input.checked;
       updateCatalogFilters(input.id);
+    }
+    if (input.id === "artists-sort") {
+      artistSort = input.value;
+      updateArtistList();
+    }
+    if (input.id === "artists-primary") {
+      artistPrimary = input.checked;
+      updateCatalogFilters(input.id);
+    }
+    if (input.id === "instruments-sort") {
+      instrumentFilters.sort = input.value;
+      updateInstrumentList();
     }
     if (input.id === "artists-unused") {
       artistUnused = input.checked;
@@ -2606,9 +2693,15 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
           "This MusicBrainz artist is already in your catalog.",
           input,
         );
+      if (value("catalogImage") && !webUrl(value("catalogImage")))
+        return formError(
+          "Enter an HTTP or HTTPS photo URL.",
+          form.querySelector('[name="catalogImage"]')!,
+        );
       const item: Artist = {
         id: form.dataset.id || makeId(),
         name,
+        photoUrl: value("catalogImage") || null,
         sortName: value("sortName") || null,
         country: value("country").toUpperCase() || null,
         musicbrainzId,
@@ -2679,7 +2772,7 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
   document.addEventListener(
     "error",
     (event) => {
-      if ((event.target as Element).matches?.(".cover img"))
+      if ((event.target as Element).matches?.(".cover img, .catalog-image img"))
         (event.target as Element).remove();
     },
     true,
@@ -2930,8 +3023,21 @@ ${escapeHtml(entry?.notes ?? "")}</textarea>
     const page = document.createElement("div");
     page.className = "frame swipe-preview";
     if (hash === "#artists") {
-      page.innerHTML = renderArtistsView(artistQuery, artistUnused);
-      updateArtistsView(artists, albums, artistQuery, artistUnused, page);
+      page.innerHTML = renderArtistsView(
+        artistQuery,
+        artistUnused,
+        artistSort,
+        artistPrimary,
+      );
+      updateArtistsView(
+        artists,
+        albums,
+        artistQuery,
+        artistUnused,
+        page,
+        artistSort,
+        artistPrimary,
+      );
     } else if (hash === "#genres") {
       page.innerHTML = renderGenresView(
         genres,

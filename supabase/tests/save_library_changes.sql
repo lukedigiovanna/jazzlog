@@ -17,12 +17,12 @@ set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 select public.save_library_changes('{
-    "artists": {"saved": [{"id": "00000000-0000-4000-8000-000000000001", "name": "Artist"}]},
+    "artists": {"saved": [{"id": "00000000-0000-4000-8000-000000000001", "name": "Artist", "photo_url": "https://example.com/artist.jpg"}]},
     "genres": {"saved": [
         {"id": "00000000-0000-4000-8000-000000000002", "name": "Child", "parent_genre_id": "00000000-0000-4000-8000-000000000003"},
         {"id": "00000000-0000-4000-8000-000000000003", "name": "Parent"}
     ]},
-    "instruments": {"saved": [{"id": "00000000-0000-4000-8000-000000000004", "name": "Sax"}]},
+    "instruments": {"saved": [{"id": "00000000-0000-4000-8000-000000000004", "name": "Sax", "image_url": "https://example.com/sax.jpg"}]},
     "albums": {"saved": [{"id": "00000000-0000-4000-8000-000000000005", "title": "Album", "record_label": "Blue Note"}]},
     "album_artists": {"saved": [{"album_id": "00000000-0000-4000-8000-000000000005", "artist_id": "00000000-0000-4000-8000-000000000001", "position": 0, "role": "primary"}]},
     "album_genres": {"saved": [{"album_id": "00000000-0000-4000-8000-000000000005", "genre_id": "00000000-0000-4000-8000-000000000002", "is_primary": true}]},
@@ -32,6 +32,14 @@ select public.save_library_changes('{
     "listening_entries": {"saved": [{"id": "00000000-0000-4000-8000-000000000007", "album_id": "00000000-0000-4000-8000-000000000005", "rating": 9, "listened_at": "2026-11-07"}]}
 }'::jsonb);
 set constraints all immediate;
+select pg_temp.assert_true((select photo_url = 'https://example.com/artist.jpg' from public.artists), 'Artist photo insert missing');
+select pg_temp.assert_true((select image_url = 'https://example.com/sax.jpg' from public.instruments), 'Instrument image insert missing');
+select public.save_library_changes('{
+    "artists": {"saved": [{"id": "00000000-0000-4000-8000-000000000001", "name": "Artist", "photo_url": "https://example.com/new.jpg"}]},
+    "instruments": {"saved": [{"id": "00000000-0000-4000-8000-000000000004", "name": "Sax", "image_url": null}]}
+}'::jsonb);
+select pg_temp.assert_true((select photo_url = 'https://example.com/new.jpg' from public.artists), 'Artist photo update missing');
+select pg_temp.assert_true((select image_url is null from public.instruments), 'Instrument image clear failed');
 select pg_temp.assert_true((select record_label = 'Blue Note' from public.albums), 'Record label missing');
 select pg_temp.assert_true(
     (select count(*) = 1 from public.album_links), 'Related album records were not saved');

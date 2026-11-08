@@ -126,9 +126,14 @@ export function readAlbums(): Album[] {
 }
 
 export function readInstrumentCatalog(albums: Album[]): Instrument[] {
-  const linked = albums
+  const linked: Instrument[] = albums
     .flatMap((album) => album.instruments)
-    .map(({ id, name, categories }) => ({ id, name, categories }));
+    .map(({ id, name, categories, imageUrl }) => ({
+      id,
+      name,
+      categories,
+      imageUrl,
+    }));
   try {
     const saved: unknown = JSON.parse(
       localStorage.getItem(storageKey) ?? "null",
@@ -214,6 +219,7 @@ export function readArtistCatalog(albums: Album[]): Artist[] {
         name: credit.name,
         sortName: credit.sortName,
         country: credit.country,
+        photoUrl: credit.photoUrl,
         musicbrainzId: credit.musicbrainzId,
       };
       catalog.set(artist.id, artist);

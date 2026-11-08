@@ -11,7 +11,7 @@ export async function getLibrary(): Promise<LibraryData> {
     readAll((from, to) =>
       supabase
         .from("artists")
-        .select("id,name,sort_name,country,musicbrainz_id")
+        .select("id,name,sort_name,country,musicbrainz_id,photo_url")
         .order("id")
         .range(from, to),
     ),
@@ -25,7 +25,7 @@ export async function getLibrary(): Promise<LibraryData> {
     readAll((from, to) =>
       supabase
         .from("instruments")
-        .select("id,name,instrument_categories(category)")
+        .select("id,name,image_url,instrument_categories(category)")
         .order("id")
         .range(from, to),
     ),
@@ -36,6 +36,7 @@ export async function getLibrary(): Promise<LibraryData> {
       id: row.id,
       name: row.name,
       sortName: row.sort_name,
+      photoUrl: row.photo_url,
       country: row.country,
       musicbrainzId: row.musicbrainz_id,
     })),
@@ -47,6 +48,7 @@ export async function getLibrary(): Promise<LibraryData> {
     instruments: instrumentRows.map((row) => ({
       id: row.id,
       name: row.name,
+      imageUrl: row.image_url,
       categories: row.instrument_categories.map((entry) => entry.category),
     })),
   };
