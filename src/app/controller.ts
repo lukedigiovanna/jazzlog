@@ -22,6 +22,7 @@ import { createGenreFeature } from "./genreFeature";
 import { createArtistFeature } from "./artistFeature";
 import { createAlbumEditor } from "./albumEditor";
 import { createListening } from "./listening";
+import { readLayout, saveLayout } from "./layoutPreferences";
 
 export function initializeApp(data?: LibraryData, accountId = "demo") {
   const lifecycle = createLifecycle();
@@ -29,8 +30,13 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
-  let artistLayout = "grid";
-  const state = { query: "", genre: "", sort: "recent", layout: "grid" };
+  let artistLayout = readLayout("artist");
+  const state = {
+    query: "",
+    genre: "",
+    sort: "recent",
+    layout: readLayout("library"),
+  };
   const library = createLibraryState(data);
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
@@ -606,6 +612,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
         break;
       case "artist-layout": {
         artistLayout = button.dataset.layout === "list" ? "list" : "grid";
+        saveLayout("artist", artistLayout);
         renderRoute();
         main
           .querySelector<HTMLButtonElement>(
@@ -616,6 +623,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       }
       case "layout":
         state.layout = button.dataset.layout === "list" ? "list" : "grid";
+        saveLayout("library", state.layout);
         for (const toggle of document.querySelectorAll("[data-layout]")) {
           toggle.setAttribute(
             "aria-pressed",
