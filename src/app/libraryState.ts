@@ -41,7 +41,18 @@ export function createLibraryState(
   }
   let committed = structuredClone(data);
   let saving = false;
+  let revision = 0;
   return {
+    get revision() {
+      return revision;
+    },
+    replace(next: LibraryData, expectedRevision: number) {
+      if (saving || revision !== expectedRevision) return false;
+      data = next;
+      committed = structuredClone(next);
+      revision++;
+      return true;
+    },
     get data() {
       return data;
     },
@@ -76,6 +87,7 @@ export function createLibraryState(
           message: "A save is already in progress.",
         };
       const pending = structuredClone(data);
+      revision++;
       data = structuredClone(committed);
       saving = true;
       try {

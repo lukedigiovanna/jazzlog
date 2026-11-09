@@ -2,6 +2,7 @@ import { createLibraryState, type SaveResult } from "./libraryState";
 import { createDialog } from "./dialog";
 import { createEditorDrafts } from "./editorDrafts";
 import { createLifecycle } from "./lifecycle";
+import { createResumeRefresh } from "./resumeRefresh";
 import type { LibraryData } from "../types/library";
 import { genreUrl } from "./genres";
 import { renderGenreDetail } from "../views/genresView";
@@ -745,6 +746,23 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
   viewHash = location.hash;
   renderRoute();
+  const disposeRefresh = data
+    ? createResumeRefresh({
+        editor,
+        blocked: () => editor.open || library.saving,
+        refresh: async () => {
+          const revision = library.revision;
+          const { getLibrary } = await import("../services/library");
+          const next = await getLibrary();
+          if (!lifecycle.active || editor.open) return false;
+          if (!library.replace(next, revision)) return false;
+          const scroll = window.scrollY;
+          renderRoute();
+          window.scrollTo(0, scroll);
+          return true;
+        },
+      })
+    : undefined;
   if (drafts.current) {
     resumeButton.hidden = false;
     if (drafts.current.open) lifecycle.queue(resumeDraft);
@@ -767,6 +785,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     dispose() {
       captureDraft();
       lifecycle.dispose();
+      disposeRefresh?.();
       drafts.dispose();
       dialog.dispose();
       metadataSearch.cancel();
