@@ -1,5 +1,6 @@
 import { escapeHtml } from "./html.ts";
 import { icon } from "./icons.ts";
+import { cover } from "./presentation.ts";
 import { catalogImage } from "./catalogSummary.ts";
 import type { AlbumLink, InstrumentCategory } from "../types/albums";
 
@@ -55,15 +56,17 @@ export function catalogImageField(
   url?: string | null,
   artist = false,
   categories: InstrumentCategory[] = [],
+  fieldName = "catalogImage",
 ) {
   return /* HTML */ `<div
     class="catalog-image-editor"
     data-artist="${artist}"
     data-name="${escapeHtml(name)}"
+    data-image-field="${escapeHtml(fieldName)}"
   >
-    ${field(label, "catalogImage", url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
+    ${field(label, fieldName, url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
     <div class="catalog-image-preview">
-      ${catalogImage(name, url, artist, categories)}
+      ${fieldName === "artwork" ? cover({ artworkUrl: url }) : catalogImage(name, url, artist, categories)}
     </div>
   </div>`;
 }
@@ -71,12 +74,18 @@ export function catalogImageField(
 export function updateCatalogImage(input: HTMLInputElement) {
   const form = input.closest("form")!;
   const container = form.querySelector<HTMLElement>(".catalog-image-editor")!;
-  container.querySelector(".catalog-image-preview")!.innerHTML = catalogImage(
-    container.dataset.name ?? "",
-    form.querySelector<HTMLInputElement>('[name="catalogImage"]')!.value,
-    container.dataset.artist === "true",
-    [
-      ...form.querySelectorAll<HTMLInputElement>('[name="category"]:checked'),
-    ].map((input) => input.value as InstrumentCategory),
-  );
+  const url = container.querySelector<HTMLInputElement>("input")!.value;
+  container.querySelector(".catalog-image-preview")!.innerHTML =
+    container.dataset.imageField === "artwork"
+      ? cover({ artworkUrl: url })
+      : catalogImage(
+          container.dataset.name ?? "",
+          url,
+          container.dataset.artist === "true",
+          [
+            ...form.querySelectorAll<HTMLInputElement>(
+              '[name="category"]:checked',
+            ),
+          ].map((input) => input.value as InstrumentCategory),
+        );
 }

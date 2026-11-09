@@ -72,7 +72,8 @@
 .catalog-image-preview {
   flex-shrink: 0;
 }
-.catalog-image-preview .catalog-image {
+.catalog-image-preview .catalog-image,
+.catalog-image-preview .cover {
   width: 44px;
   height: 44px;
   flex-basis: 44px;

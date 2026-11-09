@@ -2,7 +2,12 @@ import { today } from "./date";
 import { createDialog } from "./dialog";
 import { createEditorDrafts } from "./editorDrafts";
 import type { LibraryData } from "../types/library";
-import { field, linkRow } from "../components/formFields";
+import {
+  catalogImageField,
+  updateCatalogImage,
+  field,
+  linkRow,
+} from "../components/formFields";
 import { formValue } from "./formValues";
 import {
   findAppleMusicAlbums,
@@ -257,10 +262,8 @@ export function createAlbumEditor(ops: {
           </section>
           <section class="extra-fields" aria-labelledby="album-details-title">
             <h3 id="album-details-title">More album details</h3>
-            <div class="field-grid">
-              ${field("Record label", "label", album.recordLabel, { attributes: 'maxlength="100"', placeholder: "Optional" })}
-              ${field("Artwork URL", "artwork", webUrl(album.artworkUrl)?.href, { type: "url", attributes: 'maxlength="2000"', placeholder: "https://…" })}
-            </div>
+            ${field("Record label", "label", album.recordLabel, { attributes: 'maxlength="100"', placeholder: "Optional" })}
+            ${catalogImageField("Artwork URL", album.title ?? "", webUrl(album.artworkUrl)?.href, false, [], "artwork")}
           </section>
           <p class="form-error" id="form-error" role="alert" hidden></p>
         </div>
@@ -275,6 +278,11 @@ export function createAlbumEditor(ops: {
       '[name="title"]',
       !isEdit,
     );
+    ops.editor
+      .querySelector<HTMLInputElement>('[name="artwork"]')!
+      .addEventListener("input", (event) => {
+        updateCatalogImage(event.currentTarget as HTMLInputElement);
+      });
     ops.updateInstruments();
     ops.updateArtists();
     ops.updateGenres();
