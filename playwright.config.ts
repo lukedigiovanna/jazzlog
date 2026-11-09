@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: true,
+  // Keep local browser runs within a modest memory budget.
+  workers: 1,
   use: {
     baseURL: "http://127.0.0.1:5180",
     trace: "retain-on-failure",

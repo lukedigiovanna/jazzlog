@@ -1,0 +1,80 @@
+:root {
+  color-scheme: dark;
+  --page-top-gap: 30px;
+  --bg: #181b17;
+  --header: #1b1f1a;
+  --panel: #20251e;
+  --panel-hover: #282e25;
+  --line: #343b31;
+  --line-soft: #2b3229;
+  --ink: #f0eddf;
+  --muted: #afb3a6;
+  --quiet: #969e8e;
+  --sage: #c2ceac;
+  --sage-strong: #d3debc;
+  --gold: #e2ba77;
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  min-width: 300px;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--sans);
+}
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button,
+select,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--sage-strong);
+  outline-offset: 4px;
+}
+main:focus,
+#page-title:focus,
+#dialog-title:focus {
+  outline: none;
+}

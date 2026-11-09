@@ -1,0 +1,233 @@
+.main-nav {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.nav-highlight {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 6px;
+  background: var(--panel-hover);
+}
+.main-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  color: var(--muted);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.main-nav a[aria-current="page"] {
+  color: var(--sage-strong);
+}
+.instrument-page {
+  padding: var(--page-top-gap) 0 40px;
+}
+.instrument-page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+.instrument-page h1 {
+  font: 400 clamp(36px, 6vw, 54px)/1.15 var(--serif);
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.instrument-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.instrument-toolbar select {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.unused-filter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  color: var(--muted);
+}
+.instrument-catalog-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  display: grid;
+  gap: 12px;
+}
+.instrument-catalog-list li {
+  min-width: 0;
+}
+.instrument-catalog-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  background: var(--panel);
+}
+.instrument-catalog-row:hover {
+  background: var(--panel-hover);
+}
+.instrument-row-info {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.instrument-row-info strong {
+  font-size: 16px;
+}
+:is(#artists-list, #instruments-list) .instrument-row-info strong {
+  font-size: 20px;
+}
+.instrument-row-info .muted,
+.instrument-usage {
+  font-size: 12px;
+}
+.instrument-usage {
+  color: var(--sage);
+}
+.instrument-usage.unused {
+  color: var(--gold);
+}
+.instrument-catalog-row > .icon {
+  flex-shrink: 0;
+}
+.category-fields {
+  padding: 0;
+  margin: 22px 0;
+  border: 0;
+  min-width: 0;
+}
+.category-fields legend {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 5px;
+}
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.category-options label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.category-options input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.category-options span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+.category-options input:checked + span {
+  background: var(--sage);
+  color: var(--bg);
+  border-color: var(--sage);
+}
+.category-options input:focus-visible + span {
+  outline: 2px solid var(--sage);
+  outline-offset: 3px;
+}
+.inline-instrument-create {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1a2019;
+}
+.inline-instrument-create .category-fields {
+  margin: 0 0 12px;
+}
+.instrument-albums {
+  margin-top: 30px;
+}
+.instrument-delete {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 35px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.instrument-delete p {
+  font-size: 12px;
+}
+.button.danger:not(:disabled) {
+  color: #f1b8a5;
+  border-color: #845c4f;
+  background: #392a25;
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (min-width: 701px) {
+  .instrument-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.45fr) auto;
+    align-items: center;
+  }
+}
+@media (max-width: 700px) {
+  :root {
+    --page-top-gap: 20px;
+  }
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    transition: transform 500ms ease;
+  }
+  .masthead.masthead-hidden:not(:focus-within) {
+    transform: translateY(-100%);
+  }
+  .masthead-inner {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 12px;
+  }
+  .main-nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    border-top: 1px solid var(--line-soft);
+    padding-block: 5px;
+  }
+  .main-nav a {
+    flex: 1;
+    text-align: center;
+    min-height: 40px;
+  }
+  .top-add {
+    margin-left: auto;
+  }
+}

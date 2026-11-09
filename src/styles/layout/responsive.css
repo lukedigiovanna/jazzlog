@@ -1,0 +1,235 @@
+@media (max-width: 1100px) {
+  .frame {
+    width: calc(100% - 66px);
+  }
+  .feature {
+    min-height: 216px;
+  }
+  .album-grid {
+    gap: 15px 12px;
+  }
+}
+@media (max-width: 850px) {
+  .frame {
+    width: calc(100% - 44px);
+  }
+  .hero {
+    gap: 17px;
+    padding-bottom: 34px;
+  }
+  .feature {
+    padding: 16px 13px 16px 17px;
+    gap: 10px;
+    min-height: 173px;
+  }
+  .feature-open {
+    margin-top: 12px;
+  }
+  .album-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 630px) {
+  .frame {
+    width: calc(100% - 32px);
+  }
+  .masthead-inner {
+    min-height: 61px;
+    gap: 13px;
+  }
+  .brand {
+    font-size: 24px;
+    gap: 6px;
+  }
+  .brand img {
+    width: 33px;
+    height: 33px;
+  }
+  .top-add {
+    min-height: 38px;
+    padding-inline: 10px;
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: clamp(40px, 10.2vw, 61px);
+    margin: 0 0 11px;
+  }
+  .hero h1 em {
+    display: inline;
+  }
+  .hero-stats {
+    margin-top: 14px;
+  }
+  .feature {
+    grid-template-columns: minmax(115px, 42%) minmax(0, 1fr);
+    min-height: 139px;
+    gap: 16px;
+    padding: 13px 16px;
+  }
+  .feature-art {
+    max-width: 165px;
+  }
+  .feature-copy strong {
+    font-size: 29px;
+  }
+  .feature-open {
+    margin-top: 8px;
+  }
+  .library {
+    padding-top: 24px;
+  }
+  .toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 13px;
+  }
+  .toolbar .search-field {
+    grid-column: 1 / -1;
+  }
+  .select-wrap {
+    min-height: 42px;
+  }
+  .album-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px 9px;
+  }
+  .album-list .album-card {
+    grid-template-columns: 43px minmax(0, 1fr) 112px;
+    gap: 8px;
+    min-height: 58px;
+  }
+  .album-list .album-genre,
+  .album-list .card-arrow {
+    display: none;
+  }
+  .album-list .rating {
+    gap: 5px;
+  }
+  .detail {
+    padding-top: 20px;
+  }
+  .back-link {
+    margin-bottom: 16px;
+  }
+  .album-hero {
+    padding: 18px;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    text-align: center;
+  }
+  .album-hero > .cover {
+    width: min(80%, 260px);
+    justify-self: center;
+  }
+  .album-hero-info {
+    min-width: 0;
+  }
+  .album-hero h1 {
+    margin-top: 0;
+    font-size: clamp(32px, 8vw, 46px);
+    line-height: 1.08;
+  }
+  .album-hero .detail-artist {
+    margin-top: 6px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .album-hero .detail-meta {
+    margin-top: 6px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .album-hero .tags {
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .album-hero .detail-rating {
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .album-hero .detail-rating > .muted {
+    font-size: 10px;
+  }
+  .album-hero .detail-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .album-hero .detail-actions .button {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+  .album-hero .detail-actions .secondary:last-child {
+    grid-column: 1 / -1;
+  }
+  .detail-body {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 23px;
+  }
+  [aria-labelledby="history-title"] .detail-heading {
+    gap: 6px;
+  }
+  #history-title {
+    font-size: clamp(22px, 6vw, 27px);
+  }
+  .dialog-heading,
+  .dialog-body,
+  .dialog-footer {
+    padding-inline: 15px;
+  }
+  .search-field input,
+  .field input,
+  .field textarea {
+    font-size: 16px;
+  }
+}
+@media (max-width: 420px) {
+  .album-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .footer-inner {
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 4px;
+    padding-block: 10px;
+  }
+  .field-grid {
+    gap: 8px;
+  }
+  .link-fields {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 31px;
+  }
+  .link-fields .icon-button {
+    min-width: 31px;
+  }
+}
+@media (max-width: 360px) {
+  .masthead-inner {
+    gap: 8px;
+  }
+  .hero h1 em {
+    display: block;
+  }
+  .feature {
+    gap: 10px;
+  }
+  .feature-copy .eyebrow {
+    letter-spacing: 0.06em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001s !important;
+  }
+}

@@ -1,0 +1,162 @@
+.instrument-picker,
+.link-form,
+.extra-fields {
+  margin: 1.25rem 0;
+  padding: 16px;
+  border: 1px solid #424d3d;
+  border-radius: 8px;
+}
+.instrument-picker > input,
+.catalog-search > input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #424d3d;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.instrument-picker .tags {
+  margin: 0 0 10px;
+}
+.instrument-picker .tags:empty {
+  display: none;
+}
+.instrument-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.instrument-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+[aria-labelledby="instruments-title"] > button {
+  margin-top: 1rem;
+}
+
+.album-sidebar {
+  display: grid;
+  gap: 28px;
+}
+.instrument-picker > input {
+  background: #1a2019;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.instrument-picker > .field {
+  font-size: 15px;
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+.instrument-picker > .field .muted {
+  font-size: 12px;
+  font-weight: 400;
+}
+.instrument-picker strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.catalog-search {
+  position: relative;
+  margin-top: 10px;
+}
+.catalog-search > input {
+  background: #1a2019;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.catalog-search .instrument-results {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  margin-top: 4px;
+  max-height: 220px;
+  padding: 4px;
+  border: 1px solid #53614b;
+  border-radius: 6px;
+  background: #20261e;
+  box-shadow: 0 8px 20px #0b0e0b80;
+}
+.catalog-search.is-open .instrument-results:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+.catalog-search .instrument-results .button {
+  flex-shrink: 0;
+  justify-content: flex-start;
+  width: 100%;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font-size: 14px;
+}
+.catalog-search .instrument-results .button:hover,
+.catalog-search .instrument-results .button:focus-visible {
+  background: var(--panel-hover);
+  outline-offset: -2px;
+}
+.instrument-chip {
+  background: var(--panel-hover);
+  font-size: 12px;
+}
+
+/* Mobile dialogs scroll vertically; long content wraps within the viewport. */
+dialog {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.dialog-heading > div,
+.dialog-body,
+.instrument-picker,
+.album-sidebar {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.instrument-chip,
+.instrument-results .button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.instrument-chip .icon,
+.instrument-results .icon {
+  flex-shrink: 0;
+}
+/* Input sizing follows touch capability; layout breakpoints remain viewport based. */
+@media (pointer: coarse) {
+  /* 16px avoids focus zoom in mobile Safari while keeping pinch zoom available. */
+  input,
+  select,
+  textarea,
+  .search-field input,
+  .field input,
+  .field textarea,
+  .instrument-picker > input,
+  .catalog-search > input {
+    font-size: 16px;
+  }
+  .instrument-chip,
+  .instrument-results .button {
+    min-height: 44px;
+  }
+}

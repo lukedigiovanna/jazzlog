@@ -1,0 +1,31 @@
+.artist-page-heading {
+  margin-bottom: 12px;
+}
+.artist-page-heading + .instrument-albums {
+  margin-top: 12px;
+}
+.artist-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+.artist-title-row h1 {
+  margin: 0;
+  min-width: 0;
+}
+.artist-title-row .button {
+  flex-shrink: 0;
+}
+.artist-details {
+  margin-top: 4px;
+}
+
+.artist-country {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  white-space: nowrap;
+}

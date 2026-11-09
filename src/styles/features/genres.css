@@ -1,0 +1,270 @@
+.genre-tree ul {
+  list-style: none;
+  padding-left: 1.25rem;
+}
+.genre-tree > ul {
+  padding-left: 0;
+}
+.genre-tree li {
+  padding: 0;
+}
+.genre-tree summary {
+  cursor: pointer;
+}
+.genre-tree a {
+  color: var(--accent, #a9bfa7);
+}
+#genre-selected > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+#genre-results {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+/* Keep expanding a branch and opening its page in separate touch targets. */
+.genre-tree-item {
+  position: relative;
+}
+.genre-tree summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 0 0 12px;
+  border-radius: 6px;
+  list-style: none;
+}
+.genre-tree summary::-webkit-details-marker {
+  display: none;
+}
+.genre-tree summary::before {
+  content: "›";
+  font-size: 24px;
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.genre-tree details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.genre-toggle-label,
+.genre-leaf-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.genre-toggle-label .muted,
+.genre-leaf-link .muted {
+  font-size: 13px;
+}
+.genre-tree summary > .genre-toggle-label {
+  flex: 1;
+  padding: 8px 0;
+}
+.genre-tree .genre-view-link {
+  position: relative;
+  align-self: stretch;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 76px;
+  min-height: 44px;
+  text-decoration: none;
+}
+.genre-tree .genre-view-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--line, #354032);
+}
+.genre-leaf-link {
+  min-height: 44px;
+  padding: 12px;
+  text-decoration: none;
+}
+.genre-tree summary:hover,
+.genre-tree a:hover {
+  background: #ffffff08;
+}
+.genre-tree summary:focus-visible,
+.genre-tree a:focus-visible {
+  outline: 2px solid var(--accent, #a9bfa7);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .genre-tree ul {
+    padding-left: 12px;
+  }
+  .genre-tree > ul {
+    padding-left: 0;
+  }
+}
+
+.catalog-page {
+  container-type: inline-size;
+}
+.catalog-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.catalog-heading h1 {
+  min-width: 0;
+  margin: 0;
+}
+.catalog-add {
+  flex-shrink: 0;
+}
+@container (max-width: 480px) {
+  .catalog-add {
+    width: 41px;
+    padding: 9px;
+  }
+  .catalog-add-label {
+    display: none;
+  }
+}
+.genre-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.genre-tree ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.genre-leaf-link {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.genre-filter-dropdown {
+  position: relative;
+}
+.genre-filter-dropdown > summary {
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+.genre-filter-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+.genre-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--accent, #a9bfa7);
+  color: #182017;
+  font-size: 12px;
+}
+.genre-filter-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  width: 225px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 12px;
+  background: var(--panel, #20271e);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0005;
+}
+.genre-filter-panel p {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.genre-filter-panel label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.genre-filter-panel label.field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-block: 8px;
+}
+.genre-filter-panel select {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.genre-filter-dropdown > summary:focus-visible {
+  outline: 2px solid var(--accent, #a9bfa7);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .genre-filter-text {
+    display: none;
+  }
+}
+
+#catalog-genre-form .field + .field {
+  margin-top: 18px;
+}
+#catalog-genre-form .field input,
+#catalog-genre-form .field select {
+  height: 40px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #424d3d;
+  border-radius: 6px;
+  background: #1a2019;
+  color: var(--ink);
+  font-weight: 450;
+}
+
+.genre-detail .back-link {
+  margin-bottom: 8px;
+}
+.genre-breadcrumb {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.genre-breadcrumb:empty {
+  display: none;
+}
+.genre-detail .instrument-page-heading {
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.genre-detail .instrument-page-heading h1 {
+  margin: 0;
+}
+.genre-subgenres .tags {
+  margin-top: 6px;
+}
+.genre-albums {
+  margin-top: 0;
+}
+.genre-subgenres + .genre-albums {
+  margin-top: 24px;
+}
+.genre-descendant-note {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
