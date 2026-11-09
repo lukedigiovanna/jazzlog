@@ -36,7 +36,7 @@ export function compareCatalog(
 }
 
 export function catalogSort(id: string, value: string, showRating = true) {
-  return /* HTML */ `<label class="field catalog-sort"
+  return /* HTML */ `<label class="field"
     ><span>Sort by</span>
     <select id="${id}">
       ${[

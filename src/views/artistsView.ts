@@ -42,7 +42,7 @@ export function renderArtistsView(
           value="${e(query)}" /></label
       >${renderCatalogFilters(/* HTML */ `${catalogSort("artists-sort", sort)}<label><input id="artists-unused" type="checkbox" ${unused ? "checked" : ""} /> Unused only</label><label><input id="artists-primary" type="checkbox" ${primary ? "checked" : ""} /> Primary artist only</label>`, Number(unused) + Number(primary))}
     </div>
-    <p id="artists-count" class="muted" role="status"></p>
+    <p id="artists-count" class="result-count" role="status"></p>
     <div id="artists-list"></div>
   </section>`;
 }
@@ -120,15 +120,14 @@ export function renderArtistDetail(
   >
     <a class="back-link" href="#artists">${icon("back", 17)} Back to artists</a>
     <div class="artist-page-heading">
-      <p class="eyebrow"><span></span> ARTIST DETAILS</p>
-      <div class="catalog-detail-summary">
-        ${catalogImage(item.name, item.photoUrl, true)}${catalogSummary(used)}
-      </div>
       <div class="artist-title-row">
         <h1 id="page-title">${e(item.name)}</h1>
         <button class="button secondary" data-action="edit-catalog-artist">
           ${icon("edit", 16)} Edit artist
         </button>
+      </div>
+      <div class="catalog-detail-summary">
+        ${catalogImage(item.name, item.photoUrl, true)}${catalogSummary(used)}
       </div>
       <div class="artist-details">
         <p class="muted">
@@ -137,7 +136,7 @@ export function renderArtistDetail(
       </div>
     </div>
     <section class="instrument-albums">
-      <div class="library-heading">
+      <div class="library-heading artist-credits-heading">
         <div class="detail-heading">
           <h2>Album credits</h2>
           <span class="count-pill">${used.length}</span>
@@ -146,15 +145,7 @@ export function renderArtistDetail(
       </div>
       ${
         used.length
-          ? renderAlbumGrid(used, layout, (album) =>
-              album.artists
-                .filter(
-                  (credit) =>
-                    credit.id === item.id && credit.role !== "primary",
-                )
-                .map((credit) => roleLabel(credit.role))
-                .join(" · "),
-            )
+          ? renderAlbumGrid(used, layout)
           : '<div class="empty detail-empty"><h3>No album credits yet</h3><p>This artist stays in your catalog until you use or delete it.</p></div>'
       }
     </section>

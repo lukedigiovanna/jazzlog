@@ -21,6 +21,14 @@
 .artist-details {
   margin-top: 4px;
 }
+.artist-credits-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+.artist-credits-heading .detail-heading,
+.artist-credits-heading .layout-toggle {
+  margin-bottom: 0;
+}
 
 .artist-country {
   margin-left: 4px;

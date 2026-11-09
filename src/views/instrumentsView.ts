@@ -81,7 +81,7 @@ export function renderInstrumentsView(filters: InstrumentFilters) {
         Number(Boolean(filters.category)) + Number(filters.unused),
       )}
     </div>
-    <p id="instruments-count" class="muted" role="status"></p>
+    <p id="instruments-count" class="result-count" role="status"></p>
     <div id="instruments-list"></div>
   </section>`;
 }

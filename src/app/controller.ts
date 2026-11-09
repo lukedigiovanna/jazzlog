@@ -635,9 +635,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       case "clear":
         state.query = "";
         state.genre = "";
-        document.querySelector<HTMLInputElement>("#library-query")!.value = "";
-        document.querySelector<HTMLSelectElement>("#genre-filter")!.value = "";
-        updateLibrary(library.data.albums, state, library.data.genres);
+        renderRoute();
         focusForTyping(
           document.querySelector<HTMLInputElement>("#library-query"),
         );
@@ -666,7 +664,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
     if (input.id === "genre-filter") {
       state.genre = input.value;
-      updateLibrary(library.data.albums, state, library.data.genres);
+      updateCatalogFilters(input.id);
     }
     if (input.id === "sort-order") {
       state.sort = input.value;

@@ -46,21 +46,6 @@
   gap: 12px;
   margin-bottom: 20px;
 }
-.instrument-toolbar select {
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-}
-.unused-filter {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  color: var(--muted);
-}
 .instrument-catalog-list {
   list-style: none;
   padding: 0;

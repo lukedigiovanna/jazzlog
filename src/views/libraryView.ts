@@ -1,3 +1,4 @@
+import { renderCatalogFilters } from "../components/catalogFilters";
 import { renderLayoutToggle } from "../components/layoutToggle";
 import type { Genre } from "../types/albums";
 import { includesGenre } from "../app/genres";
@@ -25,29 +26,12 @@ export function renderLibraryView(
   state: LibraryState,
   catalog: Genre[],
 ) {
-  const featured =
-    albums.find((album) => album.id === "seychelles") ?? albums[0];
+  const featured = albums[Math.floor(Math.random() * albums.length)];
   const genres = catalog.map((g) => g.name).sort((a, b) => a.localeCompare(b));
   if (!genres.includes(state.genre)) state.genre = "";
-  const listenCount = albums.reduce(
-    (sum, album) => sum + album.listeningEntries.length,
-    0,
-  );
   return /* HTML */ `<section class="hero" aria-labelledby="page-title">
       <div class="hero-copy">
         <h1 id="page-title">The Listening <em>Room.</em></h1>
-        <p class="hero-description">
-          A place for the records you come back to.
-        </p>
-        <div class="hero-stats">
-          <span
-            ><strong>${albums.length}</strong>
-            ${albums.length === 1 ? "album" : "albums"}</span
-          ><span
-            ><strong>${listenCount}</strong>
-            ${listenCount === 1 ? "listen" : "listens"} logged</span
-          >
-        </div>
       </div>
       ${
         featured
@@ -71,13 +55,10 @@ export function renderLibraryView(
     </section>
     <section class="library" aria-labelledby="library-title">
       <div class="library-heading">
-        <div>
-          <p class="eyebrow"><span></span> THE COLLECTION</p>
-          <h2 id="library-title">Your library</h2>
-        </div>
+        <h2 id="library-title">Your library</h2>
         ${renderLayoutToggle(state.layout)}
       </div>
-      <div class="toolbar">
+      <div class="toolbar library-toolbar">
         <label class="search-field"
           >${icon("search")}<span class="sr-only">Search library</span
           ><input
@@ -86,34 +67,37 @@ export function renderLibraryView(
             placeholder="Search albums or artists…"
             value="${escapeHtml(state.query)}"
         /></label>
-        <label class="select-wrap"
-          ><span class="sr-only">Filter by genre</span
-          ><select id="genre-filter">
-            <option value="">All genres</option>
-            ${genres.map((genre) => /* HTML */ `<option ${genre === state.genre ? "selected" : ""}>${escapeHtml(genre)}</option>`).join("")}</select
-          >${icon("down", 14)}</label
-        >
-        <label class="select-wrap sort"
-          >${icon("sort", 16)}<span class="sr-only">Sort albums</span
-          ><select id="sort-order">
-            ${[
-              ["recent", "Recently listened"],
-              ["title", "Album title"],
-              ["rating", "Highest rated"],
-              ["year", "Release year"],
-            ]
-              .map(
-                ([value, label]) =>
-                  /* HTML */ `<option
-                    value="${value}"
-                    ${value === state.sort ? "selected" : ""}
-                  >
-                    ${label}
-                  </option>`,
-              )
-              .join("")}</select
-          >${icon("down", 14)}</label
-        >
+        ${renderCatalogFilters(
+          /* HTML */ `<label class="field"
+              ><span>Genre</span
+              ><select id="genre-filter">
+                <option value="">All genres</option>
+                ${genres.map((genre) => /* HTML */ `<option ${genre === state.genre ? "selected" : ""}>${escapeHtml(genre)}</option>`).join("")}
+              </select></label
+            >
+            <label class="field"
+              ><span>Sort albums</span
+              ><select id="sort-order">
+                ${[
+                  ["recent", "Recently listened"],
+                  ["title", "Album title"],
+                  ["rating", "Highest rated"],
+                  ["year", "Release year"],
+                ]
+                  .map(
+                    ([value, label]) =>
+                      /* HTML */ `<option
+                        value="${value}"
+                        ${value === state.sort ? "selected" : ""}
+                      >
+                        ${label}
+                      </option>`,
+                  )
+                  .join("")}
+              </select></label
+            >`,
+          Number(Boolean(state.genre)),
+        )}
       </div>
       <p class="result-count" id="library-count" aria-live="polite"></p>
       <div id="library-results"></div>

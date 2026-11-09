@@ -12,6 +12,7 @@
 @import "./features/catalog.css";
 @import "./features/listening-and-credits.css";
 @import "./features/genres.css";
+@import "./components/catalog-filters.css";
 @import "./components/focus-overrides.css";
 @import "./layout/swipe.css";
 @import "./features/artists.css";

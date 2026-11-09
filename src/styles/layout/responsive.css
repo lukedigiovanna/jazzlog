@@ -14,7 +14,7 @@
     width: calc(100% - 44px);
   }
   .hero {
-    gap: 17px;
+    gap: 12px;
     padding-bottom: 34px;
   }
   .feature {
@@ -51,7 +51,7 @@
   }
   .hero {
     grid-template-columns: 1fr;
-    gap: 22px;
+    gap: 12px;
     padding-bottom: 24px;
   }
   .hero h1 {
@@ -80,7 +80,7 @@
     margin-top: 8px;
   }
   .library {
-    padding-top: 24px;
+    padding-top: 14px;
   }
   .toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));

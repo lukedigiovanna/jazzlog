@@ -58,12 +58,7 @@
 .detail-artist a:hover {
   text-decoration: underline;
 }
-.album-credit-role {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 11px;
-}
+
 @media (max-width: 480px) {
   .artist-credit-row {
     grid-template-columns: minmax(0, 1fr) 100px 32px 32px;
