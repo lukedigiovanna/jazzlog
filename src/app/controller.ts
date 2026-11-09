@@ -1,10 +1,10 @@
+import { createLibraryState, type SaveResult } from "./libraryState";
 import { createDialog } from "./dialog";
 import { createEditorDrafts } from "./editorDrafts";
 import { createLifecycle } from "./lifecycle";
 import type { LibraryData } from "../types/library";
-import { genreUrl, syncAlbumGenres } from "./genres";
+import { genreUrl } from "./genres";
 import { renderGenreDetail } from "../views/genresView";
-import { readGenreCatalog } from "./storage";
 import type { Genre } from "../types/albums";
 import { artistUrl, renderArtistDetail } from "../views/artistsView";
 import type { Album, Artist, Instrument } from "../types/albums";
@@ -13,13 +13,7 @@ import { escapeHtml } from "../components/html";
 import { albumUrl } from "../components/presentation";
 import { renderLibraryView, updateLibrary } from "../views/libraryView";
 import { renderAlbumDetailView } from "../views/albumDetailView";
-import {
-  readAlbums,
-  saveAlbums,
-  readInstrumentCatalog,
-  readArtistCatalog,
-} from "./storage";
-import { instrumentUrl, syncAlbumInstruments } from "./instruments";
+import { instrumentUrl } from "./instruments";
 import { renderInstrumentDetail } from "../views/instrumentsView";
 import { focusForTyping } from "./device";
 import { createMetadataSearch } from "./metadataSearch";
@@ -31,22 +25,13 @@ import { createListening } from "./listening";
 
 export function initializeApp(data?: LibraryData, accountId = "demo") {
   const lifecycle = createLifecycle();
-  const authenticated = Boolean(data);
-  let saving = false;
+
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
   let artistLayout = "grid";
   const state = { query: "", genre: "", sort: "recent", layout: "grid" };
-  let albums = data?.albums ?? readAlbums();
-  let genres = data?.genres ?? readGenreCatalog(albums);
-  if (!authenticated) syncAlbumGenres(albums, genres);
-
-  let artists = data?.artists ?? readArtistCatalog(albums);
-
-  let instruments = data?.instruments ?? readInstrumentCatalog(albums);
-  if (!authenticated) syncAlbumInstruments(albums, instruments);
-
+  const library = createLibraryState(data);
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
 
@@ -76,7 +61,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   const drafts = createEditorDrafts({
     editor,
     accountId,
-    isSaving: () => saving,
+    isSaving: () => library.saving,
     baseline: () => dialog.baseline,
     setBaseline: (value) => {
       dialog.baseline = value;
@@ -107,7 +92,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     editor,
     showDialog,
     beginDraft,
-    albums: () => albums,
+    albums: () => library.data.albums,
     finishSave,
   });
   const { openListen, updateRating, saveListenForm } = listening;
@@ -122,13 +107,13 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     updateCatalogFilters,
     library: {
       get albums() {
-        return albums;
+        return library.data.albums;
       },
       get artists() {
-        return artists;
+        return library.data.artists;
       },
       set artists(value) {
-        artists = value;
+        library.data.artists = value;
       },
     },
   });
@@ -146,13 +131,13 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     updateCatalogFilters,
     library: {
       get albums() {
-        return albums;
+        return library.data.albums;
       },
       get genres() {
-        return genres;
+        return library.data.genres;
       },
       set genres(value) {
-        genres = value;
+        library.data.genres = value;
       },
     },
   });
@@ -168,13 +153,13 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     updateCatalogFilters,
     library: {
       get albums() {
-        return albums;
+        return library.data.albums;
       },
       get instruments() {
-        return instruments;
+        return library.data.instruments;
       },
       set instruments(value) {
-        instruments = value;
+        library.data.instruments = value;
       },
     },
   });
@@ -194,25 +179,25 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     formError,
     finishSave,
     isActive: () => lifecycle.active,
-    isSaving: () => saving,
+    isSaving: () => library.saving,
     library: {
       get albums() {
-        return albums;
+        return library.data.albums;
       },
       set albums(value) {
-        albums = value;
+        library.data.albums = value;
       },
       get artists() {
-        return artists;
+        return library.data.artists;
       },
       set artists(value) {
-        artists = value;
+        library.data.artists = value;
       },
       get genres() {
-        return genres;
+        return library.data.genres;
       },
       set genres(value) {
-        genres = value;
+        library.data.genres = value;
       },
     },
     selections: {
@@ -250,7 +235,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     canDismissDialog,
     clearDraft,
     isActive: () => lifecycle.active,
-    albums: () => albums,
+    albums: () => library.data.albums,
   });
 
   function resumeDraft() {
@@ -260,12 +245,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     const item = target.item as { id?: string } | undefined;
     const catalog =
       target.kind === "artist"
-        ? artists
+        ? library.data.artists
         : target.kind === "genre"
-          ? genres
+          ? library.data.genres
           : target.kind === "instrument"
-            ? instruments
-            : albums;
+            ? library.data.instruments
+            : library.data.albums;
     const existing = catalog.find((value) => value.id === item?.id);
     const requiresExisting =
       ["listen", "instruments"].includes(target.kind) ||
@@ -338,17 +323,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     17,
   );
 
-  const snapshot = (): LibraryData =>
-    structuredClone({ albums, artists, genres, instruments });
-  let committed = snapshot();
-
-  async function persistChanges(): Promise<boolean | null> {
-    if (!authenticated) return saveAlbums(albums, instruments, artists, genres);
-    const pending = snapshot();
-    // Existing forms build a candidate using local objects. Restore committed
-    // state while the request runs so routes cannot display an unconfirmed save.
-    ({ albums, artists, genres, instruments } = structuredClone(committed));
-    saving = true;
+  async function persistChanges(): Promise<SaveResult> {
     editor.setAttribute("aria-busy", "true");
     const controls = [
       ...editor.querySelectorAll<
@@ -361,16 +336,9 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     const enabled = controls.filter((control) => !control.disabled);
     enabled.forEach((control) => (control.disabled = true));
     try {
-      const { saveLibraryChanges } = await import("../services/saveLibrary");
-      const saved = await saveLibraryChanges(committed, pending);
-      ({ albums, artists, genres, instruments } = saved);
-      committed = snapshot();
-      return true;
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : (error as { message?: string })?.message;
+      const result = await library.save();
+      if (result.status !== "rejected") return result;
+      const message = result.message;
       const errorElement = editor.querySelector<HTMLElement>("#form-error");
       const text = `Couldn’t save changes. ${message || "Please try again."}`;
       if (errorElement) {
@@ -378,9 +346,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
         errorElement.textContent = text;
       } else announce(text);
       renderRoute();
-      return null;
+      return result;
     } finally {
-      saving = false;
       editor.removeAttribute("aria-busy");
       enabled.forEach((control) => (control.disabled = false));
     }
@@ -395,11 +362,15 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   function activeAlbum() {
-    return albums.find((album) => albumUrl(album.id) === location.hash);
+    return library.data.albums.find(
+      (album) => albumUrl(album.id) === location.hash,
+    );
   }
 
   function activeInstrument() {
-    return instruments.find((item) => instrumentUrl(item.id) === location.hash);
+    return library.data.instruments.find(
+      (item) => instrumentUrl(item.id) === location.hash,
+    );
   }
 
   function renderListRoute(hash: string, root: HTMLElement) {
@@ -407,17 +378,25 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     else if (hash === "#genres") genreFeature.renderList(root);
     else if (hash === "#instruments") instrumentFeature.renderList(root);
     else {
-      root.innerHTML = renderLibraryView(albums, state, genres);
-      updateLibrary(albums, state, genres, root);
+      root.innerHTML = renderLibraryView(
+        library.data.albums,
+        state,
+        library.data.genres,
+      );
+      updateLibrary(library.data.albums, state, library.data.genres, root);
     }
   }
 
   function renderRoute(focus = false) {
-    const genre = genres.find((g) => genreUrl(g.id) === location.hash);
+    const genre = library.data.genres.find(
+      (g) => genreUrl(g.id) === location.hash,
+    );
     const genrePage =
       location.hash === "#genres" || location.hash.startsWith("#genre/");
     const album = activeAlbum();
-    const artist = artists.find((item) => artistUrl(item.id) === location.hash);
+    const artist = library.data.artists.find(
+      (item) => artistUrl(item.id) === location.hash,
+    );
     const artistPage =
       location.hash === "#artists" || location.hash.startsWith("#artist/");
     const instrument = activeInstrument();
@@ -440,7 +419,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     }
     const missing = location.hash.startsWith("#album/") && !album;
     if (genrePage) {
-      if (genre) main.innerHTML = renderGenreDetail(genre, genres, albums);
+      if (genre)
+        main.innerHTML = renderGenreDetail(
+          genre,
+          library.data.genres,
+          library.data.albums,
+        );
       else if (location.hash === "#genres") renderListRoute("#genres", main);
       else
         main.innerHTML =
@@ -448,7 +432,11 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     } else if (location.hash === "#artists") {
       renderListRoute("#artists", main);
     } else if (artist) {
-      main.innerHTML = renderArtistDetail(artist, albums, artistLayout);
+      main.innerHTML = renderArtistDetail(
+        artist,
+        library.data.albums,
+        artistLayout,
+      );
     } else if (artistPage) {
       main.innerHTML = /* HTML */ `<div class="empty">
         <h1 id="page-title">Artist unavailable</h1>
@@ -457,7 +445,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     } else if (location.hash === "#instruments") {
       renderListRoute("#instruments", main);
     } else if (instrument) {
-      main.innerHTML = renderInstrumentDetail(instrument, albums);
+      main.innerHTML = renderInstrumentDetail(instrument, library.data.albums);
     } else if (instrumentPage) {
       main.innerHTML = /* HTML */ `<div class="empty route-empty">
         <h1 id="page-title">Instrument unavailable</h1>
@@ -511,7 +499,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   function canDismissDialog() {
-    if (saving) return false;
+    if (library.saving) return false;
     return (
       dialogFormState() === dialog.baseline || (draftCloseChoices(), false)
     );
@@ -525,21 +513,15 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   }
 
   async function finishCatalogSave(message: string, destination: string) {
-    syncAlbumGenres(albums, genres);
-    syncAlbumInstruments(albums, instruments);
-    for (const album of albums)
-      for (const credit of album.artists) {
-        const artist = artists.find((item) => item.id === credit.id);
-        if (artist) Object.assign(credit, artist);
-      }
+    library.syncCatalogs();
     const stored = await persistChanges();
-    if (stored === null) return;
+    if (stored.status === "rejected") return;
     clearDraft();
     editor.close();
     if (location.hash === destination) renderRoute(true);
     else location.hash = destination;
     announce(
-      stored
+      stored.status === "saved"
         ? message
         : "Updated for this visit. Browser storage is unavailable.",
     );
@@ -581,7 +563,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
   async function finishSave(id: string, message: string) {
     const stored = await persistChanges();
-    if (stored === null) return;
+    if (stored.status === "rejected") return;
     clearDraft();
     editor.close();
     if (location.hash === albumUrl(id)) {
@@ -596,7 +578,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       location.hash = albumUrl(id);
     }
     announce(
-      stored
+      stored.status === "saved"
         ? message
         : "Updated for this visit. Browser storage is unavailable.",
     );
@@ -607,7 +589,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
       "button[data-action]",
     );
     if (!button) return;
-    if (saving) return;
+    if (library.saving) return;
     const album = activeAlbum();
     if (artistFeature.click(button)) return;
     if (genreFeature.click(button)) return;
@@ -640,14 +622,14 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
             toggle === button ? "true" : "false",
           );
         }
-        updateLibrary(albums, state, genres);
+        updateLibrary(library.data.albums, state, library.data.genres);
         break;
       case "clear":
         state.query = "";
         state.genre = "";
         document.querySelector<HTMLInputElement>("#library-query")!.value = "";
         document.querySelector<HTMLSelectElement>("#genre-filter")!.value = "";
-        updateLibrary(albums, state, genres);
+        updateLibrary(library.data.albums, state, library.data.genres);
         focusForTyping(
           document.querySelector<HTMLInputElement>("#library-query"),
         );
@@ -663,7 +645,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
     if (input.id === "library-query") {
       state.query = input.value;
-      updateLibrary(albums, state, genres);
+      updateLibrary(library.data.albums, state, library.data.genres);
     }
     metadataSearch.input(input);
   });
@@ -676,17 +658,17 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
 
     if (input.id === "genre-filter") {
       state.genre = input.value;
-      updateLibrary(albums, state, genres);
+      updateLibrary(library.data.albums, state, library.data.genres);
     }
     if (input.id === "sort-order") {
       state.sort = input.value;
-      updateLibrary(albums, state, genres);
+      updateLibrary(library.data.albums, state, library.data.genres);
     }
     if (input.name === "rating") updateRating(Number(input.value));
   });
 
   lifecycle.listen(document).addEventListener("submit", (event) => {
-    if (saving) {
+    if (library.saving) {
       event.preventDefault();
       return;
     }

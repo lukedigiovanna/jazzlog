@@ -61,13 +61,23 @@ Acceptance: a feature can be understood without tracing a document-wide event sw
 - Validation: 18 Node tests, 36 browser checks across desktop and mobile Chromium, production build, and formatting of changed files pass. No intended changes to storage keys, serialized data, DOM selectors, routes, or service contracts.
 - Limitations: authenticated persistence characterization remains required before section 4; Chromium touch emulation does not replace a real iOS Safari check. Sections 4–5 remain deferred. Begin with section 4 next.
 
-## 4. Library state and persistence
+## 4. Library state and persistence (completed)
 
 Before extraction, add mocked authenticated browser tests covering successful save, rejected save and retry, pending controls, navigation during a request, and server timestamp reconciliation. Add focused delta tests for new/changed/deleted rows, association replacement/reordering, and unchanged data. Run the existing SQL tests against a disposable local Supabase instance when changing persistence behavior.
 
 Introduce one owner for committed library state and save coordination. Preserve atomic RPC deltas, account scoping, rollback on rejected saves, and the distinction between failed account saves and unavailable demo storage. Prefer explicit save results over boolean/null conventions once characterization tests protect each branch. Keep domain updates separate from DOM disabling, error messages, and navigation.
 
 Acceptance: rejected saves never become committed UI data; retry retains editable input; successful saves retain server timestamps; no full-library replacement is introduced.
+
+### Completed fourth-slice handoff
+
+- Added mocked account browser characterization for successful save, rejected save/retry with retained input, pending controls, navigation during requests, and server timestamp reconciliation. Added checks for separate account baselines and unavailable demo storage.
+- Extracted committed state, candidate rollback, save coordination, demo loading/storage, and catalog synchronization into `src/app/libraryState.ts`. Features use live collection accessors; the controller retains control disabling, error rendering, draft cleanup, and navigation. Save results explicitly distinguish `saved`, `volatile` demo changes, and `rejected` account changes.
+- Extracted the existing RPC delta calculation unchanged into `src/services/libraryDelta.ts`; focused tests cover unchanged libraries, new/changed/deleted rows, and association replacement/reordering. Atomic RPC, server timestamp reconciliation, account-bound Supabase client, storage keys, and serialized formats remain unchanged.
+- Validation: 21 Node tests, 40 browser checks across desktop and mobile Chromium, production build, and formatting of changed files pass.
+- SQL validation limitation: `supabase status` reports that neither Docker nor Podman is installed, so a disposable local Supabase instance and SQL tests could not run. No SQL or RPC behavior was changed.
+- Existing behavior characterized and preserved: navigation during an account request closes the dialog while retaining its form fields. The retry test reopens the same form; changing that navigation behavior is separate work.
+- Section 5 remains deferred. Begin with stylesheet screenshots and organization next.
 
 ## 5. Stylesheet organization
 
@@ -79,4 +89,4 @@ Acceptance: no layout, cascade, overflow, focus, or reduced-motion regressions.
 
 Run `npm test`, `npm run test:browser`, and `npm run build` for each completed slice. Install browser binaries with `npx playwright install chromium` when needed. Browser tests use a dedicated local port and mocked metadata; they do not write to a real account. Record limitations honestly: Chromium touch emulation does not replace a real iOS Safari check for pointer/keyboard changes.
 
-Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 4; authenticated persistence characterization remains required before section 4.
+Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 5. Local SQL validation remains outstanding until Docker or Podman is available.
