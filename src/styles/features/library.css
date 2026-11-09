@@ -429,6 +429,10 @@
 .album-list .unrated {
   padding: 0;
 }
+.album-list .rating,
+.album-list .unrated {
+  justify-self: end;
+}
 .album-list .album-genre {
   display: block;
   font-size: 12px;
