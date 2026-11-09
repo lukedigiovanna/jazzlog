@@ -1,0 +1,27 @@
+.masthead {
+  background: var(--header);
+  border-bottom: 1px solid var(--line-soft);
+}
+.masthead-inner {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  gap: 38px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 27px/1 var(--serif);
+  letter-spacing: -0.9px;
+  white-space: nowrap;
+}
+.brand img {
+  display: block;
+}
+.brand-period {
+  color: var(--sage);
+}
+.top-add {
+  margin-left: auto;
+}

@@ -1,0 +1,10 @@
+/* Fields retain their normal borders without an extra focus ring. */
+input:focus,
+textarea:focus,
+select:focus,
+.search-field:focus-within,
+.select-wrap:focus-within,
+.rating-options label:focus-within,
+.category-options input:focus-visible + span {
+  outline: none;
+}

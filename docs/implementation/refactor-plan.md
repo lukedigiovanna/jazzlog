@@ -79,14 +79,23 @@ Acceptance: rejected saves never become committed UI data; retry retains editabl
 - Existing behavior characterized and preserved: navigation during an account request closes the dialog while retaining its form fields. The retry test reopens the same form; changing that navigation behavior is separate work.
 - Section 5 remains deferred. Begin with stylesheet screenshots and organization next.
 
-## 5. Stylesheet organization
+## 5. Stylesheet organization (completed)
 
 Capture representative screenshots for library/detail/catalog/editor/auth views at desktop and narrow widths. Split base tokens/reset, shell/layout, shared components, and feature styles. Preserve source order and responsive overrides during extraction. Consolidate duplicates only in a separate change with visual verification.
 
 Acceptance: no layout, cascade, overflow, focus, or reduced-motion regressions.
 
+### Completed fifth-slice handoff
+
+- Split the stylesheet into base tokens/reset, layout, shared components, and feature modules. `src/styles/main.css` remains the entry point; its imports preserve the original rule order, including media/container queries, late focus/visibility rules, and responsive overrides. Duplicate declarations remain unchanged.
+- Added `src/styles/README.md` documenting module ownership and why later overrides retain their positions.
+- Captured library, album detail, all three catalogs, album editor, and authentication before/after at 1440px and 390px, with normal and reduced motion. All 28 captured states retain identical CSSOM rule order and overflow measurements. Desktop screenshots matched exactly; narrow screenshots exposed capture timing differences, so full pixel equality is not claimed. The user reviewed the site and confirmed it looks fine.
+- Validation: 21 Node tests, production build, and stylesheet formatting passed. The full browser suite was not rerun: the user requested proceeding directly to the PR after local tooling caused memory pressure. Playwright now defaults to one worker to bound future browser concurrency. Temporary screenshot artifacts remain outside the repository in `/tmp/jazzlog-step5`.
+- No intended layout, cascade, selector, application, storage, or schema changes. Visual checks used Chromium; real iOS Safari verification and the earlier local SQL validation limitation remain outstanding.
+- All five planned structural slices are complete. Any duplicate consolidation or behavior changes should be separate work with their own verification.
+
 ## Working agreement and handoff
 
 Run `npm test`, `npm run test:browser`, and `npm run build` for each completed slice. Install browser binaries with `npx playwright install chromium` when needed. Browser tests use a dedicated local port and mocked metadata; they do not write to a real account. Record limitations honestly: Chromium touch emulation does not replace a real iOS Safari check for pointer/keyboard changes.
 
-Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. The subsequent agent should start with section 5. Local SQL validation remains outstanding until Docker or Podman is available.
+Keep storage keys, serialized draft/demo formats, DOM selectors, route hashes, and service contracts stable during structural extractions. If a bug is discovered, document it and handle it separately rather than silently changing behavior during a move. All five structural slices are complete. Follow-up work should be scoped separately. Local SQL validation remains outstanding until Docker or Podman is available.

@@ -1,0 +1,18 @@
+/* Adjacent pages track the finger without changing the document's scroll height. */
+.swiping-pages {
+  overflow-x: clip;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.swiping-pages main {
+  will-change: transform;
+}
+.swipe-preview {
+  position: fixed;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+  will-change: transform;
+  z-index: 2;
+}
