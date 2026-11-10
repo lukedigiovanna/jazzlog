@@ -39,10 +39,19 @@ npm ci
 npx playwright install chromium
 npm test
 npm run test:browser
+npm run test:offline
 npm run build
 ```
 
 The browser suite starts its own Vite server on port 5180 and runs in desktop Chromium and mobile Chromium touch emulation. Each test has isolated storage. Supabase configuration is disabled for this server; metadata search is mocked, and tests do not write to a real account. Failed browser tests retain traces in `test-results/`.
+
+The offline suite builds the production PWA with a test Supabase URL, then checks offline account startup and cached artwork on port 5181. It uses an expired local test session and never connects to a real account.
+
+## Offline browsing
+
+After a successful account load, JazzLog keeps a versioned library snapshot in local storage. Later visits show that snapshot immediately while refreshing in the background. Successful refreshes and saves replace it; signing out clears the account snapshot. Browser storage limits or clearing site data can remove offline availability.
+
+The production service worker caches the app shell and up to 150 previously viewed images. Once installed, it can launch the app without a connection. Offline browsing and failed refreshes show a banner with the last sync time; changes require a connection. Existing editor drafts remain available for later. Background refreshes wait until the editor closes and preserve the save revision checks.
 
 The [refactoring plan](docs/implementation/refactor-plan.md) records the completed first slice and the remaining regression coverage required before later refactors.
 

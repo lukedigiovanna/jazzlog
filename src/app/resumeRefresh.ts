@@ -5,10 +5,11 @@ export function createResumeRefresh(options: {
   refresh: () => Promise<boolean>;
   blocked: () => boolean;
   editor: EventTarget;
+  initial?: boolean;
 }) {
   const lifecycle = createLifecycle();
   let hiddenAt: number | undefined;
-  let pending = false;
+  let pending = options.initial ?? false;
   let running = false;
 
   async function attempt() {
@@ -48,9 +49,13 @@ export function createResumeRefresh(options: {
   });
   lifecycle.listen(window).addEventListener("pagehide", hide);
   lifecycle.listen(window).addEventListener("pageshow", resume);
-  lifecycle.listen(window).addEventListener("online", resume);
+  lifecycle.listen(window).addEventListener("online", () => {
+    pending = true;
+    resume();
+  });
   lifecycle.listen(options.editor).addEventListener("close", () => {
     void attempt();
   });
+  if (options.initial) void attempt();
   return lifecycle.dispose;
 }

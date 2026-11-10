@@ -1,3 +1,4 @@
+import { readLibraryCache, writeLibraryCache } from "./libraryCache";
 import { createLibraryState, type SaveResult } from "./libraryState";
 import { createDialog } from "./dialog";
 import { createEditorDrafts } from "./editorDrafts";
@@ -25,7 +26,11 @@ import { createAlbumEditor } from "./albumEditor";
 import { createListening } from "./listening";
 import { readLayout, saveLayout } from "./layoutPreferences";
 
-export function initializeApp(data?: LibraryData, accountId = "demo") {
+export function initializeApp(
+  data?: LibraryData,
+  accountId = "demo",
+  initialRefresh = false,
+) {
   const lifecycle = createLifecycle();
 
   const main = document.querySelector<HTMLElement>("main")!;
@@ -39,6 +44,112 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     layout: readLayout("library"),
   };
   const library = createLibraryState(data);
+  let refreshFailed = false;
+  let refreshRunning = false;
+  let cacheFailed = false;
+  let syncedAt = readLibraryCache(accountId)?.syncedAt;
+  const banner = document.createElement("div");
+  banner.className = "connection-banner";
+  banner.setAttribute("role", "status");
+  banner.hidden = true;
+  document.querySelector(".masthead")!.before(banner);
+  const readOnly = () => !!data && (!navigator.onLine || refreshFailed);
+  const browsingActions = new Set([
+    "layout",
+    "artist-layout",
+    "clear",
+    "clear-artist-filters",
+    "clear-instrument-filters",
+    "close",
+  ]);
+  function cacheCommitted() {
+    syncedAt = Date.now();
+    cacheFailed = !writeLibraryCache(accountId, library.data, syncedAt);
+    updateConnection();
+  }
+  function updateConnection() {
+    if (!data) return;
+    banner.replaceChildren();
+    const minutes = Math.max(
+      1,
+      Math.floor((Date.now() - (syncedAt ?? Date.now())) / 60_000),
+    );
+    const [amount, unit] =
+      minutes < 60
+        ? [minutes, "minute"]
+        : minutes < 1440
+          ? [Math.floor(minutes / 60), "hour"]
+          : [Math.floor(minutes / 1440), "day"];
+    const updated = syncedAt
+      ? ` · synced ${amount} ${unit}${amount === 1 ? "" : "s"} ago`
+      : "";
+    if (!navigator.onLine) banner.textContent = "Offline" + updated;
+    else if (refreshFailed) {
+      banner.textContent = "Couldn’t refresh" + updated;
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "button secondary";
+      retry.textContent = "Retry";
+      retry.onclick = () => {
+        void refreshLibrary();
+      };
+      banner.append(retry);
+    } else if (cacheFailed)
+      banner.textContent =
+        "Couldn’t save an offline copy. Browser storage is unavailable or full.";
+    banner.hidden = !banner.textContent;
+    document
+      .querySelectorAll<HTMLButtonElement>("button[data-action]")
+      .forEach((button) => {
+        if (
+          button.closest("#editor") ||
+          browsingActions.has(button.dataset.action!)
+        )
+          return;
+        if (readOnly()) {
+          if (!button.disabled) {
+            button.dataset.offlineDisabled = "";
+            button.disabled = true;
+          }
+        } else if ("offlineDisabled" in button.dataset) {
+          button.disabled = false;
+          delete button.dataset.offlineDisabled;
+        }
+      });
+    resumeButton.disabled = readOnly();
+    editor
+      .querySelectorAll<HTMLButtonElement>('button[type="submit"]')
+      .forEach((button) => {
+        if (library.saving) return;
+        button.disabled = readOnly();
+      });
+  }
+  async function refreshLibrary(): Promise<boolean> {
+    if (!navigator.onLine || editor.open || library.saving || refreshRunning)
+      return false;
+    refreshRunning = true;
+    const revision = library.revision;
+    try {
+      const { getLibrary } = await import("../services/library");
+      const next = await getLibrary();
+      if (!lifecycle.active || editor.open || !library.replace(next, revision))
+        return false;
+      refreshFailed = false;
+      cacheCommitted();
+      const scroll = window.scrollY;
+      renderRoute();
+      window.scrollTo(0, scroll);
+      return true;
+    } catch {
+      if (lifecycle.active) {
+        refreshFailed = true;
+        updateConnection();
+      }
+      return false;
+    } finally {
+      refreshRunning = false;
+    }
+  }
   let viewHash: string;
   let toastTimer: ReturnType<typeof setTimeout>;
 
@@ -246,7 +357,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   });
 
   function resumeDraft() {
-    if (!drafts.current) return;
+    if (readOnly() || !drafts.current) return;
     const saved = structuredClone(drafts.current);
     const target = saved.target;
     const item = target.item as { id?: string } | undefined;
@@ -344,7 +455,10 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     enabled.forEach((control) => (control.disabled = true));
     try {
       const result = await library.save();
-      if (result.status !== "rejected") return result;
+      if (result.status !== "rejected") {
+        if (data) cacheCommitted();
+        return result;
+      }
       const message = result.message;
       const errorElement = editor.querySelector<HTMLElement>("#form-error");
       const text = `Couldn’t save changes. ${message || "Please try again."}`;
@@ -480,6 +594,7 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
           : album
             ? album.title + " — JazzLog"
             : "JazzLog — The Listening Room";
+    updateConnection();
     if (focus) {
       window.scrollTo(0, 0);
       const heading = document.querySelector<HTMLElement>("#page-title");
@@ -597,6 +712,10 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     );
     if (!button) return;
     if (library.saving) return;
+    if (readOnly() && !browsingActions.has(button.dataset.action!)) {
+      announce("Connect to the internet to make changes.");
+      return;
+    }
     const album = activeAlbum();
     if (artistFeature.click(button)) return;
     if (genreFeature.click(button)) return;
@@ -675,8 +794,12 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
   });
 
   lifecycle.listen(document).addEventListener("submit", (event) => {
-    if (library.saving) {
+    if (readOnly() || library.saving) {
       event.preventDefault();
+      if (readOnly())
+        announce(
+          "Connect to the internet to save changes. Your draft is kept.",
+        );
       return;
     }
     if (
@@ -744,23 +867,23 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     renderRoute(true);
   });
 
+  lifecycle.listen(window).addEventListener("offline", updateConnection);
+  lifecycle.listen(window).addEventListener("online", updateConnection);
   viewHash = location.hash;
+  if (data && !initialRefresh) cacheCommitted();
   renderRoute();
+  const bannerTimer = data
+    ? setInterval(() => {
+        if (!banner.hidden && !banner.contains(document.activeElement))
+          updateConnection();
+      }, 60_000)
+    : undefined;
   const disposeRefresh = data
     ? createResumeRefresh({
         editor,
         blocked: () => editor.open || library.saving,
-        refresh: async () => {
-          const revision = library.revision;
-          const { getLibrary } = await import("../services/library");
-          const next = await getLibrary();
-          if (!lifecycle.active || editor.open) return false;
-          if (!library.replace(next, revision)) return false;
-          const scroll = window.scrollY;
-          renderRoute();
-          window.scrollTo(0, scroll);
-          return true;
-        },
+        initial: initialRefresh,
+        refresh: refreshLibrary,
       })
     : undefined;
   if (drafts.current) {
@@ -785,6 +908,8 @@ export function initializeApp(data?: LibraryData, accountId = "demo") {
     dispose() {
       captureDraft();
       lifecycle.dispose();
+      clearInterval(bannerTimer);
+      banner.remove();
       disposeRefresh?.();
       drafts.dispose();
       dialog.dispose();

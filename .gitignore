@@ -34,3 +34,4 @@ dist-ssr
 # Browser test artifacts
 playwright-report/
 test-results/
+test-results-offline/

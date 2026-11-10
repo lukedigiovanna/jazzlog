@@ -6,6 +6,23 @@ import { readAll } from "./readAll";
 
 // RLS scopes all of these reads to the authenticated user's records.
 export async function getLibrary(): Promise<LibraryData> {
+  let timer: ReturnType<typeof setTimeout>;
+  try {
+    return await Promise.race([
+      fetchLibrary(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Library refresh timed out.")),
+          12_000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+async function fetchLibrary(): Promise<LibraryData> {
   const [albums, artistRows, genreRows, instrumentRows] = await Promise.all([
     getAlbums(),
     readAll((from, to) =>

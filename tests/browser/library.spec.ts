@@ -504,6 +504,8 @@ test("route previews match live lists and remounting handles each save once", as
   // Start at the auth screen so this test owns the controller lifecycle.
   await page.goto("/");
   const previews = await page.evaluate(async () => {
+    // Compare the same featured album in the live page and its preview.
+    Math.random = () => 0;
     const appPath = "/src/app/app.ts";
     const controllerPath = "/src/app/controller.ts";
     const { renderApp } = await import(/* @vite-ignore */ appPath);

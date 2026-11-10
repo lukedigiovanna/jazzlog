@@ -14,3 +14,26 @@
 .draft-resume[hidden] {
   display: none;
 }
+
+.connection-banner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 7px 12px;
+  background: #383838;
+  color: #e0e0e0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+}
+.connection-banner .button {
+  min-height: 0;
+  margin-left: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+}

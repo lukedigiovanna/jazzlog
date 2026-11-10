@@ -1,4 +1,9 @@
 import "./styles/main.css";
+import {
+  cachedAccountId,
+  readLibraryCache,
+  clearLibraryCache,
+} from "./app/libraryCache";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -23,7 +28,11 @@ let accountId: string | null = null;
 let signingOut = false;
 let stopAuth: (() => void) | undefined;
 
-function enterLibrary(authenticated = false, data?: LibraryData): void {
+function enterLibrary(
+  authenticated = false,
+  data?: LibraryData,
+  cached = false,
+): void {
   if (libraryMounted) {
     // The library owns document listeners. Reload rather than registering them twice
     // when switching between demo/account mode or between different accounts.
@@ -35,6 +44,7 @@ function enterLibrary(authenticated = false, data?: LibraryData): void {
   const renderNavigationPage = initializeApp(
     data,
     authenticated ? accountId! : "demo",
+    cached,
   );
   const disposeHeader = initializeMobileHeader();
   const disposeNavigation = initializeNavigation(renderNavigationPage);
@@ -56,6 +66,7 @@ function enterLibrary(authenticated = false, data?: LibraryData): void {
         signingOut = true;
         const { signOut } = await import("./services/auth");
         await signOut();
+        if (accountId) clearLibraryCache(accountId);
       }
       window.location.reload();
     } catch {
@@ -72,6 +83,11 @@ function enterLibrary(authenticated = false, data?: LibraryData): void {
 let loadVersion = 0;
 async function loadAccountLibrary(userId: string): Promise<void> {
   const version = ++loadVersion;
+  const cached = readLibraryCache(userId);
+  if (cached) {
+    enterLibrary(true, cached.data, true);
+    return;
+  }
   root!.innerHTML = /* HTML */ `<main class="frame auth-loading" role="status">
     Loading your library…
   </main>`;
@@ -131,6 +147,12 @@ async function start(): Promise<void> {
   root!.innerHTML = /* HTML */ `<main class="frame auth-loading" role="status">
     Opening your listening journal…
   </main>`;
+  const localAccount = cachedAccountId();
+  const snapshot = localAccount && readLibraryCache(localAccount);
+  if (snapshot && localAccount) {
+    accountId = localAccount;
+    enterLibrary(true, snapshot.data, true);
+  }
   try {
     const { onAuthStateChange } = await import("./services/auth");
     const subscription = onAuthStateChange((event, session) => {
@@ -149,9 +171,15 @@ async function start(): Promise<void> {
             void loadAccountLibrary(session.user.id);
         }, 0);
       } else if (event === "SIGNED_OUT" && !signingOut) {
+        if (accountId) clearLibraryCache(accountId);
         accountId = null;
         ++loadVersion;
         window.location.reload();
+      } else if (event === "INITIAL_SESSION" && !session && libraryMounted) {
+        accountId = null;
+        ++loadVersion;
+        disposeLibrary?.();
+        showAuth();
       } else if (event === "INITIAL_SESSION" && !libraryMounted) {
         const params = new URLSearchParams(window.location.hash.slice(1));
         const error = params.get("error_description");
@@ -167,6 +195,7 @@ async function start(): Promise<void> {
     });
     stopAuth = () => subscription.unsubscribe();
   } catch {
+    if (libraryMounted) return;
     showAuth(
       "Couldn’t initialize account access. Please refresh to try again, or explore the demo.",
     );

@@ -12,7 +12,8 @@
     "cf:dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "test:offline": "playwright test --config playwright.offline.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
