@@ -1,6 +1,4 @@
 .detail {
-  max-width: 1040px;
-  margin: 0 auto;
   padding: 27px 0 65px;
 }
 .back-link {
@@ -40,7 +38,7 @@
 .detail-artist {
   color: var(--sage-strong);
   font-size: clamp(14px, 1.8vw, 20px);
-  margin-top: 5px;
+  margin-top: 3px;
 }
 .detail-meta {
   color: var(--muted);
@@ -71,7 +69,7 @@
   gap: 6px;
 }
 .album-hero .tags {
-  margin-top: 13px;
+  margin-top: 6px;
 }
 .chip {
   max-width: 100%;
@@ -88,7 +86,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 20px;
   font-size: 11px;
 }
 .detail-rating .star {
