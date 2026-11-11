@@ -21,12 +21,12 @@
 .artist-details {
   margin-top: 4px;
 }
-.artist-credits-heading {
+.album-list-heading {
   align-items: center;
   margin-bottom: 12px;
 }
-.artist-credits-heading .detail-heading,
-.artist-credits-heading .layout-toggle {
+.album-list-heading .detail-heading,
+.album-list-heading .layout-toggle {
   margin-bottom: 0;
 }
 

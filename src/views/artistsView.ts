@@ -5,7 +5,7 @@ import {
   catalogStats,
   compareCatalog,
 } from "../components/catalogSummary";
-import { renderLayoutToggle } from "../components/layoutToggle";
+import { renderAlbumListHeading } from "../components/albumListHeading";
 import { renderCatalogHeading } from "../components/catalogHeading";
 import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Artist } from "../types/albums";
@@ -136,13 +136,7 @@ export function renderArtistDetail(
       </div>
     </div>
     <section class="instrument-albums">
-      <div class="library-heading artist-credits-heading">
-        <div class="detail-heading">
-          <h2>Album credits</h2>
-          <span class="count-pill">${used.length}</span>
-        </div>
-        ${renderLayoutToggle(layout, "Album credits layout", "artist-layout")}
-      </div>
+      ${renderAlbumListHeading("Album credits", used.length, layout, "artist-layout")}
       ${
         used.length
           ? renderAlbumGrid(used, layout)

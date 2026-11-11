@@ -36,7 +36,10 @@ export function initializeApp(
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
   const toast = document.querySelector<HTMLElement>("#toast")!;
-  let artistLayout = readLayout("artist");
+  const detailLayouts = {
+    artist: readLayout("artist"),
+    genre: readLayout("genre"),
+  };
   const state = {
     query: "",
     genre: "",
@@ -57,6 +60,7 @@ export function initializeApp(
   const browsingActions = new Set([
     "layout",
     "artist-layout",
+    "genre-layout",
     "clear",
     "clear-artist-filters",
     "clear-instrument-filters",
@@ -545,6 +549,7 @@ export function initializeApp(
           genre,
           library.data.genres,
           library.data.albums,
+          detailLayouts.genre,
         );
       else if (location.hash === "#genres") renderListRoute("#genres", main);
       else
@@ -556,7 +561,7 @@ export function initializeApp(
       main.innerHTML = renderArtistDetail(
         artist,
         library.data.albums,
-        artistLayout,
+        detailLayouts.artist,
       );
     } else if (artistPage) {
       main.innerHTML = /* HTML */ `<div class="empty">
@@ -730,13 +735,17 @@ export function initializeApp(
       case "close":
         dismissDialog();
         break;
-      case "artist-layout": {
-        artistLayout = button.dataset.layout === "list" ? "list" : "grid";
-        saveLayout("artist", artistLayout);
+      case "artist-layout":
+      case "genre-layout": {
+        const view =
+          button.dataset.action === "artist-layout" ? "artist" : "genre";
+        const layout = button.dataset.layout === "list" ? "list" : "grid";
+        detailLayouts[view] = layout;
+        saveLayout(view, layout);
         renderRoute();
         main
           .querySelector<HTMLButtonElement>(
-            `[data-action="artist-layout"][data-layout="${artistLayout}"]`,
+            `[data-action="${view}-layout"][data-layout="${layout}"]`,
           )
           ?.focus();
         break;

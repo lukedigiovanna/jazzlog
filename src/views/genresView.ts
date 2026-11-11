@@ -3,6 +3,7 @@ import { renderCatalogFilters } from "../components/catalogFilters";
 import type { Album, Genre } from "../types/albums";
 import { escapeHtml as e } from "../components/html";
 import { ancestors, genreUrl, includesGenre } from "../app/genres";
+import { renderAlbumListHeading } from "../components/albumListHeading";
 import { renderAlbumGrid } from "../components/albumGrid";
 export function renderGenresView(
   genres: Genre[],
@@ -89,7 +90,12 @@ export function renderGenresView(
     </div>
   </section>`;
 }
-export function renderGenreDetail(g: Genre, genres: Genre[], albums: Album[]) {
+export function renderGenreDetail(
+  g: Genre,
+  genres: Genre[],
+  albums: Album[],
+  layout = "grid",
+) {
   const used = albums.filter((a) => includesGenre(a, g.id, genres));
   const children = genres.filter((c) => c.parentGenreId === g.id);
   const direct = albums.some((a) => a.genres.some((c) => c.id === g.id));
@@ -120,11 +126,8 @@ export function renderGenreDetail(g: Genre, genres: Genre[], albums: Album[]) {
         : ""
     }
     <section class="genre-albums" aria-labelledby="genre-albums-title">
-      <h2 id="genre-albums-title">Albums (${used.length})</h2>
-      <p class="muted genre-descendant-note">
-        <em>Includes albums assigned to descendant genres.</em>
-      </p>
-      ${used.length ? renderAlbumGrid(used) : "<p>No albums yet.</p>"}
+      ${renderAlbumListHeading("Albums", used.length, layout, "genre-layout", "genre-albums-title")}
+      ${used.length ? renderAlbumGrid(used, layout) : "<p>No albums yet.</p>"}
     </section>
     <div class="instrument-delete">
       <button
