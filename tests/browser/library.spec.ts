@@ -344,7 +344,7 @@ test("dialog mount and disposal remove listeners and queued work", async ({
     first.mount();
     first.mount();
     editor.dispatchEvent(new Event("cancel", { cancelable: true }));
-    first.showDialog("Test", "Test", "", "#dialog-title");
+    first.showDialog("Test", "", "#dialog-title");
     first.dispose();
     editor.close();
     await Promise.resolve();

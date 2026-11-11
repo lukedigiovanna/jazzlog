@@ -9,21 +9,6 @@
   padding: var(--page-top-gap) 0 35px;
   border-bottom: 1px solid var(--line-soft);
 }
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--sage);
-  font: 600 10px/1.4 var(--mono);
-  letter-spacing: 0.15em;
-  white-space: nowrap;
-}
-.eyebrow > span:first-child {
-  width: 17px;
-  height: 1px;
-  background: var(--sage);
-  flex: none;
-}
 .hero-copy {
   align-self: start;
 }
@@ -139,16 +124,9 @@
   justify-items: start;
   min-width: 0;
 }
-.feature-copy .eyebrow {
-  color: var(--sage-strong);
-  font-size: 9px;
-  gap: 6px;
-  letter-spacing: 0.12em;
-}
 .feature-copy strong {
   font: 400 clamp(25px, 3vw, 40px)/1.08 var(--serif);
   letter-spacing: -0.045em;
-  margin-top: 9px;
   overflow-wrap: anywhere;
 }
 .feature-artist {

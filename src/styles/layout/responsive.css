@@ -150,7 +150,7 @@
   .album-hero .detail-rating {
     justify-content: center;
     gap: 6px;
-    margin-top: 12px;
+    margin-top: 8px;
   }
   .album-hero .detail-rating > .muted {
     font-size: 10px;
@@ -158,7 +158,7 @@
   .album-hero .detail-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 14px;
+    margin-top: 22px;
     padding-top: 12px;
     border-top: 1px solid var(--line);
   }
@@ -221,9 +221,6 @@
   }
   .feature {
     gap: 10px;
-  }
-  .feature-copy .eyebrow {
-    letter-spacing: 0.06em;
   }
 }
 @media (prefers-reduced-motion: reduce) {

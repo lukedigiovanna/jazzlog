@@ -74,7 +74,6 @@ export function createMetadataSearch(ops: {
     if (reset) searchQuery = "";
     ops.showDialog(
       "Add an album",
-      "NEW RECORD",
       /* HTML */ `<div class="dialog-body">
           <p class="dialog-intro">
             Find an album on MusicBrainz, paste a Wikipedia article URL, or

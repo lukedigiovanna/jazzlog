@@ -42,7 +42,6 @@ export function renderLibraryView(
                 >${cover(featured, true)}</span
               >
               <span class="feature-copy"
-                ><span class="eyebrow">${icon("bars", 16)} FROM THE SHELF</span
                 ><strong>${escapeHtml(featured.title)}</strong
                 ><span class="feature-artist"
                   >${escapeHtml(artistText(featured))}${featured.releaseYear ? ` · ${featured.releaseYear}` : ""}</span

@@ -15,7 +15,6 @@ export function renderAuthView(): string {
     </header>
     <main class="frame auth-layout">
       <section class="auth-intro" aria-labelledby="auth-intro-title">
-        <p class="eyebrow">A PERSONAL LISTENING JOURNAL</p>
         <h1 id="auth-intro-title">Good records.<br />Lasting impressions.</h1>
         <p class="auth-description">
           A home for the jazz you love. Keep your collection close, capture what

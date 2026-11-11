@@ -53,7 +53,6 @@ export function createInstrumentFeature(ops: {
     if (!ops.beginDraft({ kind: "instrument", item })) return;
     ops.showDialog(
       item ? "Edit instrument" : "Add instrument",
-      "YOUR INSTRUMENT CATALOG",
       /* HTML */ `<form
         id="catalog-instrument-form"
         data-id="${escapeHtml(item?.id ?? "")}"
@@ -178,7 +177,6 @@ export function createInstrumentFeature(ops: {
     if (!ops.beginDraft({ kind: "instruments", item: album })) return;
     ops.showDialog(
       "Edit instruments",
-      "ALBUM INSTRUMENTATION",
       /* HTML */ `<form id="instruments-form" data-id="${escapeHtml(album.id)}">
         <div class="dialog-body">
           <p class="dialog-intro">${escapeHtml(album.title)}</p>
@@ -275,7 +273,6 @@ export function createInstrumentFeature(ops: {
         if (!item || albumsUsing(ops.library.albums, item.id).length) break;
         ops.showDialog(
           "Delete instrument?",
-          "YOUR INSTRUMENT CATALOG",
           /* HTML */ `<div class="dialog-body">
               <p>
                 Delete <strong>${escapeHtml(item.name)}</strong> from your

@@ -159,7 +159,6 @@ export function renderInstrumentDetail(item: Instrument, albums: Album[]) {
     >
     <div class="instrument-page-heading">
       <div>
-        <p class="eyebrow"><span></span> INSTRUMENT DETAILS</p>
         <div class="catalog-detail-summary">
           ${catalogImage(item.name, item.imageUrl, false, item.categories)}${catalogSummary(used, false)}
         </div>

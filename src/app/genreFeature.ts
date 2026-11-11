@@ -40,7 +40,6 @@ export function createGenreFeature(ops: {
     if (!ops.beginDraft({ kind: "genre", item })) return;
     ops.showDialog(
       item ? "Edit genre" : "Add genre",
-      "GENRE CATALOG",
       /* HTML */ `<form
         id="catalog-genre-form"
         data-id="${escapeHtml(item?.id ?? "")}"
@@ -231,7 +230,6 @@ export function createGenreFeature(ops: {
           break;
         ops.showDialog(
           "Delete genre?",
-          "GENRE CATALOG",
           /* HTML */ `<div class="dialog-body">
               Delete ${escapeHtml(item.name)}?
             </div>
@@ -354,7 +352,6 @@ export function createGenreFeature(ops: {
     if (affected.length) {
       ops.showDialog(
         "Review genre changes",
-        "GENRE CATALOG",
         /* HTML */ `<div class="dialog-body">
             <p>
               This change removes redundant parent assignments from these

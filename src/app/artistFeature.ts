@@ -51,7 +51,6 @@ export function createArtistFeature(ops: {
     if (!ops.beginDraft({ kind: "artist", item })) return;
     ops.showDialog(
       item ? "Edit artist" : "Add artist",
-      "YOUR ARTIST CATALOG",
       /* HTML */ `<form
         id="catalog-artist-form"
         data-id="${escapeHtml(item?.id ?? "")}"
@@ -225,7 +224,6 @@ export function createArtistFeature(ops: {
         if (!item || artistAlbums(ops.library.albums, item.id).length) break;
         ops.showDialog(
           "Delete artist?",
-          "YOUR ARTIST CATALOG",
           /* HTML */ `<div class="dialog-body">
               <p>Delete ${escapeHtml(item.name)} from your catalog?</p>
             </div>

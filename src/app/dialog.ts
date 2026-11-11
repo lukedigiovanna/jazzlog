@@ -38,7 +38,6 @@ export function createDialog({
   let suppressPickerClick = false;
   function showDialog(
     title: string,
-    eyebrow: string,
     content: string,
     focusSelector: string,
     backToSearch = false,
@@ -60,7 +59,6 @@ export function createDialog({
                 </button>`
               : ""
           }
-          <p class="eyebrow"><span></span> ${eyebrow}</p>
           <h2 id="dialog-title" tabindex="-1">${title}</h2>
         </div>
         <button

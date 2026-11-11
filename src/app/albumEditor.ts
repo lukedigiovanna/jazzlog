@@ -171,7 +171,6 @@ export function createAlbumEditor(ops: {
     if (mode === "links") {
       ops.showDialog(
         "Edit music links",
-        "ALBUM DETAILS",
         /* HTML */ `<form id="links-form" data-id="${escapeHtml(album.id)}">
           <div class="dialog-body">
             <p class="dialog-intro">${escapeHtml(album.title)}</p>
@@ -203,7 +202,6 @@ export function createAlbumEditor(ops: {
     const title = isEdit ? "Edit album" : "Create album";
     ops.showDialog(
       title,
-      isEdit ? "ALBUM DETAILS" : "NEW RECORD",
       /* HTML */ `<form
         id="album-form"
         data-mode="${mode}"
@@ -415,7 +413,6 @@ export function createAlbumEditor(ops: {
         if (album)
           ops.showDialog(
             "Delete album?",
-            "YOUR LIBRARY",
             /* HTML */ `<div class="dialog-body">
                 <p>
                   Delete <strong>${escapeHtml(album.title)}</strong> from your

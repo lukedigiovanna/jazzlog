@@ -20,7 +20,6 @@ export function createListening(ops: {
     if (!ops.beginDraft({ kind: "listen", item: album, entry })) return;
     ops.showDialog(
       entry ? "Edit listen" : "Log a listen",
-      "LISTENING ENTRY",
       /* HTML */ `<form
         id="listen-form"
         data-id="${escapeHtml(album.id)}"
