@@ -1,5 +1,6 @@
 import { renderCatalogFilters } from "../components/catalogFilters";
 import { renderLayoutToggle } from "../components/layoutToggle";
+import { renderSortOptions } from "../components/sortOptions";
 import type { Genre } from "../types/albums";
 import { includesGenre } from "../app/genres";
 import type { Album } from "../types/albums";
@@ -78,22 +79,7 @@ export function renderLibraryView(
             <label class="field"
               ><span>Sort albums</span
               ><select id="sort-order">
-                ${[
-                  ["recent", "Recently listened"],
-                  ["title", "Album title"],
-                  ["rating", "Highest rated"],
-                  ["year", "Release year"],
-                ]
-                  .map(
-                    ([value, label]) =>
-                      /* HTML */ `<option
-                        value="${value}"
-                        ${value === state.sort ? "selected" : ""}
-                      >
-                        ${label}
-                      </option>`,
-                  )
-                  .join("")}
+                ${renderSortOptions(["recent", "updated", "title", "rating", "year"], state.sort)}
               </select></label
             >`,
           Number(Boolean(state.genre)),
@@ -119,6 +105,7 @@ export function updateLibrary(
       (latest(b)?.listenedAt ?? b.createdAt).localeCompare(
         latest(a)?.listenedAt ?? a.createdAt,
       ),
+    updated: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
     title: titleOrder,
     rating: (a, b) => (latest(b)?.rating ?? 0) - (latest(a)?.rating ?? 0),
     year: (a, b) => (a.releaseYear ?? Infinity) - (b.releaseYear ?? Infinity),

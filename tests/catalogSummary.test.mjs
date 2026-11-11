@@ -18,6 +18,7 @@ test("catalog averages use the latest rating per album, excluding unrated albums
   ]);
   assert.deepEqual(stats, {
     count: 3,
+    updated: "",
     rated: 2,
     average: 4,
     recent: "2026-02-01",
@@ -30,4 +31,17 @@ test("unrated catalogs have no score and sort after rated catalogs", () => {
     compareCatalog(empty, catalogStats([album([2, "2026-01-01"])]), "rating") >
       0,
   );
+});
+
+test("recently updated catalogs use their latest album update, including unrated albums", () => {
+  const older = catalogStats([
+    { ...album([10, "2026-03-01"]), updatedAt: "2026-01-01" },
+  ]);
+  const newer = catalogStats([
+    { ...album(), updatedAt: "2026-02-01" },
+    { ...album(), updatedAt: "2026-01-15" },
+  ]);
+  assert.equal(newer.updated, "2026-02-01");
+  assert.ok(compareCatalog(newer, older, "updated") < 0);
+  assert.ok(compareCatalog(newer, catalogStats([]), "updated") < 0);
 });

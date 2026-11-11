@@ -24,7 +24,7 @@ export const roleLabel = (role: string) =>
 export function renderArtistsView(
   query: string,
   unused: boolean,
-  sort = "albums",
+  sort = "updated",
   primary = false,
 ) {
   return /* HTML */ `<section
@@ -52,7 +52,7 @@ export function updateArtistsView(
   query: string,
   unused: boolean,
   root: ParentNode = document,
-  sort = "albums",
+  sort = "updated",
   primary = false,
 ) {
   const credits = (id: string) =>

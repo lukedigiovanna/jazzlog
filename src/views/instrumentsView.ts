@@ -56,7 +56,7 @@ export function renderInstrumentsView(filters: InstrumentFilters) {
           value="${escapeHtml(filters.query)}"
       /></label>
       ${renderCatalogFilters(
-        /* HTML */ `${catalogSort("instruments-sort", filters.sort ?? "albums", false)}<label
+        /* HTML */ `${catalogSort("instruments-sort", filters.sort ?? "updated", false)}<label
             class="field"
             ><span>Category</span
             ><select id="instrument-category-filter">
@@ -109,7 +109,7 @@ export function updateInstrumentsView(
         compareCatalog(
           catalogStats(albumsUsing(albums, a.id)),
           catalogStats(albumsUsing(albums, b.id)),
-          filters.sort ?? "albums",
+          filters.sort ?? "updated",
         ) || a.name.localeCompare(b.name),
     );
   root.querySelector("#instruments-count")!.textContent =

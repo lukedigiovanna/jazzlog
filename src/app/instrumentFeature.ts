@@ -47,7 +47,7 @@ export function createInstrumentFeature(ops: {
     query: "",
     category: "",
     unused: false,
-    sort: "albums",
+    sort: "updated",
   };
   function openCatalogInstrument(item?: Instrument) {
     if (!ops.beginDraft({ kind: "instrument", item })) return;

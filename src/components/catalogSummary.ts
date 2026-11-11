@@ -3,6 +3,7 @@ import type { Album, InstrumentCategory } from "../types/albums";
 import { latest, webUrl } from "./presentation.ts";
 import { escapeHtml as e } from "./html.ts";
 import { icon } from "./icons.ts";
+import { renderSortOptions } from "./sortOptions.ts";
 
 export function catalogStats(albums: Album[]) {
   const entries = albums.flatMap((album) => {
@@ -11,6 +12,11 @@ export function catalogStats(albums: Album[]) {
   });
   return {
     count: albums.length,
+    updated:
+      albums
+        .map((album) => album.updatedAt)
+        .sort()
+        .at(-1) ?? "",
     rated: entries.length,
     average: entries.length
       ? entries.reduce((sum, entry) => sum + entry.rating / 2, 0) /
@@ -31,6 +37,7 @@ export function compareCatalog(
 ) {
   if (sort === "rating")
     return (b.average ?? -1) - (a.average ?? -1) || b.rated - a.rated;
+  if (sort === "updated") return b.updated.localeCompare(a.updated);
   if (sort === "recent") return b.recent.localeCompare(a.recent);
   return sort === "name" ? 0 : b.count - a.count;
 }
@@ -39,23 +46,12 @@ export function catalogSort(id: string, value: string, showRating = true) {
   return /* HTML */ `<label class="field"
     ><span>Sort by</span>
     <select id="${id}">
-      ${[
-        ["albums", "Most albums"],
-        ["rating", "Highest rated"],
-        ["recent", "Recently listened"],
-        ["name", "Name"],
-      ]
-        .filter(([key]) => showRating || key !== "rating")
-        .map(
-          ([key, label]) =>
-            /* HTML */ `<option
-              value="${key}"
-              ${value === key ? "selected" : ""}
-            >
-              ${label}
-            </option>`,
-        )
-        .join("")}
+      ${renderSortOptions(
+        showRating
+          ? ["albums", "rating", "recent", "updated", "name"]
+          : ["albums", "recent", "updated", "name"],
+        value,
+      )}
     </select></label
   >`;
 }

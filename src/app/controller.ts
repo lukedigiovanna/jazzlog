@@ -40,7 +40,7 @@ export function initializeApp(
   const state = {
     query: "",
     genre: "",
-    sort: "recent",
+    sort: "updated",
     layout: readLayout("library"),
   };
   const library = createLibraryState(data);

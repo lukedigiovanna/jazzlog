@@ -45,7 +45,7 @@ export function createArtistFeature(ops: {
   let artistChoices: Artist[] = [];
   let artistQuery = "";
   let artistUnused = false;
-  let artistSort = "albums";
+  let artistSort = "updated";
   let artistPrimary = false;
   function openCatalogArtist(item?: Artist) {
     if (!ops.beginDraft({ kind: "artist", item })) return;
