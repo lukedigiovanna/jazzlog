@@ -113,7 +113,11 @@ export function renderArtistDetail(
   albums: Album[],
   layout = "grid",
 ) {
-  const used = artistAlbums(albums, item.id);
+  const used = artistAlbums(albums, item.id).sort(
+    (a, b) =>
+      (a.releaseYear ?? Infinity) - (b.releaseYear ?? Infinity) ||
+      (a.sortTitle || a.title).localeCompare(b.sortTitle || b.title),
+  );
   return /* HTML */ `<section
     class="instrument-page"
     aria-labelledby="page-title"
