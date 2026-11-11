@@ -25,6 +25,7 @@ import { createArtistFeature } from "./artistFeature";
 import { createAlbumEditor } from "./albumEditor";
 import { createListening } from "./listening";
 import { readLayout, saveLayout } from "./layoutPreferences";
+import { createRouteHistory } from "./routeHistory";
 
 export function initializeApp(
   data?: LibraryData,
@@ -32,6 +33,10 @@ export function initializeApp(
   initialRefresh = false,
 ) {
   const lifecycle = createLifecycle();
+  const routeHistory = createRouteHistory(accountId);
+  const originalScrollRestoration = history.scrollRestoration;
+  history.scrollRestoration = "manual";
+  lifecycle.listen(window).addEventListener("scroll", routeHistory.saveScroll);
 
   const main = document.querySelector<HTMLElement>("main")!;
   const editor = document.querySelector<HTMLDialogElement>("#editor")!;
@@ -402,11 +407,12 @@ export function initializeApp(
       return;
     drafts.restore(saved, () => {
       history.replaceState(
-        null,
+        history.state,
         "",
         saved.hash || location.pathname + location.search,
       );
       viewHash = location.hash;
+      routeHistory.replace();
       renderRoute();
       switch (target.kind) {
         case "album":
@@ -590,6 +596,34 @@ export function initializeApp(
     } else {
       renderListRoute("#", main);
     }
+    const backLink = main.querySelector<HTMLAnchorElement>(
+      '.back-link, .empty a[href^="#"]',
+    );
+    const previous = routeHistory.previous();
+    if (backLink && previous !== undefined) {
+      const label =
+        library.data.albums.find((item) => albumUrl(item.id) === previous)
+          ?.title ??
+        library.data.artists.find((item) => artistUrl(item.id) === previous)
+          ?.name ??
+        library.data.genres.find((item) => genreUrl(item.id) === previous)
+          ?.name ??
+        library.data.instruments.find(
+          (item) => instrumentUrl(item.id) === previous,
+        )?.name ??
+        {
+          "": "library",
+          "#": "library",
+          "#artists": "artists",
+          "#genres": "genres",
+          "#instruments": "instruments",
+        }[previous] ??
+        "previous page";
+      backLink.href = previous || "#";
+      backLink.innerHTML = /* HTML */ `${icon("back", 17)} Back to
+      ${escapeHtml(label)}`;
+      backLink.dataset.routeBack = "";
+    }
     document.title = genrePage
       ? `${genre?.name ?? "Genres"} — JazzLog`
       : artistPage
@@ -663,6 +697,20 @@ export function initializeApp(
     main.querySelector<HTMLElement>(`#${focusId}`)?.focus();
   }
   lifecycle.listen(document).addEventListener("click", (event) => {
+    routeHistory.saveScroll();
+    const backLink = (event.target as Element).closest("a[data-route-back]");
+    if (
+      backLink &&
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      history.back();
+      return;
+    }
     const dropdown = main.querySelector<HTMLDetailsElement>(
       ".genre-filter-dropdown[open]",
     );
@@ -873,7 +921,9 @@ export function initializeApp(
       editor.close();
     }
     viewHash = location.hash;
+    const scroll = routeHistory.arrive();
     renderRoute(true);
+    window.scrollTo(0, scroll);
   });
 
   lifecycle.listen(window).addEventListener("offline", updateConnection);
@@ -917,6 +967,7 @@ export function initializeApp(
     dispose() {
       captureDraft();
       lifecycle.dispose();
+      history.scrollRestoration = originalScrollRestoration;
       clearInterval(bannerTimer);
       banner.remove();
       disposeRefresh?.();
