@@ -97,6 +97,11 @@ export function createInstrumentFeature(ops: {
         autocomplete="off"
         placeholder="Search or create an instrument…"
       />
+      <div
+        id="instrument-results"
+        class="instrument-results"
+        aria-label="Available instruments"
+      ></div>
       <div id="instrument-create" class="inline-instrument-create" hidden>
         ${categoryFields([], "inline-category")}
         <button
@@ -105,11 +110,6 @@ export function createInstrumentFeature(ops: {
           data-action="create-instrument"
         ></button>
       </div>
-      <div
-        id="instrument-results"
-        class="instrument-results"
-        aria-label="Available instruments"
-      ></div>
     </div>`;
   }
 
