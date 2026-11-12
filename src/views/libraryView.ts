@@ -56,7 +56,11 @@ export function renderLibraryView(
     <section class="library" aria-labelledby="library-title">
       <div class="library-heading">
         <h2 id="library-title">Your library</h2>
-        ${renderLayoutToggle(state.layout)}
+        <div class="library-heading-actions">
+          <button type="button" class="button secondary" data-action="discover">
+            Discover</button
+          >${renderLayoutToggle(state.layout)}
+        </div>
       </div>
       <div class="toolbar library-toolbar">
         <label class="search-field"

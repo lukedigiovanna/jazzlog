@@ -1,3 +1,4 @@
+import { createDiscovery } from "./discovery";
 import { readLibraryCache, writeLibraryCache } from "./libraryCache";
 import { createLibraryState, type SaveResult } from "./libraryState";
 import { createDialog } from "./dialog";
@@ -63,6 +64,9 @@ export function initializeApp(
   document.querySelector(".masthead")!.before(banner);
   const readOnly = () => !!data && (!navigator.onLine || refreshFailed);
   const browsingActions = new Set([
+    "discover",
+    "discovery-open",
+    "discovery-copy",
     "layout",
     "artist-layout",
     "genre-layout",
@@ -185,6 +189,12 @@ export function initializeApp(
     },
   });
   const { showDialog } = dialog;
+  const discovery = createDiscovery({
+    editor,
+    albums: () => library.data.albums,
+    showDialog,
+    announce,
+  });
   const drafts = createEditorDrafts({
     editor,
     accountId,
@@ -770,6 +780,7 @@ export function initializeApp(
       return;
     }
     const album = activeAlbum();
+    if (discovery.click(button)) return;
     if (artistFeature.click(button)) return;
     if (genreFeature.click(button)) return;
     if (instrumentFeature.click(button, album)) return;
@@ -822,6 +833,7 @@ export function initializeApp(
 
   lifecycle.listen(document).addEventListener("input", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.closest("#discovery-panel")) discovery.update();
     artistFeature.input(input);
     genreFeature.input(input);
     instrumentFeature.input(input);
@@ -835,6 +847,7 @@ export function initializeApp(
 
   lifecycle.listen(document).addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement;
+    if (input.closest("#discovery-panel")) discovery.update();
     artistFeature.change(input);
     genreFeature.change(input);
     instrumentFeature.change(input);

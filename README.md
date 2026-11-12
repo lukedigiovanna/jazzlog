@@ -120,6 +120,14 @@ Work through these milestones sequentially. Each will receive its own detailed i
 - [ ] **5. Polish:** Responsive design, PWA support, testing, and refinements.
 - [ ] **6. Deployment:** Production configuration and Cloudflare deployment.
 
+## Discover albums prototype
+
+Choose **Discover** beside **Your library** to prepare a recommendation prompt for ChatGPT. Choose how adventurous to be, then optionally describe what you are in the mood for in one field: genres, scenes, eras, instruments, moods, or any combination.
+
+JazzLog generates the prompt locally with up to 20 rated albums, balancing genre metadata matches, favorites, lower ratings, and recent listens. Detailed evidence has a 14,000-character budget and includes only the latest listen, with notes limited to 500 characters. A separate compact list includes every logged title and artist, plus its latest valid rating when available, to provide broader taste evidence and exclude existing albums; this list grows with the library. The preview shows exactly what will be copied.
+
+**Copy prompt & open ChatGPT** copies the text and opens ChatGPT; paste it there to request recommendations. A separate copy action works with other chat apps. Clipboard failures reveal a selectable prompt for manual copying. There are no AI API requests, and recommendation replies stay in the external conversation.
+
 ## Future possibilities
 
 Explicitly outside the initial scope; consider only after the core app is working:

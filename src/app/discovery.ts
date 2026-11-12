@@ -1,0 +1,156 @@
+import type { Album } from "../types/albums";
+import {
+  buildDiscoveryPrompt,
+  type DiscoveryDirection,
+} from "./discoveryPrompt";
+
+export function createDiscovery({
+  editor,
+  albums,
+  showDialog,
+  announce,
+}: {
+  editor: HTMLDialogElement;
+  albums: () => Album[];
+  showDialog: (title: string, content: string, focus: string) => void;
+  announce: (message: string) => void;
+}) {
+  let prompt = "";
+  function update() {
+    if (!editor.querySelector("#discovery-panel")) return;
+    const result = buildDiscoveryPrompt(albums(), {
+      topic:
+        editor.querySelector<HTMLTextAreaElement>("#discovery-request")!.value,
+      direction: editor.querySelector<HTMLInputElement>(
+        'input[name="discovery-direction"]:checked',
+      )!.value as DiscoveryDirection,
+    });
+    prompt = result.prompt;
+    editor.querySelector<HTMLTextAreaElement>("#discovery-preview")!.value =
+      prompt;
+    editor.querySelector("#discovery-summary")!.textContent =
+      `Using ${result.contextCount} albums for taste context`;
+  }
+  function manualCopy() {
+    if (!editor.querySelector("#discovery-panel")) return;
+    editor.querySelector<HTMLDetailsElement>("#discovery-details")!.open = true;
+    const preview =
+      editor.querySelector<HTMLTextAreaElement>("#discovery-preview")!;
+    preview.focus();
+    preview.select();
+    editor.querySelector("#discovery-status")!.textContent =
+      "Automatic copy is unavailable. Select the prompt and copy it manually, then open ChatGPT.";
+  }
+  function copy(open: boolean) {
+    // Start both clipboard access and navigation during the user gesture.
+    let copying: Promise<void>;
+    try {
+      if (!navigator.clipboard?.writeText) {
+        manualCopy();
+        return;
+      }
+      copying = navigator.clipboard.writeText(prompt);
+    } catch {
+      manualCopy();
+      return;
+    }
+    if (open) {
+      window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+    }
+    void copying.then(() => {
+      announce("Prompt copied. Paste it into ChatGPT.");
+      const status = editor.querySelector("#discovery-status");
+      if (status)
+        status.textContent =
+          "Prompt copied. Paste it into ChatGPT. If a new tab did not open, use Open ChatGPT below.";
+    }, manualCopy);
+  }
+  return {
+    update,
+    click(button: HTMLButtonElement) {
+      if (button.dataset.action === "discover") {
+        showDialog(
+          "Discover your next album",
+          /* HTML */ `<div class="dialog-body discovery" id="discovery-panel">
+            <fieldset>
+              <legend>How adventurous?</legend>
+              <div class="discovery-directions">
+                ${[
+                  ["close", "Stay close"],
+                  ["branch", "Branch out"],
+                  ["surprise", "Surprise me"],
+                ]
+                  .map(
+                    ([value, label], i) =>
+                      /* HTML */ `<label
+                        ><input
+                          type="radio"
+                          name="discovery-direction"
+                          value="${value}"
+                          ${i === 0 ? "checked" : ""}
+                        />
+                        ${label}</label
+                      >`,
+                  )
+                  .join("")}
+              </div>
+            </fieldset>
+            <label class="field"
+              ><span
+                >What are you in the mood for? <small>(optional)</small></span
+              ><textarea
+                id="discovery-request"
+                rows="3"
+                maxlength="500"
+                placeholder="Japanese jazz with electric piano, something mellow…"
+              ></textarea>
+            </label>
+            <p
+              id="discovery-summary"
+              class="dialog-intro"
+              aria-live="polite"
+            ></p>
+            <details id="discovery-details">
+              <summary>Preview prompt</summary>
+              <label class="field"
+                ><span>Generated prompt</span
+                ><textarea id="discovery-preview" rows="9" readonly></textarea>
+              </label>
+            </details>
+            <div class="discovery-actions">
+              <button
+                class="button primary"
+                data-action="discovery-open"
+                type="button"
+              >
+                Copy prompt &amp; open ChatGPT</button
+              ><button
+                class="button secondary"
+                data-action="discovery-copy"
+                type="button"
+              >
+                Copy prompt</button
+              ><a
+                href="https://chatgpt.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open ChatGPT ↗</a
+              >
+            </div>
+          </div>`,
+          "#dialog-title",
+        );
+        update();
+        return true;
+      }
+      if (
+        button.dataset.action === "discovery-open" ||
+        button.dataset.action === "discovery-copy"
+      ) {
+        copy(button.dataset.action === "discovery-open");
+        return true;
+      }
+      return false;
+    },
+  };
+}

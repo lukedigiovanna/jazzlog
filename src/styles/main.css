@@ -19,3 +19,5 @@
 @import "./features/auth.css";
 @import "./components/visibility-and-drafts.css";
 @import "./features/catalog-presentation.css";
+
+@import "./features/discovery.css";
