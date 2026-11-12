@@ -1,9 +1,11 @@
+import { makeId } from "./id";
+
 // Browser entries are the source of truth, so Back and Forward also move the
 // in-app return stack rather than recording another visit.
 export function createRouteHistory(accountId: string) {
   const key = "jazzlogRoute";
   const storageKey = `jazzlog:route-history:${accountId}`;
-  let session = crypto.randomUUID();
+  let session = makeId();
   const entries: { hash: string; scroll: number }[] = [];
   let cursor = -1;
 
