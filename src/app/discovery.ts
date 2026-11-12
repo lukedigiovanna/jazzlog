@@ -55,14 +55,16 @@ export function createDiscovery({
       return;
     }
     if (open) {
-      window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+      // The native fragment is registered by ChatGPT for app handoff.
+      // Avoid a new browsing context on phones so the OS can handle the link.
+      window.open(
+        "https://chatgpt.com/#native",
+        window.matchMedia("(pointer: coarse)").matches ? "_self" : "_blank",
+        "noopener,noreferrer",
+      );
     }
     void copying.then(() => {
       announce("Prompt copied. Paste it into ChatGPT.");
-      const status = editor.querySelector("#discovery-status");
-      if (status)
-        status.textContent =
-          "Prompt copied. Paste it into ChatGPT. If a new tab did not open, use Open ChatGPT below.";
     }, manualCopy);
   }
   return {
@@ -117,6 +119,7 @@ export function createDiscovery({
                 ><textarea id="discovery-preview" rows="9" readonly></textarea>
               </label>
             </details>
+            <p id="discovery-status" role="status"></p>
             <div class="discovery-actions">
               <button
                 class="button primary"
@@ -131,10 +134,10 @@ export function createDiscovery({
               >
                 Copy prompt</button
               ><a
-                href="https://chatgpt.com/"
-                target="_blank"
+                class="button secondary"
+                href="https://chatgpt.com/#native"
                 rel="noopener noreferrer"
-                >Open ChatGPT ↗</a
+                >Open ChatGPT <span aria-hidden="true">↗</span></a
               >
             </div>
           </div>`,

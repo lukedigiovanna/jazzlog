@@ -12,7 +12,8 @@ test("discovery builds context, copies and opens ChatGPT, and resets on reopen",
         },
       },
     });
-    window.open = ((url: string) => {
+    window.open = ((url: string, target: string) => {
+      (window as any).openedTarget = target;
       (window as any).openedUrl = url;
       return null;
     }) as typeof window.open;
@@ -35,7 +36,12 @@ test("discovery builds context, copies and opens ChatGPT, and resets on reopen",
     "Prompt copied",
   );
   expect(await page.evaluate(() => (window as any).openedUrl)).toBe(
-    "https://chatgpt.com/",
+    "https://chatgpt.com/#native",
+  );
+  expect(await page.evaluate(() => (window as any).openedTarget)).toBe(
+    (await page.evaluate(() => matchMedia("(pointer: coarse)").matches))
+      ? "_self"
+      : "_blank",
   );
   expect(await page.evaluate(() => (window as any).copiedPrompt)).toBe(
     await page.locator("#discovery-preview").inputValue(),
@@ -74,4 +80,35 @@ test("clipboard failure reveals selectable manual prompt", async ({ page }) => {
   await expect(page.locator("#discovery-status")).toContainText(
     "copy it manually",
   );
+});
+
+test("mobile discovery controls fill the available width", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  await page.locator("#auth-demo").click();
+  await page.getByRole("button", { name: "Discover", exact: true }).click();
+  for (const selector of [".discovery-directions"]) {
+    const group = page.locator(selector);
+    const bounds = (await group.boundingBox())!;
+    const children = await group.locator(":scope > *").all();
+    let previousBottom = 0;
+    for (const child of children) {
+      const box = (await child.boundingBox())!;
+      expect(Math.abs(box.width - bounds.width)).toBeLessThan(1);
+      expect(box.y).toBeGreaterThanOrEqual(previousBottom);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      previousBottom = box.y + box.height;
+    }
+  }
+  const actions = page.locator(".discovery-actions");
+  const primary = (await actions.locator(".primary").boundingBox())!;
+  const copy = (await actions.locator(".secondary").first().boundingBox())!;
+  const open = (await actions.locator(".secondary").last().boundingBox())!;
+  expect(Math.abs(copy.width - open.width)).toBeLessThan(1);
+  expect(copy.y).toBe(open.y);
+  expect(copy.y).toBeGreaterThanOrEqual(primary.y + primary.height);
+  expect(Math.abs(copy.width + open.width + 8 - primary.width)).toBeLessThan(1);
+  await expect(
+    page.getByRole("link", { name: "Open ChatGPT", exact: true }),
+  ).toHaveAttribute("href", "https://chatgpt.com/#native");
 });
