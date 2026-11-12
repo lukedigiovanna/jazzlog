@@ -62,23 +62,72 @@ export async function findAppleMusicAlbums(
   const params = new URLSearchParams({ title, artist });
   const query = params.toString();
   if (!cache.has(query)) {
-    const pending = fetch(`/api/apple-music?${query}`, {
-      signal: AbortSignal.timeout(20000),
-      cache: "no-store",
+    const search = new URL("https://itunes.apple.com/search");
+    search.search = new URLSearchParams({
+      term: `${artist} ${title}`,
+      country: "US",
+      media: "music",
+      entity: "album",
+      limit: "12",
+    }).toString();
+    const pending = fetch(search, {
+      signal: AbortSignal.timeout(10000),
     })
       .then(async (response) => {
-        if (!response.headers.get("content-type")?.includes("application/json"))
+        if (!response.ok)
           throw new Error(
-            "The Apple Music API returned a webpage instead of album results. Restart the local server, or deploy the updated Worker if using the hosted app.",
+            `Apple Music search failed (${response.status}). Please try again.`,
           );
         const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error || "Apple Music lookup failed.");
         if (!Array.isArray(data.results))
           throw new Error(
             "Apple Music returned an invalid response. Please try again.",
           );
-        return data.results as AppleMusicAlbum[];
+        const candidates = (
+          data.results as {
+            collectionId: number;
+            collectionName: string;
+            artistName: string;
+            releaseDate?: string;
+          }[]
+        )
+          .filter(
+            (item) =>
+              Number.isSafeInteger(item.collectionId) &&
+              item.collectionName &&
+              item.artistName,
+          )
+          .slice(0, 8);
+        // A store listing alone does not establish an Apple Music destination.
+        const results = await Promise.all(
+          candidates.map(async (item): Promise<AppleMusicAlbum | null> => {
+            const url = `https://music.apple.com/us/album/${item.collectionId}`;
+            const embed = new URL("https://music.apple.com/api/oembed");
+            embed.searchParams.set("url", url);
+            try {
+              const checked = await fetch(embed, {
+                signal: AbortSignal.timeout(6000),
+              });
+              if (!checked.ok) return null;
+              const metadata = await checked.json();
+              if (
+                !metadata.title ||
+                !metadata.html?.includes("embed.music.apple.com")
+              )
+                return null;
+              return {
+                id: item.collectionId,
+                title: item.collectionName,
+                artist: item.artistName,
+                year: Number(item.releaseDate?.slice(0, 4)) || null,
+                url,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        return results.filter((item): item is AppleMusicAlbum => item !== null);
       })
       .catch((error) => {
         cache.delete(query);

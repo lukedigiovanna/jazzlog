@@ -2,7 +2,6 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { createHash } from "node:crypto";
 import { defineConfig } from "vite";
-import { installAppleMusicMiddleware } from "./server/appleMusicMiddleware.mjs";
 export default defineConfig({
   plugins: [
     {
@@ -43,11 +42,6 @@ export default defineConfig({
             ),
         );
       },
-    },
-    {
-      name: "apple-music-api",
-      configureServer: installAppleMusicMiddleware,
-      configurePreviewServer: installAppleMusicMiddleware,
     },
   ],
 });
