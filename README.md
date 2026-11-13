@@ -68,20 +68,20 @@ The [refactoring plan](docs/implementation/refactor-plan.md) records the complet
 
 ## Rating scale
 
-Ratings are integers from 1–10:
+Ratings are stored as integers from 1–10 and displayed as ½–5 stars:
 
-| Rating | Description                     |
-| -----: | ------------------------------- |
-|      1 | Get this away from me           |
-|      2 | Actively unpleasant             |
-|      3 | Not for me                      |
-|      4 | Pretty forgettable              |
-|      5 | Some good, some snooze          |
-|      6 | Solid listen                    |
-|      7 | Glad I heard it                 |
-|      8 | Excellent album                 |
-|      9 | Nearly a classic                |
-|     10 | Inject this into my bloodstream |
+| Rating | Stars | Description              |
+| -----: | ----: | ------------------------ |
+|      1 |   0.5 | I hate this              |
+|      2 |     1 | I really dislike this    |
+|      3 |   1.5 | I dislike this           |
+|      4 |     2 | I don’t really like this |
+|      5 |   2.5 | I’m mixed on this        |
+|      6 |     3 | I like this              |
+|      7 |   3.5 | I really like this       |
+|      8 |     4 | I love this              |
+|      9 |   4.5 | I absolutely love this   |
+|     10 |     5 | I cherish this           |
 
 ## Design direction
 

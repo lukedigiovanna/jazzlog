@@ -2,16 +2,16 @@ import type { Album, AlbumLink, InstrumentCategory } from "../types/albums";
 
 // Illustrated covers and catalog records are local demo fixtures, not API results.
 export const ratingLabels = [
-  "Get this away from me",
-  "Actively unpleasant",
-  "Not for me",
-  "Pretty forgettable",
-  "Some good, some snooze",
-  "Solid listen",
-  "Glad I heard it",
-  "Excellent album",
-  "Nearly a classic",
-  "Inject this into my bloodstream",
+  "I hate this",
+  "I really dislike this",
+  "I dislike this",
+  "I don’t really like this",
+  "I’m mixed on this",
+  "I like this",
+  "I really like this",
+  "I love this",
+  "I absolutely love this",
+  "I cherish this",
 ];
 
 const apple = (path: string): FixtureLink => ({
