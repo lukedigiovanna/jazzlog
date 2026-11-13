@@ -21,28 +21,68 @@
   border: 0;
 }
 .discovery legend {
-  margin-bottom: 10px;
+  margin-bottom: 0;
   font-size: 14px;
 }
-.discovery-directions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.discovery-directions label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-}
 .discovery-directions input {
-  width: auto;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 44px;
   margin: 0;
-  accent-color: var(--sage);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.discovery-directions input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.discovery-directions input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.discovery-directions input::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.discovery-directions input::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--sage);
+}
+.discovery-directions input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--sage);
+}
+.discovery-direction-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+}
+.discovery-direction-labels span {
+  flex: 1;
+}
+.discovery-direction-labels span:nth-child(2) {
+  text-align: center;
+}
+.discovery-direction-labels span:last-child {
+  text-align: right;
+}
+.discovery-direction-labels span[data-selected="true"] {
+  color: var(--sage);
+  font-weight: 600;
 }
 .discovery summary {
   cursor: pointer;
@@ -75,19 +115,6 @@
   }
   .library-heading-actions > .button {
     padding-inline: 10px;
-  }
-  .discovery-directions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .discovery-directions label {
-    min-height: 44px;
-    gap: 10px;
-  }
-  .discovery-directions label:has(input:checked) {
-    border-color: var(--sage);
-    background: var(--panel);
   }
   .discovery-actions {
     gap: 8px;

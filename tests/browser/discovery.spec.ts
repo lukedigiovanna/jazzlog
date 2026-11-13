@@ -23,7 +23,11 @@ test("discovery builds context, copies and opens ChatGPT, and resets on reopen",
   await page.getByRole("button", { name: "Discover", exact: true }).click();
   await expect(page.locator("#discovery-topic")).toHaveCount(0);
   await expect(page.locator('[data-action="discovery-genre"]')).toHaveCount(0);
-  await page.getByLabel("Branch out", { exact: true }).check();
+  const slider = page.getByRole("slider", { name: "How adventurous?" });
+  await expect(slider).toHaveValue("0");
+  await slider.focus();
+  await slider.press("ArrowRight");
+  await expect(slider).toHaveAttribute("aria-valuetext", "Branch out");
   await page
     .locator("#discovery-request")
     .fill("Japanese jazz with electric piano, something mellow");
@@ -32,9 +36,7 @@ test("discovery builds context, copies and opens ChatGPT, and resets on reopen",
   await page
     .getByRole("button", { name: "Copy prompt & open ChatGPT", exact: true })
     .click();
-  await expect(page.locator("#discovery-status")).toContainText(
-    "Prompt copied",
-  );
+  await expect(page.locator("#toast")).toContainText("Prompt copied");
   expect(await page.evaluate(() => (window as any).openedUrl)).toBe(
     "https://chatgpt.com/#native",
   );
@@ -57,7 +59,8 @@ test("discovery builds context, copies and opens ChatGPT, and resets on reopen",
   ).toBeFocused();
   await page.getByRole("button", { name: "Discover", exact: true }).click();
   await expect(page.locator("#discovery-request")).toHaveValue("");
-  await expect(page.getByLabel("Stay close", { exact: true })).toBeChecked();
+  await expect(slider).toHaveValue("0");
+  await expect(slider).toHaveAttribute("aria-valuetext", "Stay close");
 });
 
 test("clipboard failure reveals selectable manual prompt", async ({ page }) => {
@@ -87,19 +90,15 @@ test("mobile discovery controls fill the available width", async ({ page }) => {
   await page.goto("/");
   await page.locator("#auth-demo").click();
   await page.getByRole("button", { name: "Discover", exact: true }).click();
-  for (const selector of [".discovery-directions"]) {
-    const group = page.locator(selector);
-    const bounds = (await group.boundingBox())!;
-    const children = await group.locator(":scope > *").all();
-    let previousBottom = 0;
-    for (const child of children) {
-      const box = (await child.boundingBox())!;
-      expect(Math.abs(box.width - bounds.width)).toBeLessThan(1);
-      expect(box.y).toBeGreaterThanOrEqual(previousBottom);
-      expect(box.height).toBeGreaterThanOrEqual(44);
-      previousBottom = box.y + box.height;
-    }
-  }
+  const slider = page.getByRole("slider", { name: "How adventurous?" });
+  const bounds = (await slider.boundingBox())!;
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  await slider.fill("2");
+  await expect(slider).toHaveAttribute("aria-valuetext", "Surprise");
+  await page.locator("#discovery-details summary").click();
+  await expect(page.locator("#discovery-preview")).toHaveValue(
+    /Choose adventurous records/,
+  );
   const actions = page.locator(".discovery-actions");
   const primary = (await actions.locator(".primary").boundingBox())!;
   const copy = (await actions.locator(".secondary").first().boundingBox())!;

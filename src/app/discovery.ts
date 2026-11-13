@@ -15,15 +15,28 @@ export function createDiscovery({
   showDialog: (title: string, content: string, focus: string) => void;
   announce: (message: string) => void;
 }) {
+  const directions: { value: DiscoveryDirection; label: string }[] = [
+    { value: "close", label: "Stay close" },
+    { value: "branch", label: "Branch out" },
+    { value: "surprise", label: "Surprise" },
+  ];
   let prompt = "";
   function update() {
     if (!editor.querySelector("#discovery-panel")) return;
+    const slider = editor.querySelector<HTMLInputElement>(
+      "#discovery-direction",
+    )!;
+    const direction = directions[Number(slider.value)]!;
+    slider.setAttribute("aria-valuetext", direction.label);
+    editor
+      .querySelectorAll<HTMLElement>(".discovery-direction-labels span")
+      .forEach((label, index) => {
+        label.dataset.selected = String(index === Number(slider.value));
+      });
     const result = buildDiscoveryPrompt(albums(), {
       topic:
         editor.querySelector<HTMLTextAreaElement>("#discovery-request")!.value,
-      direction: editor.querySelector<HTMLInputElement>(
-        'input[name="discovery-direction"]:checked',
-      )!.value as DiscoveryDirection,
+      direction: direction.value,
     });
     prompt = result.prompt;
     editor.querySelector<HTMLTextAreaElement>("#discovery-preview")!.value =
@@ -75,26 +88,21 @@ export function createDiscovery({
           "Discover your next album",
           /* HTML */ `<div class="dialog-body discovery" id="discovery-panel">
             <fieldset>
-              <legend>How adventurous?</legend>
+              <legend id="discovery-direction-title">How adventurous?</legend>
               <div class="discovery-directions">
-                ${[
-                  ["close", "Stay close"],
-                  ["branch", "Branch out"],
-                  ["surprise", "Surprise me"],
-                ]
-                  .map(
-                    ([value, label], i) =>
-                      /* HTML */ `<label
-                        ><input
-                          type="radio"
-                          name="discovery-direction"
-                          value="${value}"
-                          ${i === 0 ? "checked" : ""}
-                        />
-                        ${label}</label
-                      >`,
-                  )
-                  .join("")}
+                <input
+                  id="discovery-direction"
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="1"
+                  value="0"
+                  aria-labelledby="discovery-direction-title"
+                  aria-valuetext="Stay close"
+                />
+                <div class="discovery-direction-labels" aria-hidden="true">
+                  ${directions.map(({ label }) => /* HTML */ `<span>${label}</span>`).join("")}
+                </div>
               </div>
             </fieldset>
             <label class="field"
