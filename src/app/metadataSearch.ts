@@ -161,7 +161,13 @@ export function createMetadataSearch(ops: {
               id: imported.url,
               musicbrainzReleaseGroupId: null,
               artworkUrl: imported.artworkUrl,
-              links: [{ id: makeId(), url: imported.url, label: "Wikipedia" }],
+              genreSuggestions: imported.genreSuggestions,
+              instrumentSuggestions: imported.instrumentSuggestions,
+              recordLabel: imported.recordLabel ?? undefined,
+              links: [
+                { id: makeId(), url: imported.url, label: "Wikipedia" },
+                ...imported.links.map((link) => ({ ...link, id: makeId() })),
+              ],
               artists: imported.artists.map((artist, position) => ({
                 ...artist,
                 id: makeId(),

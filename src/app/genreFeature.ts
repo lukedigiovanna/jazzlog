@@ -83,7 +83,10 @@ export function createGenreFeature(ops: {
     );
   }
 
-  function genrePicker(selected: AlbumGenre[]) {
+  function genrePicker(
+    selected: AlbumGenre[],
+    renderSuggestions: () => string = () => "",
+  ) {
     genreChoices = structuredClone(ops.library.genres);
     selectedGenres = normalizeGenres(
       selected.map((g) => ({
@@ -110,6 +113,7 @@ export function createGenreFeature(ops: {
         ><span>Genres <span class="muted">(optional)</span></span></label
       >
       <div id="genre-selected" aria-live="polite"></div>
+      ${renderSuggestions()}
       <div class="catalog-search">
         <input
           id="genre-query"

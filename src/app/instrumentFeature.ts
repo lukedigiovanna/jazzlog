@@ -78,7 +78,10 @@ export function createInstrumentFeature(ops: {
     );
   }
 
-  function instrumentPicker(items: AlbumInstrument[]) {
+  function instrumentPicker(
+    items: AlbumInstrument[],
+    renderSuggestions: () => string = () => "",
+  ) {
     selectedInstruments = structuredClone(items);
     instrumentChoices = ops.library.instruments.map((item) => ({
       ...structuredClone(item),
@@ -89,6 +92,7 @@ export function createInstrumentFeature(ops: {
         ><span>Instruments <span class="muted">(optional)</span></span></label
       >
       <div id="instrument-selected" class="tags" aria-live="polite"></div>
+      ${renderSuggestions()}
       <input
         id="instrument-query"
         type="search"

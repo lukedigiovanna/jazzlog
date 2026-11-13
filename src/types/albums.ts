@@ -11,6 +11,9 @@ export interface Album {
   title: string;
   /** Browser demo provenance; not a MusicBrainz identifier. */
   sourceId?: string;
+  /** Import review suggestions; never saved as album associations automatically. */
+  genreSuggestions?: { id: string; name: string }[];
+  instrumentSuggestions?: { id: string; name: string }[];
   recordLabel?: string;
   sortTitle: string | null;
   releaseYear: number | null;

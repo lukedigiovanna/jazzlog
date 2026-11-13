@@ -308,6 +308,16 @@ export function initializeApp(
     commitInstrumentChoices,
   } = instrumentFeature;
   const albumEditor = createAlbumEditor({
+    accountId,
+    applySuggestion: (kind, id, name) => {
+      const input = editor.querySelector<HTMLInputElement>(`#${kind}-query`)!;
+      input.value = name;
+      const button = document.createElement("button");
+      button.dataset.action = `${id ? "select" : "create"}-${kind}`;
+      if (id) button.dataset.id = id;
+      if (kind === "genre") genreFeature.click(button);
+      else instrumentFeature.click(button);
+    },
     editor,
     showDialog,
     finishCatalogSave,
@@ -338,6 +348,9 @@ export function initializeApp(
       },
     },
     selections: {
+      get instrumentChoices() {
+        return instrumentFeature.state.instrumentChoices;
+      },
       get selectedArtists() {
         return artistFeature.state.selectedArtists;
       },

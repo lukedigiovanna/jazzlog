@@ -1,3 +1,5 @@
+import { mergeSuggestions, parseWikipediaPage } from "./wikipediaPage.ts";
+
 // Both a pasted URL and a future search result resolve through this reference.
 export interface WikipediaArticle {
   language: string;
@@ -8,6 +10,10 @@ export interface WikipediaImport {
   artworkUrl: string | null;
   url: string;
   releaseYear: number | null;
+  recordLabel: string | null;
+  links: { url: string; label: string }[];
+  genreSuggestions: { id: string; name: string }[];
+  instrumentSuggestions: { id: string; name: string }[];
   artists: { name: string; musicbrainzId: string | null }[];
 }
 
@@ -50,10 +56,16 @@ async function query<T>(
   const result = await response.json();
   if (result.error)
     throw new Error(result.error.info || "Wikipedia request failed.");
+  console.log(result);
   return result;
 }
 
-type Claim = { rank?: string; mainsnak: { datavalue?: { value: unknown } } };
+type Snak = { datavalue?: { value: unknown } };
+type Claim = {
+  rank?: string;
+  mainsnak: Snak;
+  qualifiers?: Record<string, Snak[]>;
+};
 type Entity = {
   labels?: Record<string, { value: string }>;
   claims?: Record<string, Claim[]>;
@@ -104,58 +116,134 @@ export async function resolveWikipediaArticle(
     artworkUrl: page.thumbnail?.source ?? page.original?.source ?? null,
     releaseYear: null,
     artists: [],
+    recordLabel: null,
+    links: [],
+    genreSuggestions: [],
+    instrumentSuggestions: [],
   };
   const entityId = page.pageprops?.wikibase_item;
-  if (!entityId) return result;
-  // Metadata is optional: an unavailable Wikidata service must not block artwork import.
-  try {
-    const data = await query<{ entities: Record<string, Entity> }>(
-      "www.wikidata.org",
-      { action: "wbgetentities", ids: entityId, props: "claims" },
-    );
-    const entity = data.entities[entityId];
-    const years = values(entity, "P577")
-      .map((value) =>
-        Number((value as { time?: string })?.time?.match(/^\+(\d{4})-/)?.[1]),
-      )
-      .filter((year) => year >= 1000 && year <= 9999);
-    result.releaseYear = years.length ? Math.min(...years) : null;
-    const ids = [
-      ...new Set(
-        values(entity, "P175")
-          .map((value) => (value as { id?: string })?.id)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-    if (ids.length) {
-      const performers = await query<{ entities: Record<string, Entity> }>(
+  if (entityId) {
+    // Metadata is optional: an unavailable Wikidata service must not block artwork import.
+    try {
+      const data = await query<{ entities: Record<string, Entity> }>(
         "www.wikidata.org",
-        {
-          action: "wbgetentities",
-          ids: ids.join("|"),
-          props: "labels|claims",
-          languages: `en|${article.language}`,
-          languagefallback: "1",
-        },
+        { action: "wbgetentities", ids: entityId, props: "claims" },
       );
-      result.artists = ids.flatMap((id) => {
-        const artist = performers.entities[id];
-        const name =
-          artist.labels?.en?.value ?? artist.labels?.[article.language]?.value;
-        const mbid = stringValue(artist, "P434");
-        return name
-          ? [
-              {
-                name,
-                musicbrainzId:
-                  mbid && /^[0-9a-f-]{36}$/i.test(mbid) ? mbid : null,
-              },
-            ]
-          : [];
-      });
+      const entity = data.entities[entityId];
+      const years = values(entity, "P577")
+        .map((value) =>
+          Number((value as { time?: string })?.time?.match(/^\+(\d{4})-/)?.[1]),
+        )
+        .filter((year) => year >= 1000 && year <= 9999);
+      result.releaseYear = years.length ? Math.min(...years) : null;
+      for (const [property, label, base] of [
+        ["P1954", "Discogs", "https://www.discogs.com/master/"],
+        ["P2281", "Apple Music", "https://music.apple.com/album/"],
+      ]) {
+        const ids = values(entity, property).filter(
+          (value): value is string =>
+            typeof value === "string" && /^[1-9][0-9]*$/.test(value),
+        );
+        for (const id of new Set(ids))
+          result.links.push({ label, url: `${base}${id}` });
+      }
+      const entityIds = (property: string) => [
+        ...new Set(
+          values(entity, property)
+            .map((value) => (value as { id?: string })?.id)
+            .filter((id): id is string => !!id && /^Q[1-9][0-9]*$/.test(id)),
+        ),
+      ];
+      const artistIds = entityIds("P175");
+      const labelIds = entityIds("P264");
+      const genreIds = entityIds("P136");
+      // Only album-specific instrumentation and performer credit qualifiers count.
+      // An artist's general instruments do not establish what they played here.
+      const instrumentIds = [
+        ...new Set([
+          ...entityIds("P870"),
+          ...(entity.claims?.P175 ?? [])
+            .filter((claim) => claim.rank !== "deprecated")
+            .flatMap((claim) => claim.qualifiers?.P1303 ?? [])
+            .map((snak) => (snak.datavalue?.value as { id?: string })?.id)
+            .filter((id): id is string => !!id && /^Q[1-9][0-9]*$/.test(id)),
+        ]),
+      ];
+      const ids = [
+        ...new Set([...artistIds, ...labelIds, ...genreIds, ...instrumentIds]),
+      ];
+      if (ids.length) {
+        const performers = await query<{ entities: Record<string, Entity> }>(
+          "www.wikidata.org",
+          {
+            action: "wbgetentities",
+            ids: ids.join("|"),
+            props: "labels|claims",
+            languages: `en|${article.language}`,
+            languagefallback: "1",
+          },
+        );
+        const nameOf = (item?: Entity) =>
+          item?.labels?.en?.value ?? item?.labels?.[article.language]?.value;
+        const suggestions = (ids: string[]) =>
+          ids.flatMap((id) => {
+            const name = nameOf(performers.entities[id]);
+            return name ? [{ id, name }] : [];
+          });
+        result.genreSuggestions = suggestions(genreIds);
+        result.instrumentSuggestions = suggestions(instrumentIds);
+        const labels = labelIds
+          .map((id) => nameOf(performers.entities[id]))
+          .filter((name): name is string => !!name);
+        result.recordLabel = [...new Set(labels)].join(", ") || null;
+        result.artists = artistIds.flatMap((id) => {
+          const artist = performers.entities[id];
+          if (!artist) return [];
+          const name =
+            artist.labels?.en?.value ??
+            artist.labels?.[article.language]?.value;
+          const mbid = stringValue(artist, "P434");
+          return name
+            ? [
+                {
+                  name,
+                  musicbrainzId:
+                    mbid && /^[0-9a-f-]{36}$/i.test(mbid) ? mbid : null,
+                },
+              ]
+            : [];
+        });
+      }
+    } catch {
+      /* Review allows missing metadata to be entered manually. */
+    }
+  }
+  // Article details often contain genres and personnel absent from Wikidata.
+  // Keep this independent so either metadata source can fail without losing the other.
+  try {
+    const parsed = await query<{ parse?: { text?: string } }>(
+      `${article.language}.wikipedia.org`,
+      {
+        action: "parse",
+        page: page.title,
+        prop: "text",
+        disableeditsection: "1",
+        disabletoc: "1",
+      },
+    );
+    if (typeof parsed.parse?.text === "string") {
+      const details = parseWikipediaPage(parsed.parse.text, article.language);
+      result.genreSuggestions = mergeSuggestions(
+        result.genreSuggestions,
+        details.genres,
+      );
+      result.instrumentSuggestions = mergeSuggestions(
+        result.instrumentSuggestions,
+        details.instruments,
+      );
     }
   } catch {
-    /* Review allows missing metadata to be entered manually. */
+    /* Article details are optional, just like Wikidata metadata. */
   }
   return result;
 }

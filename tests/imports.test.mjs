@@ -13,6 +13,8 @@ const artist = (id, name, musicbrainzId = null) => ({
   sortName: null,
   country: null,
 });
+const claim = (value, rank) => ({ rank, mainsnak: { datavalue: { value } } });
+
 const credit = (item) => ({ ...item, role: "primary", position: 0 });
 
 test("reuse existing artists by identity or normalized name, without conflating conflicting IDs", () => {
@@ -80,7 +82,31 @@ test("Wikipedia URL and search references use the same article resolver", async 
       entities: {
         Q1: {
           claims: {
-            P175: [{ mainsnak: { datavalue: { value: { id: "Q2" } } } }],
+            P136: [
+              claim({ id: "Q5" }),
+              claim({ id: "Q5" }),
+              claim({ id: "Q8" }, "deprecated"),
+            ],
+            P870: [claim({ id: "Q6" })],
+            P264: [claim({ id: "Q3" }), claim({ id: "Q4" })],
+            P1954: [
+              claim("5460"),
+              claim("5460"),
+              claim("bad"),
+              claim("999", "deprecated"),
+            ],
+            P2281: [claim("268443092"), claim("0"), claim("123", "deprecated")],
+            P175: [
+              {
+                ...claim({ id: "Q2" }),
+                qualifiers: {
+                  P1303: [
+                    claim({ id: "Q7" }).mainsnak,
+                    claim({ id: "Q6" }).mainsnak,
+                  ],
+                },
+              },
+            ],
             P577: [
               {
                 mainsnak: {
@@ -92,7 +118,20 @@ test("Wikipedia URL and search references use the same article resolver", async 
         },
       },
     },
-    { entities: { Q2: { labels: { en: { value: "Miles Davis" } } } } },
+    {
+      entities: {
+        Q2: {
+          labels: { en: { value: "Miles Davis" } },
+          claims: { P1303: [claim({ id: "Q9" })] },
+        },
+        Q5: { labels: { en: { value: "jazz hip hop" } } },
+        Q6: { labels: { en: { value: "piano" } } },
+        Q7: { labels: { en: { value: "trumpet" } } },
+        Q9: { labels: { en: { value: "flute" } } },
+        Q3: { labels: { en: { value: "Columbia Records" } } },
+        Q4: { labels: { en: { value: "Legacy" } } },
+      },
+    },
   ];
   let calls = 0;
   globalThis.fetch = async (url) => {
@@ -102,7 +141,19 @@ test("Wikipedia URL and search references use the same article resolver", async 
   };
   try {
     const imported = await resolveWikipediaArticle(reference);
+    assert.deepEqual(imported.genreSuggestions, [
+      { id: "Q5", name: "jazz hip hop" },
+    ]);
+    assert.deepEqual(imported.instrumentSuggestions, [
+      { id: "Q6", name: "piano" },
+      { id: "Q7", name: "trumpet" },
+    ]);
     assert.equal(imported.releaseYear, 1959);
+    assert.equal(imported.recordLabel, "Columbia Records, Legacy");
+    assert.deepEqual(imported.links, [
+      { label: "Discogs", url: "https://www.discogs.com/master/5460" },
+      { label: "Apple Music", url: "https://music.apple.com/album/268443092" },
+    ]);
     assert.equal(imported.artists[0].name, "Miles Davis");
     assert.equal(imported.url, "https://en.wikipedia.org/wiki/Kind_of_Blue");
     assert.equal(imported.artworkUrl, "https://upload.wikimedia.org/cover.jpg");
@@ -150,6 +201,8 @@ test("Wikipedia rejects missing and disambiguation pages; optional metadata fail
     assert.equal(result.title, "Example");
     assert.equal(result.artworkUrl, "https://upload.wikimedia.org/example.jpg");
     assert.deepEqual(result.artists, []);
+    assert.equal(result.recordLabel, null);
+    assert.deepEqual(result.links, []);
   } finally {
     globalThis.fetch = originalFetch;
   }

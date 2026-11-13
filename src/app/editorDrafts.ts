@@ -254,6 +254,11 @@ export function createEditorDrafts({
         used.add(input);
       }
     }
+    for (const row of editor.querySelectorAll<HTMLElement>(
+      "[data-suggestion-row]",
+    ))
+      row.hidden =
+        row.querySelector<HTMLSelectElement>("select")?.value === "__done";
     const rating = editor.querySelector<HTMLInputElement>(
       '[name="rating"]:checked',
     );

@@ -29,6 +29,12 @@ import { webUrl, cover } from "../components/presentation";
 import { focusForTyping } from "./device";
 
 export function createAlbumEditor(ops: {
+  accountId: string;
+  applySuggestion: (
+    kind: "genre" | "instrument",
+    id: string | null,
+    name: string,
+  ) => void;
   editor: HTMLDialogElement;
   showDialog: ReturnType<typeof createDialog>["showDialog"];
   beginDraft: ReturnType<typeof createEditorDrafts>["beginDraft"];
@@ -44,10 +50,17 @@ export function createAlbumEditor(ops: {
     selectedGenres: AlbumGenre[];
     selectedInstruments: AlbumInstrument[];
     genreChoices: Genre[];
+    instrumentChoices: AlbumInstrument[];
   };
   artistPicker: (items: AlbumArtist[]) => string;
-  genrePicker: (items: AlbumGenre[]) => string;
-  instrumentPicker: (items: AlbumInstrument[]) => string;
+  genrePicker: (
+    items: AlbumGenre[],
+    renderSuggestions?: () => string,
+  ) => string;
+  instrumentPicker: (
+    items: AlbumInstrument[],
+    renderSuggestions?: () => string,
+  ) => string;
   updateArtists: () => void;
   updateGenres: () => void;
   updateInstruments: () => void;
@@ -56,6 +69,81 @@ export function createAlbumEditor(ops: {
   let reviewAlbum: Album | undefined;
   let appleVersion = 0;
   let appleResults: AppleMusicAlbum[] = [];
+
+  const mappingKey = `jazzlog:import-mappings:v1:${ops.accountId}`;
+  const readMappings = (): Record<string, string> => {
+    try {
+      const data = JSON.parse(localStorage.getItem(mappingKey) ?? "{}");
+      return data && typeof data === "object" && !Array.isArray(data)
+        ? data
+        : {};
+    } catch {
+      return {};
+    }
+  };
+
+  function suggestions(
+    kind: "genre" | "instrument",
+    items: { id: string; name: string }[] = [],
+  ) {
+    if (!items.length) return "";
+    const choices =
+      kind === "genre"
+        ? ops.selections.genreChoices
+        : ops.selections.instrumentChoices;
+    const mappings = readMappings();
+    return /* HTML */ `<div class="import-suggestions">
+      <p class="form-hint">
+        Suggested ${kind === "genre" ? "genres" : "instruments"} from Wikipedia.
+        Match to your library or create a new entry. Choices are remembered on
+        this device.
+      </p>
+      ${items
+        .map((item) => {
+          const mapped = mappings[`${kind}:${item.id}`];
+          const match =
+            choices.find((choice) => choice.id === mapped) ??
+            choices.find(
+              (choice) =>
+                choice.name.trim().toLowerCase() ===
+                item.name.trim().toLowerCase(),
+            );
+          return /* HTML */ `<div class="field-grid" data-suggestion-row>
+            <label class="field"
+              ><span>${escapeHtml(item.name)}</span>
+              <select name="suggestion-${kind}-${escapeHtml(item.id)}">
+                <option value="">Choose a match…</option>
+                <option value="__done" hidden>Reviewed</option>
+                ${choices.map((choice) => /* HTML */ `<option value="${escapeHtml(choice.id)}" ${choice.id === match?.id ? "selected" : ""}>${escapeHtml(choice.name)}</option>`).join("")}
+                <option value="__create">
+                  Create “${escapeHtml(item.name)}”
+                </option>
+              </select>
+            </label>
+            <div>
+              <button
+                type="button"
+                class="button secondary compact"
+                data-action="apply-import-suggestion"
+                data-kind="${kind}"
+                data-source="${escapeHtml(item.id)}"
+                data-name="${escapeHtml(item.name)}"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                class="button secondary compact"
+                data-action="skip-import-suggestion"
+              >
+                Skip
+              </button>
+            </div>
+          </div>`;
+        })
+        .join("")}
+    </div>`;
+  }
 
   function hasAppleLink() {
     return [
@@ -228,8 +316,8 @@ export function createAlbumEditor(ops: {
             ${field("Release year", "year", album.releaseYear, { type: "number", attributes: 'min="1000" max="9999" step="1"', placeholder: "e.g. 1976" })}
           </div>
           ${ops.artistPicker(album.artists ?? [])}
-          ${ops.genrePicker(album.genres ?? [])}
-          ${ops.instrumentPicker(album.instruments ?? [])}
+          ${ops.genrePicker(album.genres ?? [], () => suggestions("genre", album.genreSuggestions))}
+          ${ops.instrumentPicker(album.instruments ?? [], () => suggestions("instrument", album.instrumentSuggestions))}
           <section class="link-form" aria-labelledby="music-links-title">
             <h3 id="music-links-title">Music links</h3>
             <div class="apple-music-search">
@@ -403,6 +491,56 @@ export function createAlbumEditor(ops: {
 
   function click(button: HTMLButtonElement, album?: Album) {
     switch (button.dataset.action) {
+      case "skip-import-suggestion": {
+        const row = button.closest<HTMLElement>("[data-suggestion-row]")!;
+        row.querySelector<HTMLSelectElement>("select")!.value = "__done";
+        row.hidden = true;
+        ops.captureDraft();
+        break;
+      }
+      case "apply-import-suggestion": {
+        const row = button.closest("[data-suggestion-row]")!;
+        const select = row.querySelector<HTMLSelectElement>("select")!;
+        if (!select.value) {
+          select.focus();
+          break;
+        }
+        const kind = button.dataset.kind as "genre" | "instrument";
+        const name = button.dataset.name!;
+        const choices =
+          kind === "genre"
+            ? ops.selections.genreChoices
+            : ops.selections.instrumentChoices;
+        const chosen =
+          select.value === "__create"
+            ? choices.find(
+                (item) => item.name.toLowerCase() === name.toLowerCase(),
+              )
+            : choices.find((item) => item.id === select.value);
+        ops.applySuggestion(
+          kind,
+          chosen?.id ?? (select.value === "__create" ? null : select.value),
+          name,
+        );
+        const added =
+          chosen ??
+          choices.find(
+            (item) => item.name.toLowerCase() === name.toLowerCase(),
+          );
+        if (added) {
+          const mappings = readMappings();
+          mappings[`${kind}:${button.dataset.source}`] = added.id;
+          try {
+            localStorage.setItem(mappingKey, JSON.stringify(mappings));
+          } catch {
+            /* Storage is optional. */
+          }
+        }
+        select.value = "__done";
+        (row as HTMLElement).hidden = true;
+        ops.captureDraft();
+        break;
+      }
       case "edit-links":
         if (album) openAlbumForm(album, "links");
         break;

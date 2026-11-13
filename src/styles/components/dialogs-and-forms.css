@@ -200,7 +200,8 @@ dialog::backdrop {
   font-weight: 650;
 }
 .field input,
-.field textarea {
+.field textarea,
+.import-suggestions select {
   min-width: 0;
   width: 100%;
   border: 1px solid #424d3d;
@@ -392,4 +393,12 @@ dialog::backdrop {
 .toast.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+.import-suggestions {
+  margin: 8px 0 18px;
+}
+.import-suggestions .field-grid {
+  margin-top: 8px;
+  align-items: end;
 }
