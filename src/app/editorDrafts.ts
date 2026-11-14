@@ -8,6 +8,27 @@ import type {
   ListeningEntry,
 } from "../types/albums";
 import { createLifecycle } from "./lifecycle";
+
+export interface EditorDraftsDependencies {
+  setBaseline: (value: string) => void;
+  updateRating: (value: number) => void;
+  editor: HTMLDialogElement;
+  accountId: string;
+  isSaving: () => boolean;
+  baseline: () => string;
+  serializeSelections: () => Pick<
+    Draft,
+    | "artists"
+    | "genres"
+    | "instruments"
+    | "artistChoices"
+    | "genreChoices"
+    | "instrumentChoices"
+  >;
+  resumeDraft: () => void;
+  announce: (message: string) => void;
+}
+
 export type DraftTarget = {
   kind: string;
   item?: unknown;
@@ -58,25 +79,7 @@ export function createEditorDrafts({
   announce,
   setBaseline,
   updateRating,
-}: {
-  setBaseline: (value: string) => void;
-  updateRating: (value: number) => void;
-  editor: HTMLDialogElement;
-  accountId: string;
-  isSaving: () => boolean;
-  baseline: () => string;
-  serializeSelections: () => Pick<
-    Draft,
-    | "artists"
-    | "genres"
-    | "instruments"
-    | "artistChoices"
-    | "genreChoices"
-    | "instrumentChoices"
-  >;
-  resumeDraft: () => void;
-  announce: (message: string) => void;
-}): EditorDrafts {
+}: EditorDraftsDependencies): EditorDrafts {
   const lifecycle = createLifecycle();
   const draftKey = `jazzlog:editor-draft:v1:${accountId}`;
   let draft: Draft | undefined;

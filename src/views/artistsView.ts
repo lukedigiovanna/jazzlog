@@ -15,11 +15,12 @@ import { icon } from "../components/icons";
 import { renderAlbumGrid } from "../components/albumGrid";
 import { matches } from "../app/search";
 
-export const artistUrl = (id: string) => `#artist/${encodeURIComponent(id)}`;
-export const artistAlbums = (albums: Album[], id: string) =>
+export const artistUrl = (id: string): string =>
+  `#artist/${encodeURIComponent(id)}`;
+export const artistAlbums = (albums: Album[], id: string): Album[] =>
   albums.filter((album) => album.artists.some((artist) => artist.id === id));
 export const artistRoles = ["primary", "featured", "other"] as const;
-export const roleLabel = (role: string) =>
+export const roleLabel = (role: string): string =>
   role.charAt(0).toUpperCase() + role.slice(1);
 
 export function renderArtistsView(
@@ -113,7 +114,7 @@ export function renderArtistDetail(
   item: Artist,
   albums: Album[],
   layout = "grid",
-) {
+): string {
   const used = artistAlbums(albums, item.id).sort(
     (a, b) =>
       (a.releaseYear ?? Infinity) - (b.releaseYear ?? Infinity) ||

@@ -26,7 +26,7 @@ export function renderLibraryView(
   albums: Album[],
   state: LibraryState,
   catalog: Genre[],
-) {
+): string {
   const featured = albums[Math.floor(Math.random() * albums.length)];
   const genres = catalog.map((g) => g.name).sort((a, b) => a.localeCompare(b));
   if (!genres.includes(state.genre)) state.genre = "";
@@ -98,7 +98,7 @@ export function updateLibrary(
   state: LibraryState,
   catalog: Genre[],
   root: ParentNode = document,
-) {
+): void {
   const list = root.querySelector("#library-results");
   if (!list) return;
   const titleOrder = (a: Album, b: Album) =>

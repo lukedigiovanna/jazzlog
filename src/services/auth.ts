@@ -1,8 +1,18 @@
 import { supabase } from "./supabase";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import type {
+  AuthChangeEvent,
+  Session,
+  User,
+  Subscription,
+  AuthResponse,
+  AuthTokenResponsePassword,
+} from "@supabase/supabase-js";
 
 // Register a new user
-export async function signUp(email: string, password: string) {
+export async function signUp(
+  email: string,
+  password: string,
+): Promise<AuthResponse["data"]> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -15,7 +25,10 @@ export async function signUp(email: string, password: string) {
 }
 
 // Authenticate an existing user
-export async function signIn(email: string, password: string) {
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<AuthTokenResponsePassword["data"]> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -25,7 +38,7 @@ export async function signIn(email: string, password: string) {
 }
 
 // End the current session
-export async function signOut() {
+export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
@@ -53,7 +66,7 @@ export async function getSession(): Promise<Session | null> {
 // Subscribe to authentication changes (returns the subscription for cleanup)
 export function onAuthStateChange(
   callback: (event: AuthChangeEvent, session: Session | null) => void,
-) {
+): Subscription {
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange(callback);

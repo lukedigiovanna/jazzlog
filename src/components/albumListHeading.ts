@@ -7,7 +7,7 @@ export function renderAlbumListHeading(
   layout: string,
   action: string,
   id?: string,
-) {
+): string {
   return /* HTML */ `<div class="library-heading album-list-heading">
     <div class="detail-heading">
       <h2 ${id ? `id="${escapeHtml(id)}"` : ""}>${escapeHtml(title)}</h2>

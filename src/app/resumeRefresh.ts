@@ -1,12 +1,16 @@
 import { createLifecycle } from "./lifecycle";
 
-/** Refresh after time away, including restoration from Safari's page cache. */
-export function createResumeRefresh(options: {
+export interface ResumeRefreshDependencies {
   refresh: () => Promise<boolean>;
   blocked: () => boolean;
   editor: EventTarget;
   initial?: boolean;
-}) {
+}
+
+/** Refresh after time away, including restoration from Safari's page cache. */
+export function createResumeRefresh(
+  options: ResumeRefreshDependencies,
+): () => void {
   const lifecycle = createLifecycle();
   let hiddenAt: number | undefined;
   let pending = options.initial ?? false;

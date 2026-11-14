@@ -1,5 +1,11 @@
 import type { Album } from "../types/albums";
 
+export interface DiscoveryPrompt {
+  prompt: string;
+  contextCount: number;
+  excludedCount: number;
+}
+
 export type DiscoveryDirection = "close" | "branch" | "surprise";
 export interface DiscoveryRequest {
   topic: string;
@@ -12,7 +18,7 @@ export const MAX_CONTEXT_ALBUMS = 20;
 export function buildDiscoveryPrompt(
   albums: Album[],
   options: DiscoveryRequest,
-) {
+): DiscoveryPrompt {
   const latest = (album: Album) =>
     [...album.listeningEntries].sort((a, b) =>
       b.listenedAt.localeCompare(a.listenedAt),

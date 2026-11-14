@@ -3,6 +3,18 @@ import { icon } from "../components/icons";
 import { prefersTouchInteraction } from "./device";
 import { createLifecycle } from "./lifecycle";
 
+export interface DialogDependencies {
+  editor: HTMLDialogElement;
+  main: HTMLElement;
+  formState: () => string;
+  onRendered: () => void;
+  dismissDialog: () => void;
+  updateArtists: () => void;
+  updateGenres: () => void;
+  onClose: () => void;
+  routeHash: () => string;
+}
+
 export interface PickerPress {
   button: HTMLButtonElement;
   pointerId: number;
@@ -31,17 +43,7 @@ export function createDialog({
   updateGenres,
   onClose,
   routeHash,
-}: {
-  editor: HTMLDialogElement;
-  main: HTMLElement;
-  formState: () => string;
-  onRendered: () => void;
-  dismissDialog: () => void;
-  updateArtists: () => void;
-  updateGenres: () => void;
-  onClose: () => void;
-  routeHash: () => string;
-}): DialogController {
+}: DialogDependencies): DialogController {
   const lifecycle = createLifecycle(true);
   let origin: HTMLElement | undefined;
   const state = {

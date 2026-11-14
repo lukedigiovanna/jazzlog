@@ -1,6 +1,5 @@
 import type { AlbumEditorMode } from "./albumEditor";
 import type { EditorDialog } from "./editorContracts";
-
 import {
   parseWikipediaUrl,
   resolveWikipediaArticle,
@@ -14,14 +13,7 @@ import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
 import { cover, artistText, albumUrl } from "../components/presentation";
 
-export interface MetadataSearch {
-  openSearch: (reset?: boolean) => void;
-  click: (button: HTMLButtonElement) => boolean;
-  input: (input: HTMLInputElement) => void;
-  cancel: () => void;
-}
-
-export function createMetadataSearch(ops: {
+export interface MetadataSearchDependencies {
   editor: HTMLDialogElement;
   showDialog: EditorDialog["show"];
   hasDraft: () => boolean;
@@ -32,7 +24,18 @@ export function createMetadataSearch(ops: {
   clearDraft: () => void;
   isActive: () => boolean;
   albums: () => Album[];
-}): MetadataSearch {
+}
+
+export interface MetadataSearch {
+  openSearch: (reset?: boolean) => void;
+  click: (button: HTMLButtonElement) => boolean;
+  input: (input: HTMLInputElement) => void;
+  cancel: () => void;
+}
+
+export function createMetadataSearch(
+  ops: MetadataSearchDependencies,
+): MetadataSearch {
   let searchQuery = "";
   let searchResults: Album[] = [];
 

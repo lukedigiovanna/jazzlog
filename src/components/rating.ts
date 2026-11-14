@@ -1,7 +1,7 @@
 import { starPath } from "./icons";
 import { displayRating } from "./presentation";
 
-export function stars(rating: number) {
+export function stars(rating: number): string {
   return /* HTML */ `<span class="stars" aria-hidden="true"
     >${Array.from({ length: 5 }, (_, i) => {
       const fill = Math.max(0, Math.min(2, rating - i * 2));
@@ -15,7 +15,7 @@ export function stars(rating: number) {
   >`;
 }
 
-export function renderRating(rating: number | undefined) {
+export function renderRating(rating: number | undefined): string {
   return rating
     ? /* HTML */ `<span
         class="rating"

@@ -92,7 +92,7 @@ function historyCard(listen: ListeningEntry) {
   </button>`;
 }
 
-export function renderAlbumDetailView(album: Album) {
+export function renderAlbumDetailView(album: Album): string {
   const listens = orderedListens(album);
   const credits = [...album.artists].sort((a, b) => a.position - b.position);
   const primaryArtists = credits.filter((artist) => artist.role === "primary");

@@ -1,5 +1,13 @@
 import type { LibraryData } from "../types/library";
 
+export type LibraryDelta = Record<
+  string,
+  {
+    saved: Row[];
+    deleted: Row[];
+  }
+>;
+
 type Row = Record<string, string | number | boolean | null>;
 const keys: Record<string, string[]> = {
   artists: ["id"],
@@ -92,7 +100,10 @@ function rows(library: LibraryData): Record<string, Row[]> {
   return result;
 }
 
-export function libraryDelta(before: LibraryData, next: LibraryData) {
+export function libraryDelta(
+  before: LibraryData,
+  next: LibraryData,
+): LibraryDelta {
   const previous = rows(before);
   const current = rows(next);
   const changes: Record<string, { saved: Row[]; deleted: Row[] }> = {};

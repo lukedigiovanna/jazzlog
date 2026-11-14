@@ -9,6 +9,14 @@ import { escapeHtml } from "../components/html";
 import { artistText, displayRating } from "../components/presentation";
 import { stars } from "../components/rating";
 
+export interface ListeningDependencies {
+  editor: HTMLDialogElement;
+  showDialog: EditorDialog["show"];
+  beginDraft: EditorDrafts["beginDraft"];
+  albums: () => Album[];
+  finishSave: (id: string, message: string) => Promise<void>;
+}
+
 export interface Listening {
   openListen: (album: Album, entry?: ListeningEntry) => void;
   updateRating: (rating: number) => void;
@@ -17,13 +25,7 @@ export interface Listening {
   click: (button: HTMLButtonElement, album?: Album) => boolean;
 }
 
-export function createListening(ops: {
-  editor: HTMLDialogElement;
-  showDialog: EditorDialog["show"];
-  beginDraft: EditorDrafts["beginDraft"];
-  albums: () => Album[];
-  finishSave: (id: string, message: string) => Promise<void>;
-}): Listening {
+export function createListening(ops: ListeningDependencies): Listening {
   function openListen(album: Album, entry?: ListeningEntry) {
     if (!ops.beginDraft({ kind: "listen", item: album, entry })) return;
     ops.showDialog(

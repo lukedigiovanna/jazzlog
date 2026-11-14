@@ -15,7 +15,7 @@ export function exactAppleMusicMatch(
   results: AppleMusicAlbum[],
   title: string,
   artists: string[],
-) {
+): AppleMusicAlbum | undefined {
   const exact = results.filter(
     (item) =>
       key(item.title) === key(title) &&
@@ -27,7 +27,7 @@ export function relevantAppleMusicAlbums(
   results: AppleMusicAlbum[],
   title: string,
   artists: string[],
-) {
+): AppleMusicAlbum[] {
   const words = (value: string) =>
     new Set(key(value).split(" ").filter(Boolean));
   const overlap = (a: string, b: string) => {

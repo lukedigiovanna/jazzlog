@@ -1,5 +1,13 @@
+export interface Lifecycle {
+  mount(): void;
+  readonly active: boolean;
+  listen<T extends EventTarget>(target: T): T;
+  queue(callback: () => void): void;
+  dispose(): void;
+}
+
 /** Owns listeners and guards queued work after teardown. */
-export function createLifecycle(deferred = false) {
+export function createLifecycle(deferred = false): Lifecycle {
   const abort = new AbortController();
   const pending: (() => void)[] = [];
   let mounted = !deferred;

@@ -4,6 +4,13 @@ import {
   type DiscoveryDirection,
 } from "./discoveryPrompt";
 
+export interface DiscoveryDependencies {
+  editor: HTMLDialogElement;
+  albums: () => Album[];
+  showDialog: (title: string, content: string, focus: string) => void;
+  announce: (message: string) => void;
+}
+
 export interface Discovery {
   update: () => void;
   click: (button: HTMLButtonElement) => boolean;
@@ -14,12 +21,7 @@ export function createDiscovery({
   albums,
   showDialog,
   announce,
-}: {
-  editor: HTMLDialogElement;
-  albums: () => Album[];
-  showDialog: (title: string, content: string, focus: string) => void;
-  announce: (message: string) => void;
-}): Discovery {
+}: DiscoveryDependencies): Discovery {
   const directions: { value: DiscoveryDirection; label: string }[] = [
     { value: "close", label: "Stay close" },
     { value: "branch", label: "Branch out" },

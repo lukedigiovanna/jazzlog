@@ -1,6 +1,6 @@
 import type { Artist, AlbumArtist } from "../types/albums";
 
-export const artistNameKey = (name: string) =>
+export const artistNameKey = (name: string): string =>
   name.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
 
 export function findArtist(
@@ -25,7 +25,13 @@ export function findArtist(
 }
 
 // Picker options are drafts. Only selected credits may extend the catalog.
-export function commitAlbumArtists(catalog: Artist[], selected: AlbumArtist[]) {
+export function commitAlbumArtists(
+  catalog: Artist[],
+  selected: AlbumArtist[],
+): {
+  artists: Artist[];
+  credits: AlbumArtist[];
+} {
   const artists = structuredClone(catalog);
   const credits: AlbumArtist[] = [];
   for (const credit of selected) {

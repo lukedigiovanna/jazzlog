@@ -1,4 +1,4 @@
-export function escapeHtml(value: unknown = "") {
+export function escapeHtml(value: unknown = ""): string {
   return String(value ?? "").replace(
     /[&<>"']/g,
     (char) =>

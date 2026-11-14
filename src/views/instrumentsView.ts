@@ -31,7 +31,7 @@ export interface InstrumentFilters {
 export function categoryFields(
   selected: InstrumentCategory[] = [],
   name = "category",
-) {
+): string {
   return /* HTML */ `<fieldset class="category-fields">
     <legend>Categories <span class="muted">(optional)</span></legend>
     <p class="form-hint">Choose all that apply.</p>
@@ -149,7 +149,10 @@ export function updateInstrumentsView(
       </div>`;
 }
 
-export function renderInstrumentDetail(item: Instrument, albums: Album[]) {
+export function renderInstrumentDetail(
+  item: Instrument,
+  albums: Album[],
+): string {
   const used = albumsUsing(albums, item.id);
   return /* HTML */ `<section
     class="instrument-page"

@@ -16,7 +16,7 @@ export function field(
     placeholder?: string;
     help?: string;
   } = {},
-) {
+): string {
   const {
     type = "text",
     attributes = "",
@@ -35,7 +35,7 @@ export function field(
   >`;
 }
 
-export function linkRow(link: Partial<AlbumLink> = {}) {
+export function linkRow(link: Partial<AlbumLink> = {}): string {
   return /* HTML */ `<div class="link-fields">
     ${field("URL", "linkUrl", link.url, { type: "url", placeholder: "https://…", attributes: 'maxlength="2000"' })}
     ${field("Label", "linkLabel", link.label, { placeholder: "Optional", attributes: 'maxlength="60"' })}
@@ -57,7 +57,7 @@ export function catalogImageField(
   artist = false,
   categories: InstrumentCategory[] = [],
   fieldName = "catalogImage",
-) {
+): string {
   return /* HTML */ `<div
     class="catalog-image-editor"
     data-artist="${artist}"
@@ -71,7 +71,7 @@ export function catalogImageField(
   </div>`;
 }
 
-export function updateCatalogImage(input: HTMLInputElement) {
+export function updateCatalogImage(input: HTMLInputElement): void {
   const form = input.closest("form")!;
   const container = form.querySelector<HTMLElement>(".catalog-image-editor")!;
   const url = container.querySelector<HTMLInputElement>("input")!.value;

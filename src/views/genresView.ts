@@ -11,7 +11,7 @@ export function renderGenresView(
   query: string,
   alphabetical: boolean,
   unused: boolean,
-) {
+): string {
   const count = (g: Genre) =>
     albums.filter((a) => includesGenre(a, g.id, genres)).length;
   const row = (g: Genre) =>
@@ -95,7 +95,7 @@ export function renderGenreDetail(
   genres: Genre[],
   albums: Album[],
   layout = "grid",
-) {
+): string {
   const used = albums.filter((a) => includesGenre(a, g.id, genres));
   const children = genres.filter((c) => c.parentGenreId === g.id);
   const direct = albums.some((a) => a.genres.some((c) => c.id === g.id));

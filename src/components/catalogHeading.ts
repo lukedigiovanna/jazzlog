@@ -3,7 +3,7 @@ import { icon } from "./icons";
 export function renderCatalogHeading(
   title: string,
   item: "artist" | "instrument" | "genre",
-) {
+): string {
   const label = `Add ${item}`;
   return /* HTML */ `<div class="instrument-page-heading catalog-heading">
     <h1 id="page-title">${title}</h1>

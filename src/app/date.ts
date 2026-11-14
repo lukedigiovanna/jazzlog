@@ -1,4 +1,4 @@
-export function today() {
+export function today(): string {
   return new Intl.DateTimeFormat("sv-SE", {
     year: "numeric",
     month: "2-digit",

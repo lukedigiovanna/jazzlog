@@ -45,7 +45,7 @@ const paths: Record<string, string> = {
 
 export const starPath =
   "m12 2.5 2.8 5.9 6.5 1-4.7 4.6 1.1 6.5-5.7-3.1-5.7 3.1 1.1-6.5-4.7-4.6 6.5-1Z";
-export const icon = (name: string, size = 18) =>
+export const icon = (name: string, size = 18): string =>
   '<svg class="icon" width="' +
   size +
   '" height="' +

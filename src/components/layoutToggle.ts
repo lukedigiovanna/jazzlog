@@ -4,7 +4,7 @@ export function renderLayoutToggle(
   layout: string,
   label = "Library layout",
   action = "layout",
-) {
+): string {
   return /* HTML */ `<div
     class="layout-toggle"
     aria-label="${escapeHtml(label)}"

@@ -1,6 +1,9 @@
 import { icon } from "./icons";
 
-export function renderCatalogFilters(content: string, activeCount: number) {
+export function renderCatalogFilters(
+  content: string,
+  activeCount: number,
+): string {
   return /* HTML */ `<details class="genre-filter-dropdown">
     <summary
       class="button secondary"

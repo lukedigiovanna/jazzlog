@@ -1,3 +1,8 @@
+export interface WikipediaPageSuggestions {
+  genres: Suggestion[];
+  instruments: Suggestion[];
+}
+
 type Suggestion = { id: string; name: string };
 
 const key = (name: string) =>
@@ -6,7 +11,7 @@ const key = (name: string) =>
 export function mergeSuggestions(
   primary: Suggestion[],
   additional: Suggestion[],
-) {
+): Suggestion[] {
   const seen = new Set(primary.map((item) => key(item.name)));
   return [
     ...primary,
@@ -24,7 +29,10 @@ export function mergeSuggestions(
 const instrument =
   /^(?:(?:acoustic|electric|electronic|digital|grand|upright|prepared|tack|rhodes|wurlitzer) piano|piano|(?:acoustic|electric|rhythm|lead|steel|pedal steel|lap steel|slide|classical|twelve-string|12-string) guitar|guitars?|(?:electric|double|upright|acoustic|fretless) bass|bass(?: guitar)?|(?:alto|tenor|soprano|baritone|bass) saxophone|saxophone|(?:bass )?clarinet|(?:alto|bass )?flute|flute|piccolo|trumpet|flugelhorn|cornet|(?:bass )?trombone|tuba|french horn|harmonica|oboe|bassoon|violin|viola|cello|harp|banjo|mandolin|sitar|oud|ukulele|accordion|organ|(?:hammond|pipe|electric) organ|keyboards?|(?:moog|analog|modular) synthesizer|synthesizers?|mellotron|clavinet|harpsichord|vibraphone|marimba|xylophone|celesta|drums|drum kit|drum machine|percussion|congas?|bongos?|timbales|tambourine|shaker|cowbell|cymbals|timpani|tabla|djembe|turntables|sampler|(?:lead|backing|background|harmony) vocals|vocals|voice)$/i;
 
-export function parseWikipediaPage(html: string, language: string) {
+export function parseWikipediaPage(
+  html: string,
+  language: string,
+): WikipediaPageSuggestions {
   // Parse in a detached document; imported HTML is never inserted into the app.
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc

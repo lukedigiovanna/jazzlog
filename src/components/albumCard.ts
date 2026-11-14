@@ -4,7 +4,7 @@ import { escapeHtml } from "./html";
 import { renderRating } from "./rating";
 import { icon } from "./icons";
 
-export function renderAlbumCard(album: Album) {
+export function renderAlbumCard(album: Album): string {
   return /* HTML */ `<li class="album-item">
     <a class="album-card" href="${albumUrl(album.id)}">
       ${cover(album)}

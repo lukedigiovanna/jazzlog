@@ -25,20 +25,20 @@ export const instrumentIconPriority: readonly InstrumentCategory[] = [
 
 export function instrumentCategoryIcon(
   categories: readonly InstrumentCategory[] = [],
-) {
+): string {
   const category =
     instrumentIconPriority.find((category) => categories.includes(category)) ??
     "other";
   return `instrument-${category}`;
 }
 
-export const categoryLabel = (category: string) =>
+export const categoryLabel = (category: string): string =>
   category.charAt(0).toUpperCase() + category.slice(1);
 
-export const instrumentUrl = (id: string) =>
+export const instrumentUrl = (id: string): string =>
   `#instrument/${encodeURIComponent(id)}`;
 
-export const albumsUsing = (albums: Album[], id: string) =>
+export const albumsUsing = (albums: Album[], id: string): Album[] =>
   albums.filter((album) => album.instruments.some((item) => item.id === id));
 
 // Read models on albums retain association notes; names/categories come from the catalog.

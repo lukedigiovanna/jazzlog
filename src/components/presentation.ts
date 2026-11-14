@@ -1,7 +1,7 @@
-import type { Album } from "../types/albums";
+import type { Album, ListeningEntry } from "../types/albums";
 import { icon } from "./icons.ts";
 import { escapeHtml } from "./html.ts";
-export function webUrl(value: string | null | undefined) {
+export function webUrl(value: string | null | undefined): URL | null {
   try {
     const parsed = new URL(value ?? "");
     if (
@@ -16,12 +16,12 @@ export function webUrl(value: string | null | undefined) {
   return null;
 }
 
-export function artworkUrl(value: string | null | undefined = "") {
+export function artworkUrl(value: string | null | undefined = ""): string {
   if (/^\/art\/[a-z0-9-]+\.svg$/.test(value ?? "")) return value ?? "";
   return webUrl(value)?.href ?? "";
 }
 
-export function cover(album: Partial<Album>, eager = false) {
+export function cover(album: Partial<Album>, eager = false): string {
   const url = artworkUrl(album.artworkUrl);
   return /* HTML */ `<span class="cover" aria-hidden="true"
     ><span class="cover-placeholder">${icon("disc", 39)}</span
@@ -29,7 +29,7 @@ export function cover(album: Partial<Album>, eager = false) {
   >`;
 }
 
-export function artistText(album: Album) {
+export function artistText(album: Album): string {
   return (
     album.artists
       .filter((artist) => artist.role === "primary")
@@ -39,26 +39,26 @@ export function artistText(album: Album) {
   );
 }
 
-export function orderedListens(album: Album) {
+export function orderedListens(album: Album): ListeningEntry[] {
   return [...album.listeningEntries].sort((a, b) =>
     b.listenedAt.localeCompare(a.listenedAt),
   );
 }
 
-export function latest(album: Album) {
+export function latest(album: Album): ListeningEntry | undefined {
   return orderedListens(album)[0];
 }
 
-export function displayRating(rating: number) {
+export function displayRating(rating: number): number {
   return rating / 2;
 }
 
-export function chips(values: string[]) {
+export function chips(values: string[]): string {
   return values
     .map((value) => /* HTML */ `<span class="chip">${escapeHtml(value)}</span>`)
     .join("");
 }
 
-export function albumUrl(id: string) {
+export function albumUrl(id: string): string {
   return "#album/" + encodeURIComponent(id);
 }

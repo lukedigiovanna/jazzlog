@@ -9,7 +9,15 @@ import {
   type CatalogSort,
 } from "./sortOptions.ts";
 
-export function catalogStats(albums: Album[]) {
+export interface CatalogStats {
+  count: number;
+  updated: string;
+  rated: number;
+  average: number | null;
+  recent: string;
+}
+
+export function catalogStats(albums: Album[]): CatalogStats {
   const entries = albums.flatMap((album) => {
     const entry = latest(album);
     return entry ? [entry] : [];
@@ -35,8 +43,8 @@ export function catalogStats(albums: Album[]) {
 }
 
 export function compareCatalog(
-  a: ReturnType<typeof catalogStats>,
-  b: ReturnType<typeof catalogStats>,
+  a: CatalogStats,
+  b: CatalogStats,
   sort: CatalogSort,
 ): number {
   if (sort === "rating")
@@ -64,7 +72,7 @@ export function catalogSort(
   >`;
 }
 
-export function catalogSummary(albums: Album[], showRating = true) {
+export function catalogSummary(albums: Album[], showRating = true): string {
   if (!showRating)
     return /* HTML */ `<span class="catalog-stats"
       ><span
@@ -92,7 +100,7 @@ export function catalogImage(
   url?: string | null,
   artist = false,
   categories: readonly InstrumentCategory[] = [],
-) {
+): string {
   const image = webUrl(url)?.href;
   const initials = name
     .trim()

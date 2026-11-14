@@ -83,7 +83,7 @@ export function writeLibraryCache(
   }
 }
 
-export function clearLibraryCache(accountId: string) {
+export function clearLibraryCache(accountId: string): void {
   try {
     localStorage.removeItem(prefix + accountId);
   } catch {

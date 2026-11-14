@@ -1,5 +1,6 @@
 import type { Album, AlbumGenre, Genre } from "../types/albums";
-export const genreUrl = (id: string) => `#genre/${encodeURIComponent(id)}`;
+export const genreUrl = (id: string): string =>
+  `#genre/${encodeURIComponent(id)}`;
 export function ancestors(id: string, genres: Genre[]): Genre[] {
   const result: Genre[] = [];
   const seen = new Set([id]);
@@ -13,7 +14,11 @@ export function ancestors(id: string, genres: Genre[]): Genre[] {
   }
   return result;
 }
-export const includesGenre = (album: Album, id: string, genres: Genre[]) =>
+export const includesGenre = (
+  album: Album,
+  id: string,
+  genres: Genre[],
+): boolean =>
   album.genres.some(
     (g) => g.id === id || ancestors(g.id, genres).some((p) => p.id === id),
   );
@@ -40,7 +45,7 @@ export function normalizeGenres(
     isPrimary: g.id === primaryId,
   }));
 }
-export function syncAlbumGenres(albums: Album[], genres: Genre[]) {
+export function syncAlbumGenres(albums: Album[], genres: Genre[]): void {
   for (const album of albums)
     album.genres = normalizeGenres(album.genres, genres);
 }
