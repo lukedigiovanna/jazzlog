@@ -519,7 +519,7 @@ test("route previews match live lists and remounting handles each save once", as
       );
       location.hash = hash;
       await changed;
-      const preview = first(hash);
+      const preview = first.renderPreview(hash);
       const live = document
         .querySelector("main")!
         .cloneNode(true) as HTMLElement;
@@ -535,6 +535,7 @@ test("route previews match live lists and remounting handles each save once", as
         ids: preview.querySelectorAll("[id]").length,
       });
     }
+    first.dispose();
     first.dispose();
     initializeApp();
     return results;

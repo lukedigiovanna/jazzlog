@@ -1,6 +1,26 @@
+import type { EditorDialog } from "./editorContracts";
 import { icon } from "../components/icons";
 import { prefersTouchInteraction } from "./device";
 import { createLifecycle } from "./lifecycle";
+
+export interface PickerPress {
+  button: HTMLButtonElement;
+  pointerId: number;
+  x: number;
+  y: number;
+  moved: boolean;
+}
+
+export interface DialogController {
+  baseline: string;
+  readonly pickerPress: PickerPress | null;
+  pickerRenderPending: boolean;
+  mount: () => void;
+  showDialog: EditorDialog["show"];
+  updateSearchDropdowns: (target: EventTarget | null) => void;
+  dispose: () => void;
+}
+
 export function createDialog({
   editor,
   main,
@@ -21,19 +41,13 @@ export function createDialog({
   updateGenres: () => void;
   onClose: () => void;
   routeHash: () => string;
-}) {
+}): DialogController {
   const lifecycle = createLifecycle(true);
   let origin: HTMLElement | undefined;
   const state = {
     baseline: "",
     pickerRenderPending: false,
-    pickerPress: null as {
-      button: HTMLButtonElement;
-      pointerId: number;
-      x: number;
-      y: number;
-      moved: boolean;
-    } | null,
+    pickerPress: null as PickerPress | null,
   };
   let suppressPickerClick = false;
   function showDialog(

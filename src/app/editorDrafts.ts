@@ -31,6 +31,23 @@ export type Draft = {
   instrumentChoices: AlbumInstrument[];
 };
 
+export interface EditorDrafts {
+  readonly state: {
+    target: DraftTarget | undefined;
+    restoring: boolean;
+    source: string;
+  };
+  readonly current: Draft | undefined;
+  readonly resumeButton: HTMLButtonElement;
+  restore: (saved: Draft, openEditor: () => void) => void;
+  writeDraft: () => boolean;
+  clearDraft: () => void;
+  captureDraft: () => void;
+  beginDraft: (target: DraftTarget) => boolean;
+  draftCloseChoices: () => void;
+  dispose: () => void;
+}
+
 export function createEditorDrafts({
   editor,
   accountId,
@@ -59,7 +76,7 @@ export function createEditorDrafts({
   >;
   resumeDraft: () => void;
   announce: (message: string) => void;
-}) {
+}): EditorDrafts {
   const lifecycle = createLifecycle();
   const draftKey = `jazzlog:editor-draft:v1:${accountId}`;
   let draft: Draft | undefined;

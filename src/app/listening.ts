@@ -1,6 +1,6 @@
 import { today } from "./date";
-import { createDialog } from "./dialog";
-import { createEditorDrafts } from "./editorDrafts";
+import type { EditorDialog } from "./editorContracts";
+import type { EditorDrafts } from "./editorDrafts";
 import { field } from "../components/formFields";
 import { makeId } from "./id";
 import type { Album, ListeningEntry } from "../types/albums";
@@ -9,13 +9,21 @@ import { escapeHtml } from "../components/html";
 import { artistText, displayRating } from "../components/presentation";
 import { stars } from "../components/rating";
 
+export interface Listening {
+  openListen: (album: Album, entry?: ListeningEntry) => void;
+  updateRating: (rating: number) => void;
+  saveListenForm: (form: HTMLFormElement) => void;
+  today: () => string;
+  click: (button: HTMLButtonElement, album?: Album) => boolean;
+}
+
 export function createListening(ops: {
   editor: HTMLDialogElement;
-  showDialog: ReturnType<typeof createDialog>["showDialog"];
-  beginDraft: ReturnType<typeof createEditorDrafts>["beginDraft"];
+  showDialog: EditorDialog["show"];
+  beginDraft: EditorDrafts["beginDraft"];
   albums: () => Album[];
   finishSave: (id: string, message: string) => Promise<void>;
-}) {
+}): Listening {
   function openListen(album: Album, entry?: ListeningEntry) {
     if (!ops.beginDraft({ kind: "listen", item: album, entry })) return;
     ops.showDialog(

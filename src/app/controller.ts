@@ -1,70 +1,32 @@
+import { LibraryConnection } from "./libraryConnection";
+import { AppRouter } from "./appRouter";
+import { EditorPersistence } from "./editorPersistence";
 import type { EditorDialog, PickerInteraction } from "./editorContracts";
-import { createDiscovery } from "./discovery";
-import { readLibraryCache, writeLibraryCache } from "./libraryCache";
-import { createLibraryState, type SaveResult } from "./libraryState";
-import { createDialog } from "./dialog";
-import { createEditorDrafts } from "./editorDrafts";
+import { createDiscovery, type Discovery } from "./discovery";
+import { createLibraryState, type LibraryStore } from "./libraryState";
+import { createDialog, type DialogController } from "./dialog";
+import { createEditorDrafts, type EditorDrafts } from "./editorDrafts";
 import { createLifecycle } from "./lifecycle";
-import { createResumeRefresh } from "./resumeRefresh";
 import type { LibraryData } from "../types/library";
-import { genreUrl } from "./genres";
-import { renderGenreDetail } from "../views/genresView";
 import type { Genre } from "../types/albums";
-import { artistUrl, renderArtistDetail } from "../views/artistsView";
 import type { Album, Artist, Instrument } from "../types/albums";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
-import { albumUrl } from "../components/presentation";
-import { renderLibraryView, updateLibrary } from "../views/libraryView";
-import { renderAlbumDetailView } from "../views/albumDetailView";
-import { instrumentUrl } from "./instruments";
-import { renderInstrumentDetail } from "../views/instrumentsView";
-import { focusForTyping } from "./device";
-import { createMetadataSearch } from "./metadataSearch";
+import { createMetadataSearch, type MetadataSearch } from "./metadataSearch";
 import { InstrumentFeature } from "./instrumentFeature";
 import { GenreFeature } from "./genreFeature";
 import { ArtistFeature } from "./artistFeature";
 import { AlbumEditor } from "./albumEditor";
-import { createListening } from "./listening";
-import { readLayout, saveLayout } from "./layoutPreferences";
-import { createRouteHistory } from "./routeHistory";
+import { createListening, type Listening } from "./listening";
 
-export function initializeApp(
-  data?: LibraryData,
-  accountId = "demo",
-  initialRefresh = false,
-) {
-  const lifecycle = createLifecycle();
-  const routeHistory = createRouteHistory(accountId);
-  const originalScrollRestoration = history.scrollRestoration;
-  history.scrollRestoration = "manual";
-  lifecycle.listen(window).addEventListener("scroll", routeHistory.saveScroll);
-
-  const main = document.querySelector<HTMLElement>("main")!;
-  const editor = document.querySelector<HTMLDialogElement>("#editor")!;
-  const toast = document.querySelector<HTMLElement>("#toast")!;
-  const detailLayouts = {
-    artist: readLayout("artist"),
-    genre: readLayout("genre"),
-  };
-  const state = {
-    query: "",
-    genre: "",
-    sort: "updated",
-    layout: readLayout("library"),
-  };
-  const library = createLibraryState(data);
-  let refreshFailed = false;
-  let refreshRunning = false;
-  let cacheFailed = false;
-  let syncedAt = readLibraryCache(accountId)?.syncedAt;
-  const banner = document.createElement("div");
-  banner.className = "connection-banner";
-  banner.setAttribute("role", "status");
-  banner.hidden = true;
-  document.querySelector(".masthead")!.before(banner);
-  const readOnly = () => !!data && (!navigator.onLine || refreshFailed);
-  const browsingActions = new Set([
+export class AppController {
+  private readonly lifecycle = createLifecycle();
+  private readonly main = document.querySelector<HTMLElement>("main")!;
+  private readonly editor =
+    document.querySelector<HTMLDialogElement>("#editor")!;
+  private readonly toast = document.querySelector<HTMLElement>("#toast")!;
+  private readonly library: LibraryStore;
+  private readonly browsingActions = new Set([
     "discover",
     "discovery-open",
     "discovery-copy",
@@ -76,331 +38,495 @@ export function initializeApp(
     "clear-instrument-filters",
     "close",
   ]);
-  function cacheCommitted() {
-    syncedAt = Date.now();
-    cacheFailed = !writeLibraryCache(accountId, library.data, syncedAt);
-    updateConnection();
-  }
-  function updateConnection() {
-    if (!data) return;
-    banner.replaceChildren();
-    const minutes = Math.max(
-      1,
-      Math.floor((Date.now() - (syncedAt ?? Date.now())) / 60_000),
-    );
-    const [amount, unit] =
-      minutes < 60
-        ? [minutes, "minute"]
-        : minutes < 1440
-          ? [Math.floor(minutes / 60), "hour"]
-          : [Math.floor(minutes / 1440), "day"];
-    const updated = syncedAt
-      ? ` · synced ${amount} ${unit}${amount === 1 ? "" : "s"} ago`
-      : "";
-    if (!navigator.onLine) banner.textContent = "Offline" + updated;
-    else if (refreshFailed) {
-      banner.textContent = "Couldn’t refresh" + updated;
-      const retry = document.createElement("button");
-      retry.type = "button";
-      retry.className = "button secondary";
-      retry.textContent = "Retry";
-      retry.onclick = () => {
-        void refreshLibrary();
-      };
-      banner.append(retry);
-    } else if (cacheFailed)
-      banner.textContent =
-        "Couldn’t save an offline copy. Browser storage is unavailable or full.";
-    banner.hidden = !banner.textContent;
-    document
-      .querySelectorAll<HTMLButtonElement>("button[data-action]")
-      .forEach((button) => {
-        if (
-          button.closest("#editor") ||
-          browsingActions.has(button.dataset.action!)
-        )
-          return;
-        if (readOnly()) {
-          if (!button.disabled) {
-            button.dataset.offlineDisabled = "";
-            button.disabled = true;
-          }
-        } else if ("offlineDisabled" in button.dataset) {
-          button.disabled = false;
-          delete button.dataset.offlineDisabled;
+  private readonly connection: LibraryConnection;
+  private readonly router: AppRouter;
+  private readonly persistence: EditorPersistence;
+  private viewHash: string;
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly dialog: DialogController;
+  private readonly discovery: Discovery;
+  private readonly drafts: EditorDrafts;
+  private readonly listening: Listening;
+  private readonly artistFeature: ArtistFeature;
+  private readonly genreFeature: GenreFeature;
+  private readonly instrumentFeature: InstrumentFeature;
+  private readonly albumEditor: AlbumEditor;
+  private readonly metadataSearch: MetadataSearch;
+
+  constructor(data?: LibraryData, accountId = "demo", initialRefresh = false) {
+    this.library = createLibraryState(data);
+    this.connection = new LibraryConnection({
+      accountId,
+      enabled: !!data,
+      editor: this.editor,
+      library: this.library,
+      resumeButton: () => this.drafts.resumeButton,
+      canBrowse: (action) => this.browsingActions.has(action),
+      renderRoute: () => this.router.render(),
+    });
+
+    this.router = new AppRouter({
+      accountId,
+      main: this.main,
+      library: () => this.library.data,
+      lists: {
+        artists: (root) => this.artistFeature.renderList(root),
+        genres: (root) => this.genreFeature.renderList(root),
+        instruments: (root) => this.instrumentFeature.renderList(root),
+      },
+      onRendered: () => this.connection.update(),
+    });
+
+    this.persistence = new EditorPersistence({
+      editor: this.editor,
+      library: this.library,
+      cacheCommitted: () => this.connection.cacheCommitted(),
+      clearDraft: () => this.drafts.clearDraft(),
+      renderRoute: (focus) => this.router.render(focus),
+      announce: (message) => this.announce(message),
+    });
+
+    this.dialog = createDialog({
+      editor: this.editor,
+      main: this.main,
+      formState: () => this.dialogFormState(),
+      dismissDialog: () => this.dismissDialog(),
+      updateArtists: () => this.artistFeature.updateArtists(),
+      updateGenres: () => this.genreFeature.updateGenres(),
+      routeHash: () => this.viewHash,
+      onClose: () => {
+        this.metadataSearch.cancel();
+      },
+      onRendered: () => {
+        if (this.drafts.state.target && this.editor.querySelector("form")) {
+          const status = document.createElement("p");
+          status.className = "form-hint draft-status";
+          status.dataset.draftStatus = "";
+          status.setAttribute("role", "status");
+          this.editor.querySelector(".dialog-body")?.prepend(status);
+          this.drafts.captureDraft();
         }
-      });
-    resumeButton.disabled = readOnly();
-    editor
-      .querySelectorAll<HTMLButtonElement>('button[type="submit"]')
-      .forEach((button) => {
-        if (library.saving) return;
-        button.disabled = readOnly();
-      });
-  }
-  async function refreshLibrary(): Promise<boolean> {
-    if (!navigator.onLine || editor.open || library.saving || refreshRunning)
-      return false;
-    refreshRunning = true;
-    const revision = library.revision;
-    try {
-      const { getLibrary } = await import("../services/library");
-      const next = await getLibrary();
-      if (!lifecycle.active || editor.open || !library.replace(next, revision))
-        return false;
-      refreshFailed = false;
-      cacheCommitted();
-      const scroll = window.scrollY;
-      renderRoute();
-      window.scrollTo(0, scroll);
-      return true;
-    } catch {
-      if (lifecycle.active) {
-        refreshFailed = true;
-        updateConnection();
-      }
-      return false;
-    } finally {
-      refreshRunning = false;
+      },
+    });
+
+    const editorDialog: EditorDialog = {
+      element: this.editor,
+      show: this.dialog.showDialog,
+      formError: (message, input) => this.formError(message, input),
+    };
+
+    const pickerInteraction: PickerInteraction = {
+      deferRender: () => {
+        if (!this.dialog.pickerPress) return false;
+
+        this.dialog.pickerRenderPending = true;
+        return true;
+      },
+      closeSearch: () => this.dialog.updateSearchDropdowns(null),
+    };
+
+    this.discovery = createDiscovery({
+      editor: this.editor,
+      albums: () => this.library.data.albums,
+      showDialog: this.dialog.showDialog,
+      announce: (message) => this.announce(message),
+    });
+
+    this.drafts = createEditorDrafts({
+      editor: this.editor,
+      accountId,
+      isSaving: () => this.library.saving,
+      baseline: () => this.dialog.baseline,
+      setBaseline: (value) => {
+        this.dialog.baseline = value;
+      },
+      updateRating: (rating) => this.listening.updateRating(rating),
+      serializeSelections: () => {
+        const artists = this.artistFeature.snapshotPicker();
+        const instruments = this.instrumentFeature.snapshotPicker();
+        const genres = this.genreFeature.snapshotPicker();
+
+        return {
+          artists: artists.selectedArtists,
+          genres: genres.selectedGenres,
+          instruments: instruments.selectedInstruments,
+          artistChoices: artists.artistChoices,
+          genreChoices: genres.genreChoices,
+          instrumentChoices: instruments.instrumentChoices,
+        };
+      },
+      resumeDraft: () => this.resumeDraft(),
+      announce: (message) => this.announce(message),
+    });
+
+    this.listening = createListening({
+      editor: this.editor,
+      showDialog: this.dialog.showDialog,
+      beginDraft: this.drafts.beginDraft,
+      albums: () => this.library.data.albums,
+      finishSave: (id, message) => this.persistence.finishSave(id, message),
+    });
+
+    this.artistFeature = this.createArtistFeature(
+      editorDialog,
+      pickerInteraction,
+    );
+    this.genreFeature = this.createGenreFeature(
+      editorDialog,
+      pickerInteraction,
+    );
+    this.instrumentFeature = this.createInstrumentFeature(editorDialog);
+    this.albumEditor = this.createAlbumEditor(editorDialog, accountId);
+
+    this.metadataSearch = createMetadataSearch({
+      editor: this.editor,
+      showDialog: this.dialog.showDialog,
+      hasDraft: () => Boolean(this.drafts.current),
+      clearDraftTarget: () => {
+        this.drafts.state.target = undefined;
+      },
+      resumeDraft: () => this.resumeDraft(),
+      openAlbumForm: (album, mode) =>
+        this.albumEditor.openAlbumForm(album, mode),
+      canDismissDialog: () => this.canDismissDialog(),
+      clearDraft: this.drafts.clearDraft,
+      isActive: () => this.lifecycle.active,
+      albums: () => this.library.data.albums,
+    });
+
+    document.querySelector<HTMLElement>("#add-icon")!.innerHTML = icon(
+      "plus",
+      17,
+    );
+    this.listen();
+
+    this.viewHash = location.hash;
+    this.router.render();
+    this.connection.mount(initialRefresh);
+    if (this.drafts.current) {
+      this.drafts.resumeButton.hidden = false;
+      if (this.drafts.current.open)
+        this.lifecycle.queue(() => this.resumeDraft());
     }
   }
-  let viewHash: string;
-  let toastTimer: ReturnType<typeof setTimeout>;
 
-  const dialog = createDialog({
-    editor,
-    main,
-    formState: dialogFormState,
-    dismissDialog,
-    updateArtists: () => artistFeature.updateArtists(),
-    updateGenres: () => genreFeature.updateGenres(),
-    routeHash: () => viewHash,
-    onClose: () => {
-      metadataSearch.cancel();
-    },
-    onRendered: () => {
-      if (drafts.state.target && editor.querySelector("form")) {
-        const status = document.createElement("p");
-        status.className = "form-hint draft-status";
-        status.dataset.draftStatus = "";
-        status.setAttribute("role", "status");
-        editor.querySelector(".dialog-body")?.prepend(status);
-        captureDraft();
+  private createArtistFeature(
+    editorDialog: EditorDialog,
+    pickerInteraction: PickerInteraction,
+  ): ArtistFeature {
+    const controller = this;
+
+    return new ArtistFeature({
+      dialog: editorDialog,
+      drafts: { begin: this.drafts.beginDraft },
+      persistence: {
+        finishCatalogSave: (message, destination) =>
+          this.persistence.finishCatalogSave(message, destination),
+      },
+      navigation: {
+        renderRoute: (focus) => this.router.render(focus),
+        updateCatalogFilters: (id) => this.router.updateCatalogFilters(id),
+      },
+      picker: pickerInteraction,
+      library: {
+        get albums() {
+          return controller.library.data.albums;
+        },
+        get artists() {
+          return controller.library.data.artists;
+        },
+        set artists(value) {
+          controller.library.data.artists = value;
+        },
+      },
+    });
+  }
+
+  private createGenreFeature(
+    editorDialog: EditorDialog,
+    pickerInteraction: PickerInteraction,
+  ): GenreFeature {
+    const controller = this;
+
+    return new GenreFeature({
+      dialog: editorDialog,
+      drafts: { begin: this.drafts.beginDraft },
+      persistence: {
+        finishCatalogSave: (message, destination) =>
+          this.persistence.finishCatalogSave(message, destination),
+      },
+      navigation: {
+        main: this.main,
+        announce: (message) => this.announce(message),
+        renderRoute: (focus) => this.router.render(focus),
+        updateCatalogFilters: (id) => this.router.updateCatalogFilters(id),
+      },
+      picker: pickerInteraction,
+      library: {
+        get albums() {
+          return controller.library.data.albums;
+        },
+        get genres() {
+          return controller.library.data.genres;
+        },
+        set genres(value) {
+          controller.library.data.genres = value;
+        },
+      },
+    });
+  }
+
+  private createInstrumentFeature(
+    editorDialog: EditorDialog,
+  ): InstrumentFeature {
+    const controller = this;
+
+    return new InstrumentFeature({
+      dialog: editorDialog,
+      drafts: { begin: this.drafts.beginDraft },
+      persistence: {
+        finishSave: (id, message) => this.persistence.finishSave(id, message),
+        finishCatalogSave: (message, destination) =>
+          this.persistence.finishCatalogSave(message, destination),
+      },
+      navigation: {
+        renderRoute: (focus) => this.router.render(focus),
+        updateCatalogFilters: (id) => this.router.updateCatalogFilters(id),
+      },
+      library: {
+        get albums() {
+          return controller.library.data.albums;
+        },
+        get instruments() {
+          return controller.library.data.instruments;
+        },
+        set instruments(value) {
+          controller.library.data.instruments = value;
+        },
+      },
+    });
+  }
+
+  private createAlbumEditor(
+    editorDialog: EditorDialog,
+    accountId: string,
+  ): AlbumEditor {
+    const controller = this;
+
+    return new AlbumEditor({
+      accountId,
+      dialog: editorDialog,
+      drafts: {
+        begin: this.drafts.beginDraft,
+        capture: this.drafts.captureDraft,
+      },
+      persistence: {
+        finishSave: (id, message) => this.persistence.finishSave(id, message),
+        finishCatalogSave: (message, destination) =>
+          this.persistence.finishCatalogSave(message, destination),
+      },
+      lifecycle: {
+        isActive: () => this.lifecycle.active,
+        isSaving: () => this.library.saving,
+      },
+      library: {
+        get albums() {
+          return controller.library.data.albums;
+        },
+        set albums(value) {
+          controller.library.data.albums = value;
+        },
+        get artists() {
+          return controller.library.data.artists;
+        },
+        set artists(value) {
+          controller.library.data.artists = value;
+        },
+        get genres() {
+          return controller.library.data.genres;
+        },
+        set genres(value) {
+          controller.library.data.genres = value;
+        },
+      },
+      pickers: {
+        applySuggestion: (kind, id, name) => {
+          const input = this.editor.querySelector<HTMLInputElement>(
+            `#${kind}-query`,
+          )!;
+          input.value = name;
+          const button = document.createElement("button");
+          button.dataset.action = `${id ? "select" : "create"}-${kind}`;
+          if (id) button.dataset.id = id;
+          if (kind === "genre") this.genreFeature.click(button);
+          else this.instrumentFeature.click(button);
+        },
+        selections: {
+          get instrumentChoices() {
+            return controller.instrumentFeature.choices;
+          },
+          get selectedArtists() {
+            return controller.artistFeature.selections;
+          },
+          get selectedGenres() {
+            return controller.genreFeature.selections;
+          },
+          get selectedInstruments() {
+            return controller.instrumentFeature.selections;
+          },
+          get genreChoices() {
+            return controller.genreFeature.choices;
+          },
+        },
+        artistPicker: (credits) => this.artistFeature.artistPicker(credits),
+        genrePicker: (items, renderSuggestions) =>
+          this.genreFeature.genrePicker(items, renderSuggestions),
+        instrumentPicker: (items, renderSuggestions) =>
+          this.instrumentFeature.instrumentPicker(items, renderSuggestions),
+        updateArtists: () => this.artistFeature.updateArtists(),
+        updateGenres: () => this.genreFeature.updateGenres(),
+        updateInstruments: () => this.instrumentFeature.updateInstruments(),
+        commitInstrumentChoices: () =>
+          this.instrumentFeature.commitInstrumentChoices(),
+      },
+    });
+  }
+
+  private onClick(event: MouseEvent): void {
+    const button = (event.target as Element).closest<HTMLButtonElement>(
+      "button[data-action]",
+    );
+    if (!button) return;
+    if (this.library.saving) return;
+    if (
+      this.connection.readOnly &&
+      !this.browsingActions.has(button.dataset.action!)
+    ) {
+      this.announce("Connect to the internet to make changes.");
+      return;
+    }
+
+    const album = this.router.activeAlbum();
+    if (this.discovery.click(button)) return;
+    if (this.artistFeature.click(button)) return;
+    if (this.genreFeature.click(button)) return;
+    if (this.instrumentFeature.click(button, album)) return;
+    if (
+      this.metadataSearch.click(button) ||
+      this.listening.click(button, album) ||
+      this.albumEditor.click(button, album)
+    )
+      return;
+
+    switch (button.dataset.action) {
+      case "close":
+        this.dismissDialog();
+        break;
+    }
+    this.router.click(button);
+  }
+
+  private onInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.closest("#discovery-panel")) this.discovery.update();
+    this.artistFeature.input(input);
+    this.genreFeature.input(input);
+    this.instrumentFeature.input(input);
+    this.router.input(input);
+    this.metadataSearch.input(input);
+  }
+
+  private onChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.closest("#discovery-panel")) this.discovery.update();
+    this.artistFeature.change(input);
+    this.genreFeature.change(input);
+    this.instrumentFeature.change(input);
+    this.router.change(input);
+
+    if (input.name === "rating")
+      this.listening.updateRating(Number(input.value));
+  }
+
+  private onSubmit(event: SubmitEvent): void {
+    if (this.connection.readOnly || this.library.saving) {
+      event.preventDefault();
+      if (this.connection.readOnly)
+        this.announce(
+          "Connect to the internet to save changes. Your draft is kept.",
+        );
+      return;
+    }
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    switch (form.id) {
+      case "catalog-instrument-form":
+      case "instruments-form":
+        event.preventDefault();
+        this.instrumentFeature.submit(form);
+        break;
+      case "catalog-artist-form":
+        event.preventDefault();
+        this.artistFeature.submit(form);
+        break;
+      case "catalog-genre-form":
+        event.preventDefault();
+        this.genreFeature.submit(form);
+        break;
+      case "links-form":
+        event.preventDefault();
+        this.albumEditor.saveLinks(form);
+        break;
+      case "album-form":
+        event.preventDefault();
+        this.albumEditor.saveAlbumForm(form);
+        break;
+      case "listen-form":
+        event.preventDefault();
+        this.listening.saveListenForm(form);
+        break;
+    }
+  }
+
+  private onHashChange(): void {
+    if (location.hash === "#main-content") return;
+
+    if (this.editor.open) {
+      this.drafts.captureDraft();
+      if (this.drafts.current) {
+        this.drafts.current.open = false;
+        this.drafts.writeDraft();
+        this.drafts.resumeButton.hidden = false;
       }
-    },
-  });
-  const { showDialog } = dialog;
-  const editorDialog: EditorDialog = {
-    element: editor,
-    show: showDialog,
-    formError,
-  };
-  const pickerInteraction: PickerInteraction = {
-    deferRender: () => {
-      if (!dialog.pickerPress) return false;
+      this.drafts.state.target = undefined;
+      this.editor.close();
+    }
 
-      dialog.pickerRenderPending = true;
-      return true;
-    },
-    closeSearch: () => dialog.updateSearchDropdowns(null),
-  };
-  const discovery = createDiscovery({
-    editor,
-    albums: () => library.data.albums,
-    showDialog,
-    announce,
-  });
-  const drafts = createEditorDrafts({
-    editor,
-    accountId,
-    isSaving: () => library.saving,
-    baseline: () => dialog.baseline,
-    setBaseline: (value) => {
-      dialog.baseline = value;
-    },
-    updateRating: (rating) => listening.updateRating(rating),
-    serializeSelections: () => {
-      const artists = artistFeature.snapshotPicker();
-      const instruments = instrumentFeature.snapshotPicker();
-      const genres = genreFeature.snapshotPicker();
+    this.viewHash = location.hash;
+    const scroll = this.router.arrive();
+    this.router.render(true);
+    window.scrollTo(0, scroll);
+  }
 
-      return {
-        artists: artists.selectedArtists,
-        genres: genres.selectedGenres,
-        instruments: instruments.selectedInstruments,
-        artistChoices: artists.artistChoices,
-        genreChoices: genres.genreChoices,
-        instrumentChoices: instruments.instrumentChoices,
-      };
-    },
-    resumeDraft,
-    announce,
-  });
-  const {
-    writeDraft,
-    clearDraft,
-    captureDraft,
-    beginDraft,
-    draftCloseChoices,
-    resumeButton,
-  } = drafts;
-  const listening = createListening({
-    editor,
-    showDialog,
-    beginDraft,
-    albums: () => library.data.albums,
-    finishSave,
-  });
-  const { openListen, updateRating, saveListenForm } = listening;
-  const artistFeature = new ArtistFeature({
-    dialog: editorDialog,
-    drafts: { begin: beginDraft },
-    persistence: { finishCatalogSave },
-    navigation: { renderRoute, updateCatalogFilters },
-    picker: pickerInteraction,
-    library: {
-      get albums() {
-        return library.data.albums;
-      },
-      get artists() {
-        return library.data.artists;
-      },
-      set artists(value) {
-        library.data.artists = value;
-      },
-    },
-  });
-  const genreFeature = new GenreFeature({
-    dialog: editorDialog,
-    drafts: { begin: beginDraft },
-    persistence: { finishCatalogSave },
-    navigation: { main, announce, renderRoute, updateCatalogFilters },
-    picker: pickerInteraction,
-    library: {
-      get albums() {
-        return library.data.albums;
-      },
-      get genres() {
-        return library.data.genres;
-      },
-      set genres(value) {
-        library.data.genres = value;
-      },
-    },
-  });
-  const instrumentFeature = new InstrumentFeature({
-    dialog: editorDialog,
-    drafts: { begin: beginDraft },
-    persistence: { finishSave, finishCatalogSave },
-    navigation: { renderRoute, updateCatalogFilters },
-    library: {
-      get albums() {
-        return library.data.albums;
-      },
-      get instruments() {
-        return library.data.instruments;
-      },
-      set instruments(value) {
-        library.data.instruments = value;
-      },
-    },
-  });
-  const albumEditor = new AlbumEditor({
-    accountId,
-    dialog: editorDialog,
-    drafts: { begin: beginDraft, capture: captureDraft },
-    persistence: { finishSave, finishCatalogSave },
-    lifecycle: {
-      isActive: () => lifecycle.active,
-      isSaving: () => library.saving,
-    },
-    library: {
-      get albums() {
-        return library.data.albums;
-      },
-      set albums(value) {
-        library.data.albums = value;
-      },
-      get artists() {
-        return library.data.artists;
-      },
-      set artists(value) {
-        library.data.artists = value;
-      },
-      get genres() {
-        return library.data.genres;
-      },
-      set genres(value) {
-        library.data.genres = value;
-      },
-    },
-    pickers: {
-      applySuggestion: (kind, id, name) => {
-        const input = editor.querySelector<HTMLInputElement>(`#${kind}-query`)!;
-        input.value = name;
-        const button = document.createElement("button");
-        button.dataset.action = `${id ? "select" : "create"}-${kind}`;
-        if (id) button.dataset.id = id;
-        if (kind === "genre") genreFeature.click(button);
-        else instrumentFeature.click(button);
-      },
-      selections: {
-        get instrumentChoices() {
-          return instrumentFeature.choices;
-        },
-        get selectedArtists() {
-          return artistFeature.selections;
-        },
-        get selectedGenres() {
-          return genreFeature.selections;
-        },
-        get selectedInstruments() {
-          return instrumentFeature.selections;
-        },
-        get genreChoices() {
-          return genreFeature.choices;
-        },
-      },
-      artistPicker: (credits) => artistFeature.artistPicker(credits),
-      genrePicker: (items, renderSuggestions) =>
-        genreFeature.genrePicker(items, renderSuggestions),
-      instrumentPicker: (items, renderSuggestions) =>
-        instrumentFeature.instrumentPicker(items, renderSuggestions),
-      updateArtists: () => artistFeature.updateArtists(),
-      updateGenres: () => genreFeature.updateGenres(),
-      updateInstruments: () => instrumentFeature.updateInstruments(),
-      commitInstrumentChoices: () =>
-        instrumentFeature.commitInstrumentChoices(),
-    },
-  });
-  const metadataSearch = createMetadataSearch({
-    editor,
-    showDialog,
-    hasDraft: () => Boolean(drafts.current),
-    clearDraftTarget: () => {
-      drafts.state.target = undefined;
-    },
-    resumeDraft,
-    openAlbumForm: (album, mode) => albumEditor.openAlbumForm(album, mode),
-    canDismissDialog,
-    clearDraft,
-    isActive: () => lifecycle.active,
-    albums: () => library.data.albums,
-  });
+  private resumeDraft(): void {
+    if (this.connection.readOnly || !this.drafts.current) return;
 
-  function resumeDraft() {
-    if (readOnly() || !drafts.current) return;
-    const saved = structuredClone(drafts.current);
+    const saved = structuredClone(this.drafts.current);
     const target = saved.target;
-    const item = target.item as { id?: string } | undefined;
+    const item = target.item as
+      | {
+          id?: string;
+        }
+      | undefined;
     const catalog =
       target.kind === "artist"
-        ? library.data.artists
+        ? this.library.data.artists
         : target.kind === "genre"
-          ? library.data.genres
+          ? this.library.data.genres
           : target.kind === "instrument"
-            ? library.data.instruments
-            : library.data.albums;
+            ? this.library.data.instruments
+            : this.library.data.albums;
     const existing = catalog.find((value) => value.id === item?.id);
     const requiresExisting =
       ["listen", "instruments"].includes(target.kind) ||
@@ -411,13 +537,14 @@ export function initializeApp(
       !(existing as Album | undefined)?.listeningEntries?.some(
         (entry) => entry.id === target.entry!.id,
       );
+
     if (requiresExisting && (!existing || entryMissing)) {
       if (
         window.confirm(
           "The item for this draft was deleted. Discard the draft?",
         )
       )
-        clearDraft();
+        this.drafts.clearDraft();
       return;
     }
     if (
@@ -428,18 +555,19 @@ export function initializeApp(
       )
     )
       return;
-    drafts.restore(saved, () => {
+
+    this.drafts.restore(saved, () => {
       history.replaceState(
         history.state,
         "",
         saved.hash || location.pathname + location.search,
       );
-      viewHash = location.hash;
-      routeHistory.replace();
-      renderRoute();
+      this.viewHash = location.hash;
+      this.router.replaceHistory();
+      this.router.render();
       switch (target.kind) {
         case "album":
-          albumEditor.openAlbumForm(
+          this.albumEditor.openAlbumForm(
             target.item as Partial<Album>,
             target.mode === "edit" ||
               target.mode === "review" ||
@@ -449,326 +577,92 @@ export function initializeApp(
           );
           break;
         case "artist":
-          artistFeature.openCatalogArtist(target.item as Artist | undefined);
+          this.artistFeature.openCatalogArtist(
+            target.item as Artist | undefined,
+          );
           break;
         case "genre":
-          genreFeature.openCatalogGenre(target.item as Genre | undefined);
+          this.genreFeature.openCatalogGenre(target.item as Genre | undefined);
           break;
         case "instrument":
-          instrumentFeature.openCatalogInstrument(
+          this.instrumentFeature.openCatalogInstrument(
             target.item as Instrument | undefined,
           );
           break;
         case "instruments":
-          instrumentFeature.openInstruments(existing as Album);
+          this.instrumentFeature.openInstruments(existing as Album);
           break;
         case "listen":
-          openListen(existing as Album, target.entry);
+          this.listening.openListen(existing as Album, target.entry);
           break;
       }
-      artistFeature.restorePicker({
+      this.artistFeature.restorePicker({
         selectedArtists: saved.artists,
         artistChoices: saved.artistChoices,
       });
-      genreFeature.restorePicker({
+      this.genreFeature.restorePicker({
         selectedGenres: saved.genres,
         genreChoices: saved.genreChoices,
       });
-      instrumentFeature.restorePicker({
+      this.instrumentFeature.restorePicker({
         selectedInstruments: saved.instruments,
         instrumentChoices: saved.instrumentChoices,
       });
-      if (editor.querySelector("#artist-selected"))
-        artistFeature.updateArtists();
-      if (editor.querySelector("#genre-selected")) genreFeature.updateGenres();
-      if (editor.querySelector("#instrument-selected"))
-        instrumentFeature.updateInstruments();
+      if (this.editor.querySelector("#artist-selected"))
+        this.artistFeature.updateArtists();
+      if (this.editor.querySelector("#genre-selected"))
+        this.genreFeature.updateGenres();
+      if (this.editor.querySelector("#instrument-selected"))
+        this.instrumentFeature.updateInstruments();
     });
   }
 
-  document.querySelector<HTMLElement>("#add-icon")!.innerHTML = icon(
-    "plus",
-    17,
-  );
-
-  async function persistChanges(): Promise<SaveResult> {
-    editor.setAttribute("aria-busy", "true");
-    const controls = [
-      ...editor.querySelectorAll<
-        | HTMLButtonElement
-        | HTMLInputElement
-        | HTMLSelectElement
-        | HTMLTextAreaElement
-      >("button, input, select, textarea"),
-    ];
-    const enabled = controls.filter((control) => !control.disabled);
-    enabled.forEach((control) => (control.disabled = true));
-    try {
-      const result = await library.save();
-      if (result.status !== "rejected") {
-        if (data) cacheCommitted();
-        return result;
-      }
-      const message = result.message;
-      const errorElement = editor.querySelector<HTMLElement>("#form-error");
-      const text = `Couldn’t save changes. ${message || "Please try again."}`;
-      if (errorElement) {
-        errorElement.hidden = false;
-        errorElement.textContent = text;
-      } else announce(text);
-      renderRoute();
-      return result;
-    } finally {
-      editor.removeAttribute("aria-busy");
-      enabled.forEach((control) => (control.disabled = false));
-    }
-  }
-
-  function announce(message: string) {
-    clearTimeout(toastTimer);
-    toast.innerHTML =
+  private announce(message: string): void {
+    clearTimeout(this.toastTimer);
+    this.toast.innerHTML =
       icon("check", 17) + "<span>" + escapeHtml(message) + "</span>";
-    toast.classList.add("visible");
-    toastTimer = setTimeout(() => toast.classList.remove("visible"), 3800);
-  }
-
-  function activeAlbum() {
-    return library.data.albums.find(
-      (album) => albumUrl(album.id) === location.hash,
+    this.toast.classList.add("visible");
+    this.toastTimer = setTimeout(
+      () => this.toast.classList.remove("visible"),
+      3800,
     );
   }
 
-  function activeInstrument() {
-    return library.data.instruments.find(
-      (item) => instrumentUrl(item.id) === location.hash,
-    );
-  }
-
-  function renderListRoute(hash: string, root: HTMLElement) {
-    if (hash === "#artists") artistFeature.renderList(root);
-    else if (hash === "#genres") genreFeature.renderList(root);
-    else if (hash === "#instruments") instrumentFeature.renderList(root);
-    else {
-      root.innerHTML = renderLibraryView(
-        library.data.albums,
-        state,
-        library.data.genres,
-      );
-      updateLibrary(library.data.albums, state, library.data.genres, root);
-    }
-  }
-
-  function renderRoute(focus = false) {
-    const genre = library.data.genres.find(
-      (g) => genreUrl(g.id) === location.hash,
-    );
-    const genrePage =
-      location.hash === "#genres" || location.hash.startsWith("#genre/");
-    const album = activeAlbum();
-    const artist = library.data.artists.find(
-      (item) => artistUrl(item.id) === location.hash,
-    );
-    const artistPage =
-      location.hash === "#artists" || location.hash.startsWith("#artist/");
-    const instrument = activeInstrument();
-    const instrumentPage =
-      location.hash === "#instruments" ||
-      location.hash.startsWith("#instrument/");
-    for (const link of document.querySelectorAll<HTMLElement>("[data-nav]")) {
-      if (
-        link.dataset.nav ===
-        (genrePage
-          ? "genres"
-          : artistPage
-            ? "artists"
-            : instrumentPage
-              ? "instruments"
-              : "library")
-      )
-        link.setAttribute("aria-current", "page");
-      else link.removeAttribute("aria-current");
-    }
-    const missing = location.hash.startsWith("#album/") && !album;
-    if (genrePage) {
-      if (genre)
-        main.innerHTML = renderGenreDetail(
-          genre,
-          library.data.genres,
-          library.data.albums,
-          detailLayouts.genre,
-        );
-      else if (location.hash === "#genres") renderListRoute("#genres", main);
-      else
-        main.innerHTML =
-          '<div class="empty"><h1 id="page-title">Genre unavailable</h1><a href="#genres">Back to genres</a></div>';
-    } else if (location.hash === "#artists") {
-      renderListRoute("#artists", main);
-    } else if (artist) {
-      main.innerHTML = renderArtistDetail(
-        artist,
-        library.data.albums,
-        detailLayouts.artist,
-      );
-    } else if (artistPage) {
-      main.innerHTML = /* HTML */ `<div class="empty">
-        <h1 id="page-title">Artist unavailable</h1>
-        <a href="#artists">Back to artists</a>
-      </div>`;
-    } else if (location.hash === "#instruments") {
-      renderListRoute("#instruments", main);
-    } else if (instrument) {
-      main.innerHTML = renderInstrumentDetail(instrument, library.data.albums);
-    } else if (instrumentPage) {
-      main.innerHTML = /* HTML */ `<div class="empty route-empty">
-        <h1 id="page-title">Instrument unavailable</h1>
-        <p>This instrument may have been deleted.</p>
-        <a class="button secondary" href="#instruments">Back to instruments</a>
-      </div>`;
-    } else if (album) {
-      main.innerHTML = renderAlbumDetailView(album);
-    } else if (missing) {
-      main.innerHTML = /* HTML */ `<div class="empty route-empty">
-        ${icon("disc", 35)}
-        <h1 id="page-title">Album unavailable</h1>
-        <p>This album may have been added in another browser.</p>
-        <a class="button secondary" href="#">${icon("back")} Back to library</a>
-      </div>`;
-    } else {
-      renderListRoute("#", main);
-    }
-    const backLink = main.querySelector<HTMLAnchorElement>(
-      '.back-link, .empty a[href^="#"]',
-    );
-    const previous = routeHistory.previous();
-    if (backLink && previous !== undefined) {
-      const label =
-        library.data.albums.find((item) => albumUrl(item.id) === previous)
-          ?.title ??
-        library.data.artists.find((item) => artistUrl(item.id) === previous)
-          ?.name ??
-        library.data.genres.find((item) => genreUrl(item.id) === previous)
-          ?.name ??
-        library.data.instruments.find(
-          (item) => instrumentUrl(item.id) === previous,
-        )?.name ??
-        {
-          "": "library",
-          "#": "library",
-          "#artists": "artists",
-          "#genres": "genres",
-          "#instruments": "instruments",
-        }[previous] ??
-        "previous page";
-      backLink.href = previous || "#";
-      backLink.innerHTML = /* HTML */ `${icon("back", 17)} Back to
-      ${escapeHtml(label)}`;
-      backLink.dataset.routeBack = "";
-    }
-    document.title = genrePage
-      ? `${genre?.name ?? "Genres"} — JazzLog`
-      : artistPage
-        ? `${artist?.name ?? "Artists"} — JazzLog`
-        : instrumentPage
-          ? `${instrument?.name ?? "Instruments"} — JazzLog`
-          : album
-            ? album.title + " — JazzLog"
-            : "JazzLog — The Listening Room";
-    updateConnection();
-    if (focus) {
-      window.scrollTo(0, 0);
-      const heading = document.querySelector<HTMLElement>("#page-title");
-      heading?.setAttribute("tabindex", "-1");
-      heading?.focus({ preventScroll: true });
-    }
-  }
-
-  function dialogFormState() {
-    const form = editor.querySelector("form");
+  private dialogFormState(): string {
+    const form = this.editor.querySelector("form");
     if (!form) return "";
+
     return JSON.stringify({
       fields: [...new FormData(form).entries()],
-      artists: editor.querySelector("#artist-selected")
-        ? artistFeature.selections
+      artists: this.editor.querySelector("#artist-selected")
+        ? this.artistFeature.selections
         : null,
-      genres: editor.querySelector("#genre-selected")
-        ? genreFeature.selections
+      genres: this.editor.querySelector("#genre-selected")
+        ? this.genreFeature.selections
         : null,
-      instruments: editor.querySelector("#instrument-selected")
-        ? instrumentFeature.selections
+      instruments: this.editor.querySelector("#instrument-selected")
+        ? this.instrumentFeature.selections
         : null,
     });
   }
 
-  function canDismissDialog() {
-    if (library.saving) return false;
+  private canDismissDialog(): boolean {
+    if (this.library.saving) return false;
+
     return (
-      dialogFormState() === dialog.baseline || (draftCloseChoices(), false)
+      this.dialogFormState() === this.dialog.baseline ||
+      (this.drafts.draftCloseChoices(), false)
     );
   }
 
-  function dismissDialog() {
-    if (canDismissDialog()) {
-      clearDraft();
-      editor.close();
+  private dismissDialog(): void {
+    if (this.canDismissDialog()) {
+      this.drafts.clearDraft();
+      this.editor.close();
     }
   }
 
-  async function finishCatalogSave(message: string, destination: string) {
-    library.syncCatalogs();
-    const stored = await persistChanges();
-    if (stored.status === "rejected") return;
-    clearDraft();
-    editor.close();
-    if (location.hash === destination) renderRoute(true);
-    else location.hash = destination;
-    announce(
-      stored.status === "saved"
-        ? message
-        : "Updated for this visit. Browser storage is unavailable.",
-    );
-  }
-
-  function updateCatalogFilters(focusId: string) {
-    renderRoute();
-    const dropdown = main.querySelector<HTMLDetailsElement>(
-      ".genre-filter-dropdown",
-    );
-    if (dropdown) dropdown.open = true;
-    main.querySelector<HTMLElement>(`#${focusId}`)?.focus();
-  }
-  lifecycle.listen(document).addEventListener("click", (event) => {
-    routeHistory.saveScroll();
-    const backLink = (event.target as Element).closest("a[data-route-back]");
-    if (
-      backLink &&
-      event.button === 0 &&
-      !event.metaKey &&
-      !event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey
-    ) {
-      event.preventDefault();
-      history.back();
-      return;
-    }
-    const dropdown = main.querySelector<HTMLDetailsElement>(
-      ".genre-filter-dropdown[open]",
-    );
-    if (dropdown && !dropdown.contains(event.target as Node))
-      dropdown.open = false;
-  });
-  lifecycle.listen(document).addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    const dropdown = main.querySelector<HTMLDetailsElement>(
-      ".genre-filter-dropdown[open]",
-    );
-    if (dropdown) {
-      dropdown.open = false;
-      dropdown.querySelector<HTMLElement>("summary")?.focus();
-    }
-  });
-
-  function formError(message: string, input: HTMLInputElement) {
+  private formError(message: string, input: HTMLInputElement): void {
     const error = document.querySelector<HTMLElement>("#form-error")!;
     error.hidden = false;
     error.textContent = message;
@@ -776,249 +670,67 @@ export function initializeApp(
     input?.focus();
   }
 
-  async function finishSave(id: string, message: string) {
-    const stored = await persistChanges();
-    if (stored.status === "rejected") return;
-    clearDraft();
-    editor.close();
-    if (location.hash === albumUrl(id)) {
-      renderRoute();
-      document
-        .querySelector<HTMLElement>("#page-title")
-        ?.setAttribute("tabindex", "-1");
-      document
-        .querySelector<HTMLElement>("#page-title")
-        ?.focus({ preventScroll: true });
-    } else {
-      location.hash = albumUrl(id);
-    }
-    announce(
-      stored.status === "saved"
-        ? message
-        : "Updated for this visit. Browser storage is unavailable.",
+  private listen(): void {
+    this.lifecycle
+      .listen(document)
+      .addEventListener("click", (event) => this.onClick(event));
+    this.lifecycle
+      .listen(document)
+      .addEventListener("input", (event) => this.onInput(event));
+    this.lifecycle
+      .listen(document)
+      .addEventListener("change", (event) => this.onChange(event));
+    this.lifecycle
+      .listen(document)
+      .addEventListener("submit", (event) => this.onSubmit(event));
+    this.lifecycle.listen(document).addEventListener(
+      "invalid",
+      (event) => {
+        if ((event.target as HTMLElement).closest("details"))
+          (event.target as HTMLElement).closest("details")!.open = true;
+      },
+      true,
     );
+    this.lifecycle.listen(document).addEventListener(
+      "error",
+      (event) => {
+        if (
+          (event.target as Element).matches?.(".cover img, .catalog-image img")
+        )
+          (event.target as Element).remove();
+      },
+      true,
+    );
+    this.dialog.mount();
+    this.lifecycle
+      .listen(window)
+      .addEventListener("hashchange", () => this.onHashChange());
   }
 
-  lifecycle.listen(document).addEventListener("click", (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>(
-      "button[data-action]",
-    );
-    if (!button) return;
-    if (library.saving) return;
-    if (readOnly() && !browsingActions.has(button.dataset.action!)) {
-      announce("Connect to the internet to make changes.");
-      return;
-    }
-    const album = activeAlbum();
-    if (discovery.click(button)) return;
-    if (artistFeature.click(button)) return;
-    if (genreFeature.click(button)) return;
-    if (instrumentFeature.click(button, album)) return;
-    if (
-      metadataSearch.click(button) ||
-      listening.click(button, album) ||
-      albumEditor.click(button, album)
-    )
-      return;
-    switch (button.dataset.action) {
-      case "close":
-        dismissDialog();
-        break;
-      case "artist-layout":
-      case "genre-layout": {
-        const view =
-          button.dataset.action === "artist-layout" ? "artist" : "genre";
-        const layout = button.dataset.layout === "list" ? "list" : "grid";
-        detailLayouts[view] = layout;
-        saveLayout(view, layout);
-        renderRoute();
-        main
-          .querySelector<HTMLButtonElement>(
-            `[data-action="${view}-layout"][data-layout="${layout}"]`,
-          )
-          ?.focus();
-        break;
-      }
-      case "layout":
-        state.layout = button.dataset.layout === "list" ? "list" : "grid";
-        saveLayout("library", state.layout);
-        for (const toggle of document.querySelectorAll("[data-layout]")) {
-          toggle.setAttribute(
-            "aria-pressed",
-            toggle === button ? "true" : "false",
-          );
-        }
-        updateLibrary(library.data.albums, state, library.data.genres);
-        break;
-      case "clear":
-        state.query = "";
-        state.genre = "";
-        renderRoute();
-        focusForTyping(
-          document.querySelector<HTMLInputElement>("#library-query"),
-        );
-        break;
-    }
-  });
-
-  lifecycle.listen(document).addEventListener("input", (event) => {
-    const input = event.target as HTMLInputElement;
-    if (input.closest("#discovery-panel")) discovery.update();
-    artistFeature.input(input);
-    genreFeature.input(input);
-    instrumentFeature.input(input);
-
-    if (input.id === "library-query") {
-      state.query = input.value;
-      updateLibrary(library.data.albums, state, library.data.genres);
-    }
-    metadataSearch.input(input);
-  });
-
-  lifecycle.listen(document).addEventListener("change", (event) => {
-    const input = event.target as HTMLInputElement;
-    if (input.closest("#discovery-panel")) discovery.update();
-    artistFeature.change(input);
-    genreFeature.change(input);
-    instrumentFeature.change(input);
-
-    if (input.id === "genre-filter") {
-      state.genre = input.value;
-      updateCatalogFilters(input.id);
-    }
-    if (input.id === "sort-order") {
-      state.sort = input.value;
-      updateLibrary(library.data.albums, state, library.data.genres);
-    }
-    if (input.name === "rating") updateRating(Number(input.value));
-  });
-
-  lifecycle.listen(document).addEventListener("submit", (event) => {
-    if (readOnly() || library.saving) {
-      event.preventDefault();
-      if (readOnly())
-        announce(
-          "Connect to the internet to save changes. Your draft is kept.",
-        );
-      return;
-    }
-    if (
-      (event.target as HTMLElement).id === "catalog-instrument-form" ||
-      (event.target as HTMLElement).id === "instruments-form"
-    ) {
-      event.preventDefault();
-      instrumentFeature.submit(event.target as HTMLFormElement);
-    }
-    if ((event.target as HTMLElement).id === "catalog-artist-form") {
-      event.preventDefault();
-      artistFeature.submit(event.target as HTMLFormElement);
-    }
-    if ((event.target as HTMLElement).id === "catalog-genre-form") {
-      event.preventDefault();
-      genreFeature.submit(event.target as HTMLFormElement);
-    }
-    if ((event.target as HTMLElement).id === "links-form") {
-      event.preventDefault();
-      albumEditor.saveLinks(event.target as HTMLFormElement);
-    }
-    if ((event.target as HTMLElement).id === "album-form") {
-      event.preventDefault();
-      albumEditor.saveAlbumForm(event.target as HTMLFormElement);
-    }
-    if ((event.target as HTMLElement).id === "listen-form") {
-      event.preventDefault();
-      saveListenForm(event.target as HTMLFormElement);
-    }
-  });
-
-  lifecycle.listen(document).addEventListener(
-    "invalid",
-    (event) => {
-      if ((event.target as HTMLElement).closest("details"))
-        (event.target as HTMLElement).closest("details")!.open = true;
-    },
-    true,
-  );
-
-  lifecycle.listen(document).addEventListener(
-    "error",
-    (event) => {
-      if ((event.target as Element).matches?.(".cover img, .catalog-image img"))
-        (event.target as Element).remove();
-    },
-    true,
-  );
-
-  dialog.mount();
-
-  lifecycle.listen(window).addEventListener("hashchange", () => {
-    if (location.hash === "#main-content") return;
-    if (editor.open) {
-      captureDraft();
-      if (drafts.current) {
-        drafts.current.open = false;
-        writeDraft();
-        resumeButton.hidden = false;
-      }
-      drafts.state.target = undefined;
-      editor.close();
-    }
-    viewHash = location.hash;
-    const scroll = routeHistory.arrive();
-    renderRoute(true);
-    window.scrollTo(0, scroll);
-  });
-
-  lifecycle.listen(window).addEventListener("offline", updateConnection);
-  lifecycle.listen(window).addEventListener("online", updateConnection);
-  viewHash = location.hash;
-  if (data && !initialRefresh) cacheCommitted();
-  renderRoute();
-  const bannerTimer = data
-    ? setInterval(() => {
-        if (!banner.hidden && !banner.contains(document.activeElement))
-          updateConnection();
-      }, 60_000)
-    : undefined;
-  const disposeRefresh = data
-    ? createResumeRefresh({
-        editor,
-        blocked: () => editor.open || library.saving,
-        initial: initialRefresh,
-        refresh: refreshLibrary,
-      })
-    : undefined;
-  if (drafts.current) {
-    resumeButton.hidden = false;
-    if (drafts.current.open) lifecycle.queue(resumeDraft);
+  public renderPreview(hash: string): HTMLElement {
+    return this.router.renderPreview(hash);
   }
 
-  const renderPreview = (hash: string): HTMLElement => {
-    const page = document.createElement("div");
-    page.className = "frame swipe-preview";
-    renderListRoute(hash, page);
-    // Preview content is visual only; avoid duplicate IDs and interactive controls.
-    page.inert = true;
-    page.setAttribute("aria-hidden", "true");
-    page
-      .querySelectorAll("[id]")
-      .forEach((element) => element.removeAttribute("id"));
-    return page;
-  };
+  public dispose(): void {
+    if (!this.lifecycle.active) return;
 
-  return Object.assign(renderPreview, {
-    dispose() {
-      captureDraft();
-      lifecycle.dispose();
-      history.scrollRestoration = originalScrollRestoration;
-      clearInterval(bannerTimer);
-      banner.remove();
-      disposeRefresh?.();
-      drafts.dispose();
-      dialog.dispose();
-      metadataSearch.cancel();
-      albumEditor.dispose();
-      clearTimeout(toastTimer);
-    },
-  });
+    this.drafts.captureDraft();
+    this.lifecycle.dispose();
+    this.connection.dispose();
+    this.persistence.dispose();
+    this.router.dispose();
+    this.drafts.dispose();
+    this.dialog.dispose();
+    this.metadataSearch.cancel();
+    this.albumEditor.dispose();
+    clearTimeout(this.toastTimer);
+  }
+}
+
+export function initializeApp(
+  data?: LibraryData,
+  accountId = "demo",
+  initialRefresh = false,
+): AppController {
+  return new AppController(data, accountId, initialRefresh);
 }

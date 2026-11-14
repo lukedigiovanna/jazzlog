@@ -47,7 +47,9 @@ function enterLibrary(
     cached,
   );
   const disposeHeader = initializeMobileHeader();
-  const disposeNavigation = initializeNavigation(renderNavigationPage);
+  const disposeNavigation = initializeNavigation((hash) =>
+    renderNavigationPage.renderPreview(hash),
+  );
   disposeLibrary = () => {
     renderNavigationPage.dispose();
     disposeNavigation();

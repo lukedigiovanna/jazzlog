@@ -17,3 +17,7 @@
 - Apply these practices to new and modified code incrementally. Verify refactors with the TypeScript build and relevant existing tests, including browser coverage for changed user flows.
 
 - Use a single blank line between logical units within functions and methods, such as setup, validation, state changes, and persistence. Apply the same grouping within longer callbacks and switch cases; avoid inserting gaps mechanically between every statement.
+
+# Pull request workflow
+
+- Complete every well-defined feature, fix, or refactor with a pull request unless the user explicitly asks otherwise. Follow the repository skill at [.agents/skills/publish-pr/SKILL.md](.agents/skills/publish-pr/SKILL.md), using gh api to create or update the PR. This authorizes committing and publishing the task's changes, but not merging or deploying them.

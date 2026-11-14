@@ -37,8 +37,7 @@ test("account saves roll back, retain input for retry, and reconcile server time
     const { renderApp } = await import(/* @vite-ignore */ appPath);
     document.querySelector("#app")!.innerHTML = renderApp(true);
     const data = JSON.parse(sessionStorage.getItem("account-fixture")!);
-    const render = initializeApp(data, "test-account");
-    window.addEventListener("hashchange", () => render());
+    initializeApp(data, "test-account");
   });
   await page.locator('a[href^="#album/"]').first().click();
   const original = await page.locator("#page-title").textContent();

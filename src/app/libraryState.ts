@@ -14,6 +14,15 @@ export type SaveResult =
   | { status: "volatile" }
   | { status: "rejected"; message: string };
 
+export interface LibraryStore {
+  readonly data: LibraryData;
+  readonly revision: number;
+  readonly saving: boolean;
+  replace: (next: LibraryData, expectedRevision: number) => boolean;
+  syncCatalogs: () => void;
+  save: () => Promise<SaveResult>;
+}
+
 type AccountSave = (
   before: LibraryData,
   next: LibraryData,
@@ -27,7 +36,7 @@ export function createLibraryState(
     const { saveLibraryChanges } = await import("../services/saveLibrary");
     return saveLibraryChanges(before, next);
   },
-) {
+): LibraryStore {
   const albums = initial?.albums ?? readAlbums();
   let data = initial ?? {
     albums,
