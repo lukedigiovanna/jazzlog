@@ -59,3 +59,62 @@ test("returning to the library preserves filters and scroll", async ({
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeCloseTo(scroll, -1);
 });
+
+test("catalog routes retain titles, navigation sections, and history labels", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.locator("#auth-demo").click();
+
+  for (const [section, prefix] of [
+    ["artists", "artist"],
+    ["genres", "genre"],
+    ["instruments", "instrument"],
+  ]) {
+    await page.locator('[data-nav="' + section + '"]').click();
+    await expect(page.locator("#page-title")).toHaveText(
+      section[0].toUpperCase() + section.slice(1),
+    );
+    await page
+      .locator('main a[href^="#' + prefix + '/"]')
+      .first()
+      .click();
+    await expect(page.locator("main .back-link")).toBeVisible();
+    const name = await page.locator("#page-title").innerText();
+    const hash = new URL(page.url()).hash;
+    await expect(page).toHaveTitle(name + " — JazzLog");
+    await expect(page.locator('[data-nav="' + section + '"]')).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    await page.evaluate(() => {
+      location.hash = "#album/unavailable";
+    });
+    await expect(page.locator("#page-title")).toHaveText("Album unavailable");
+    const back = page.locator("main [data-route-back]");
+    await expect(back).toHaveText("Back to " + name);
+    await expect(back).toHaveAttribute("href", hash);
+    await back.click();
+    await expect(page.locator("#page-title")).toHaveText(name);
+  }
+
+  for (const [prefix, title, section] of [
+    ["genre", "Genres", "genres"],
+    ["artist", "Artists", "artists"],
+    ["instrument", "Instruments", "instruments"],
+  ]) {
+    await page.evaluate((prefix) => {
+      location.hash = "#" + prefix + "/unavailable";
+    }, prefix);
+    await expect(page).toHaveTitle(title + " — JazzLog");
+    await expect(page.locator('[data-nav="' + section + '"]')).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    if (prefix !== "genre")
+      await expect(page.locator("main [data-route-back]")).toHaveText(
+        "Back to previous page",
+      );
+  }
+});

@@ -1,4 +1,4 @@
-import type { Album, Instrument } from "../types/albums";
+import type { Album, Artist, Genre, Instrument } from "../types/albums";
 import type { LibraryData } from "../types/library";
 import type { LibraryState } from "../views/libraryView";
 import { renderLibraryView, updateLibrary } from "../views/libraryView";
@@ -15,6 +15,31 @@ import { instrumentUrl } from "./instruments";
 import { readLayout, saveLayout } from "./layoutPreferences";
 import { createRouteHistory } from "./routeHistory";
 import { createLifecycle } from "./lifecycle";
+
+type RouteSection = "genres" | "artists" | "instruments" | "library";
+
+interface RouteItems {
+  genre: Genre | undefined;
+  artist: Artist | undefined;
+  instrument: Instrument | undefined;
+  album: Album | undefined;
+}
+
+const listRouteLabels = new Map([
+  ["", "library"],
+  ["#", "library"],
+  ["#artists", "artists"],
+  ["#genres", "genres"],
+  ["#instruments", "instruments"],
+]);
+
+function routeSection(hash: string): RouteSection {
+  if (hash === "#genres" || hash.startsWith("#genre/")) return "genres";
+  if (hash === "#artists" || hash.startsWith("#artist/")) return "artists";
+  if (hash === "#instruments" || hash.startsWith("#instrument/"))
+    return "instruments";
+  return "library";
+}
 
 type LibrarySort = "recent" | "updated" | "title" | "rating" | "year";
 
@@ -108,34 +133,20 @@ export class AppRouter {
     const genre = this.dependencies
       .library()
       .genres.find((g) => genreUrl(g.id) === location.hash);
-    const genrePage =
-      location.hash === "#genres" || location.hash.startsWith("#genre/");
     const album = this.activeAlbum();
     const artist = this.dependencies
       .library()
       .artists.find((item) => artistUrl(item.id) === location.hash);
-    const artistPage =
-      location.hash === "#artists" || location.hash.startsWith("#artist/");
     const instrument = this.activeInstrument();
-    const instrumentPage =
-      location.hash === "#instruments" ||
-      location.hash.startsWith("#instrument/");
+    const section = routeSection(location.hash);
+
     for (const link of document.querySelectorAll<HTMLElement>("[data-nav]")) {
-      if (
-        link.dataset.nav ===
-        (genrePage
-          ? "genres"
-          : artistPage
-            ? "artists"
-            : instrumentPage
-              ? "instruments"
-              : "library")
-      )
+      if (link.dataset.nav === section)
         link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
     const missing = location.hash.startsWith("#album/") && !album;
-    if (genrePage) {
+    if (section === "genres") {
       if (genre)
         this.dependencies.main.innerHTML = renderGenreDetail(
           genre,
@@ -156,7 +167,7 @@ export class AppRouter {
         this.dependencies.library().albums,
         this.detailLayouts.artist,
       );
-    } else if (artistPage) {
+    } else if (section === "artists") {
       this.dependencies.main.innerHTML = /* HTML */ `<div class="empty">
         <h1 id="page-title">Artist unavailable</h1>
         <a href="#artists">Back to artists</a>
@@ -168,7 +179,7 @@ export class AppRouter {
         instrument,
         this.dependencies.library().albums,
       );
-    } else if (instrumentPage) {
+    } else if (section === "instruments") {
       this.dependencies.main.innerHTML = /* HTML */ `<div
         class="empty route-empty"
       >
@@ -195,48 +206,70 @@ export class AppRouter {
     );
     const previous = this.routeHistory.previous();
     if (backLink && previous !== undefined) {
-      const label =
-        this.dependencies
-          .library()
-          .albums.find((item) => albumUrl(item.id) === previous)?.title ??
-        this.dependencies
-          .library()
-          .artists.find((item) => artistUrl(item.id) === previous)?.name ??
-        this.dependencies
-          .library()
-          .genres.find((item) => genreUrl(item.id) === previous)?.name ??
-        this.dependencies
-          .library()
-          .instruments.find((item) => instrumentUrl(item.id) === previous)
-          ?.name ??
-        {
-          "": "library",
-          "#": "library",
-          "#artists": "artists",
-          "#genres": "genres",
-          "#instruments": "instruments",
-        }[previous] ??
-        "previous page";
+      const label = this.routeLabel(previous);
       backLink.href = previous || "#";
       backLink.innerHTML = /* HTML */ `${icon("back", 17)} Back to
       ${escapeHtml(label)}`;
       backLink.dataset.routeBack = "";
     }
-    document.title = genrePage
-      ? `${genre?.name ?? "Genres"} — JazzLog`
-      : artistPage
-        ? `${artist?.name ?? "Artists"} — JazzLog`
-        : instrumentPage
-          ? `${instrument?.name ?? "Instruments"} — JazzLog`
-          : album
-            ? album.title + " — JazzLog"
-            : "JazzLog — The Listening Room";
+    document.title = this.pageTitle(section, {
+      genre,
+      artist,
+      instrument,
+      album,
+    });
     this.dependencies.onRendered();
     if (focus) {
       window.scrollTo(0, 0);
       const heading = document.querySelector<HTMLElement>("#page-title");
       heading?.setAttribute("tabindex", "-1");
       heading?.focus({ preventScroll: true });
+    }
+  }
+
+  private routeLabel(hash: string): string {
+    const listLabel = listRouteLabels.get(hash);
+    if (listLabel !== undefined) return listLabel;
+
+    const library = this.dependencies.library();
+
+    switch (hash.split("/")[0]) {
+      case "#album":
+        return (
+          library.albums.find((item) => albumUrl(item.id) === hash)?.title ??
+          "previous page"
+        );
+      case "#artist":
+        return (
+          library.artists.find((item) => artistUrl(item.id) === hash)?.name ??
+          "previous page"
+        );
+      case "#genre":
+        return (
+          library.genres.find((item) => genreUrl(item.id) === hash)?.name ??
+          "previous page"
+        );
+      case "#instrument":
+        return (
+          library.instruments.find((item) => instrumentUrl(item.id) === hash)
+            ?.name ?? "previous page"
+        );
+      default:
+        return "previous page";
+    }
+  }
+
+  private pageTitle(section: RouteSection, items: RouteItems): string {
+    switch (section) {
+      case "genres":
+        return `${items.genre?.name ?? "Genres"} — JazzLog`;
+      case "artists":
+        return `${items.artist?.name ?? "Artists"} — JazzLog`;
+      case "instruments":
+        return `${items.instrument?.name ?? "Instruments"} — JazzLog`;
+      case "library":
+        if (items.album) return `${items.album.title} — JazzLog`;
+        return "JazzLog — The Listening Room";
     }
   }
 

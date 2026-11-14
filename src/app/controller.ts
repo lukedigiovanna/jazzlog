@@ -5,7 +5,11 @@ import type { EditorDialog, PickerInteraction } from "./editorContracts";
 import { createDiscovery, type Discovery } from "./discovery";
 import { createLibraryState, type LibraryStore } from "./libraryState";
 import { createDialog, type DialogController } from "./dialog";
-import { createEditorDrafts, type EditorDrafts } from "./editorDrafts";
+import {
+  createEditorDrafts,
+  type EditorDrafts,
+  type DraftTarget,
+} from "./editorDrafts";
 import { createLifecycle } from "./lifecycle";
 import type { LibraryData } from "../types/library";
 import type { Genre } from "../types/albums";
@@ -509,6 +513,21 @@ export class AppController {
     window.scrollTo(0, scroll);
   }
 
+  private draftCatalog(
+    kind: DraftTarget["kind"],
+  ): (Album | Artist | Genre | Instrument)[] {
+    switch (kind) {
+      case "artist":
+        return this.library.data.artists;
+      case "genre":
+        return this.library.data.genres;
+      case "instrument":
+        return this.library.data.instruments;
+      default:
+        return this.library.data.albums;
+    }
+  }
+
   private resumeDraft(): void {
     if (this.connection.readOnly || !this.drafts.current) return;
 
@@ -519,14 +538,7 @@ export class AppController {
           id?: string;
         }
       | undefined;
-    const catalog =
-      target.kind === "artist"
-        ? this.library.data.artists
-        : target.kind === "genre"
-          ? this.library.data.genres
-          : target.kind === "instrument"
-            ? this.library.data.instruments
-            : this.library.data.albums;
+    const catalog = this.draftCatalog(target.kind);
     const existing = catalog.find((value) => value.id === item?.id);
     const requiresExisting =
       ["listen", "instruments"].includes(target.kind) ||

@@ -3,6 +3,12 @@ import { createLifecycle } from "./lifecycle";
 import { createResumeRefresh } from "./resumeRefresh";
 import type { LibraryStore } from "./libraryState";
 
+function syncAge(minutes: number): [number, "minute" | "hour" | "day"] {
+  if (minutes < 60) return [minutes, "minute"];
+  if (minutes < 1440) return [Math.floor(minutes / 60), "hour"];
+  return [Math.floor(minutes / 1440), "day"];
+}
+
 export interface LibraryConnectionDependencies {
   accountId: string;
   enabled: boolean;
@@ -85,12 +91,7 @@ export class LibraryConnection {
       1,
       Math.floor((Date.now() - (this.syncedAt ?? Date.now())) / 60_000),
     );
-    const [amount, unit] =
-      minutes < 60
-        ? [minutes, "minute"]
-        : minutes < 1440
-          ? [Math.floor(minutes / 60), "hour"]
-          : [Math.floor(minutes / 1440), "day"];
+    const [amount, unit] = syncAge(minutes);
     const updated = this.syncedAt
       ? ` · synced ${amount} ${unit}${amount === 1 ? "" : "s"} ago`
       : "";
