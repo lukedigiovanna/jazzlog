@@ -33,57 +33,61 @@ export interface MetadataSearch {
   cancel: () => void;
 }
 
-export function createMetadataSearch(
-  ops: MetadataSearchDependencies,
-): MetadataSearch {
-  let searchQuery = "";
-  let searchResults: Album[] = [];
+function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
+  return {
+    id: candidate.musicbrainzId,
+    musicbrainzReleaseGroupId: candidate.musicbrainzId,
+    title: candidate.title,
+    releaseYear: candidate.releaseYear,
+    sortTitle: null,
+    artworkUrl: getReleaseGroupArtworkUrl(candidate.musicbrainzId),
+    artists: candidate.artists
+      .filter(
+        (credit, index, credits) =>
+          credits.findIndex(
+            (other) => other.musicbrainzId === credit.musicbrainzId,
+          ) === index,
+      )
+      .map((credit, position) => ({
+        id: makeId(),
+        musicbrainzId: credit.musicbrainzId,
+        name: credit.name,
+        sortName: null,
+        country: null,
+        role: "primary",
+        position,
+      })),
+    genres: [],
+    instruments: [],
+    links: [],
+    listeningEntries: [],
+    createdAt: "",
+    updatedAt: "",
+  };
+}
 
-  let searchTimer: ReturnType<typeof setTimeout>;
-  let searchVersion = 0;
-  const searchCache = new Map<string, Album[]>();
+export class MetadataSearchController implements MetadataSearch {
+  private searchQuery = "";
+  private searchResults: Album[] = [];
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  private searchVersion = 0;
+  private readonly searchCache = new Map<string, Album[]>();
 
-  function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
-    return {
-      id: candidate.musicbrainzId,
-      musicbrainzReleaseGroupId: candidate.musicbrainzId,
-      title: candidate.title,
-      releaseYear: candidate.releaseYear,
-      sortTitle: null,
-      artworkUrl: getReleaseGroupArtworkUrl(candidate.musicbrainzId),
-      artists: candidate.artists
-        .filter(
-          (credit, index, credits) =>
-            credits.findIndex(
-              (other) => other.musicbrainzId === credit.musicbrainzId,
-            ) === index,
-        )
-        .map((credit, position) => ({
-          id: makeId(),
-          musicbrainzId: credit.musicbrainzId,
-          name: credit.name,
-          sortName: null,
-          country: null,
-          role: "primary",
-          position,
-        })),
-      genres: [],
-      instruments: [],
-      links: [],
-      listeningEntries: [],
-      createdAt: "",
-      updatedAt: "",
-    };
+  private readonly ops: MetadataSearchDependencies;
+
+  constructor(ops: MetadataSearchDependencies) {
+    this.ops = ops;
   }
 
-  function openSearch(reset = true) {
-    if (ops.hasDraft() && !ops.editor.open) {
-      ops.resumeDraft();
+  openSearch(reset = true): void {
+    if (this.ops.hasDraft() && !this.ops.editor.open) {
+      this.ops.resumeDraft();
       return;
     }
-    ops.clearDraftTarget();
-    if (reset) searchQuery = "";
-    ops.showDialog(
+
+    this.ops.clearDraftTarget();
+    if (reset) this.searchQuery = "";
+    this.ops.showDialog(
       "Add an album",
       /* HTML */ `<div class="dialog-body">
           <p class="dialog-intro">
@@ -97,7 +101,7 @@ export function createMetadataSearch(
               id="catalog-query"
               type="search"
               placeholder="Album, artist, or Wikipedia URL…"
-              value="${escapeHtml(searchQuery)}"
+              value="${escapeHtml(this.searchQuery)}"
               autocomplete="off"
           /></label>
           <div class="search-results-heading">
@@ -114,31 +118,36 @@ export function createMetadataSearch(
         </div>`,
       "#catalog-query",
     );
-    updateCatalog();
+    this.updateCatalog();
   }
 
-  function updateCatalog() {
-    clearTimeout(searchTimer);
-    const version = ++searchVersion;
-    const container = ops.editor.querySelector<HTMLElement>("#catalog-results");
-    const count = ops.editor.querySelector<HTMLElement>("#catalog-count");
+  private updateCatalog(): void {
+    clearTimeout(this.searchTimer);
+    const version = ++this.searchVersion;
+    const container =
+      this.ops.editor.querySelector<HTMLElement>("#catalog-results");
+    const count = this.ops.editor.querySelector<HTMLElement>("#catalog-count");
     if (!container || !count) return;
-    searchResults = [];
+
+    this.searchResults = [];
     container.removeAttribute("aria-busy");
-    const query = searchQuery.trim();
+    const query = this.searchQuery.trim();
     count.textContent = "";
+
     if (!query) {
       container.innerHTML = /* HTML */ `<div class="empty catalog-empty">
         <p>Search by album title or artist to find a release.</p>
       </div>`;
       return;
     }
-    const cached = searchCache.get(query);
+
+    const cached = this.searchCache.get(query);
     if (cached) {
-      searchResults = cached;
-      renderCatalog();
+      this.searchResults = cached;
+      this.renderCatalog();
       return;
     }
+
     container.setAttribute("aria-busy", "true");
     container.innerHTML = /* HTML */ `<div
       class="empty catalog-empty"
@@ -146,13 +155,14 @@ export function createMetadataSearch(
     >
       <p>Finding album…</p>
     </div>`;
-    searchTimer = setTimeout(async () => {
+    this.searchTimer = setTimeout(async () => {
       const current = () =>
-        ops.isActive() &&
-        version === searchVersion &&
-        ops.editor.open &&
-        ops.editor.querySelector("#catalog-results") === container;
+        this.ops.isActive() &&
+        version === this.searchVersion &&
+        this.ops.editor.open &&
+        this.ops.editor.querySelector("#catalog-results") === container;
       if (!current()) return;
+
       try {
         // Preserve the indexed search syntax used by MusicBrainz's website.
         if (/^https?:\/\//i.test(query)) {
@@ -160,7 +170,7 @@ export function createMetadataSearch(
             parseWikipediaUrl(query),
           );
           if (!current()) return;
-          searchResults = [
+          this.searchResults = [
             {
               ...candidateAlbum({
                 musicbrainzId: "",
@@ -192,12 +202,12 @@ export function createMetadataSearch(
         } else {
           const candidates = await searchReleaseGroups(query);
           if (!current()) return;
-          searchResults = candidates.map(candidateAlbum);
+          this.searchResults = candidates.map(candidateAlbum);
         }
-        if (searchCache.size >= 20)
-          searchCache.delete(searchCache.keys().next().value!);
-        searchCache.set(query, searchResults);
-        renderCatalog();
+        if (this.searchCache.size >= 20)
+          this.searchCache.delete(this.searchCache.keys().next().value!);
+        this.searchCache.set(query, this.searchResults);
+        this.renderCatalog();
       } catch (error) {
         if (!current()) return;
         count.textContent = "Search failed";
@@ -223,10 +233,10 @@ export function createMetadataSearch(
     }, 400);
   }
 
-  function renderCatalog() {
-    const results = searchResults;
+  private renderCatalog(): void {
+    const results = this.searchResults;
     const inLibrary = (album: Album) =>
-      ops
+      this.ops
         .albums()
         .find(
           (item) =>
@@ -275,29 +285,29 @@ export function createMetadataSearch(
           </div>`;
   }
 
-  function click(button: HTMLButtonElement) {
+  click(button: HTMLButtonElement): boolean {
     switch (button.dataset.action) {
       case "add":
-        openSearch();
+        this.openSearch();
         break;
       case "manual":
-        ops.openAlbumForm();
+        this.ops.openAlbumForm();
         break;
       case "back-search":
-        if (ops.canDismissDialog()) {
-          ops.clearDraft();
-          openSearch(false);
+        if (this.ops.canDismissDialog()) {
+          this.ops.clearDraft();
+          this.openSearch(false);
         }
         break;
       case "retry-search":
-        updateCatalog();
+        this.updateCatalog();
         break;
       case "pick": {
-        const result = searchResults.find(
+        const result = this.searchResults.find(
           (entry) => entry.id === button.dataset.id,
         );
         if (!result) break;
-        const saved = ops
+        const saved = this.ops
           .albums()
           .find(
             (entry) =>
@@ -309,29 +319,29 @@ export function createMetadataSearch(
               ),
           );
         if (saved) {
-          ops.editor.close();
+          this.ops.editor.close();
           location.hash = albumUrl(saved.id);
         } else {
-          ops.openAlbumForm(result, "review");
+          this.ops.openAlbumForm(result, "review");
         }
         break;
       }
       default:
         return false;
     }
+
     return true;
   }
 
-  function cancel() {
-    clearTimeout(searchTimer);
-    searchVersion++;
-  }
-  function input(input: HTMLInputElement) {
-    if (input.id === "catalog-query") {
-      searchQuery = input.value;
-      updateCatalog();
-    }
+  cancel(): void {
+    clearTimeout(this.searchTimer);
+    this.searchVersion++;
   }
 
-  return { openSearch, click, input, cancel };
+  input(input: HTMLInputElement): void {
+    if (input.id === "catalog-query") {
+      this.searchQuery = input.value;
+      this.updateCatalog();
+    }
+  }
 }

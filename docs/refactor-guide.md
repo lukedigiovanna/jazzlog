@@ -12,6 +12,7 @@ state getters, draft cloning, and asynchronous lifecycle guards.
       Keep existing dependency access and runtime behavior intact.
 - [ ] Stateful ownership: review metadata search, dialog, and editor drafts for
       class conversion, one component per PR. Keep small factories as functions.
+      Metadata search is complete; dialog and editor drafts remain.
 - [ ] Domain contracts: tighten draft modes/actions and validate persisted/DOM
       strings. Reduce casts through shared contracts.
 - [ ] Focused cleanup: review duplicated rendering, long fallback chains,

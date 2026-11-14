@@ -16,7 +16,10 @@ import type { Genre } from "../types/albums";
 import type { Album, Artist, Instrument } from "../types/albums";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
-import { createMetadataSearch, type MetadataSearch } from "./metadataSearch";
+import {
+  MetadataSearchController,
+  type MetadataSearch,
+} from "./metadataSearch";
 import { InstrumentFeature } from "./instrumentFeature";
 import { GenreFeature } from "./genreFeature";
 import { ArtistFeature } from "./artistFeature";
@@ -182,7 +185,7 @@ export class AppController {
     this.instrumentFeature = this.createInstrumentFeature(editorDialog);
     this.albumEditor = this.createAlbumEditor(editorDialog, accountId);
 
-    this.metadataSearch = createMetadataSearch({
+    this.metadataSearch = new MetadataSearchController({
       editor: this.editor,
       showDialog: this.dialog.showDialog,
       hasDraft: () => Boolean(this.drafts.current),
