@@ -1,4 +1,5 @@
 import { createLifecycle } from "../app/lifecycle";
+import { renderBrandLogo } from "./brandLogo";
 export function initializeMobileHeader(): () => void {
   const lifecycle = createLifecycle();
   const header = document.querySelector<HTMLElement>(".masthead");
@@ -54,7 +55,7 @@ export function renderHeader(): string {
     <header class="masthead">
       <div class="frame masthead-inner">
         <a class="brand" href="#" aria-label="Sleeve library"
-          ><img src="./favicon.svg" alt="" width="38" height="38" /><span
+          >${renderBrandLogo()}<span class="brand-wordmark"
             >Sleeve<span class="brand-period">.</span></span
           ></a
         >
