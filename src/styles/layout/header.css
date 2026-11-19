@@ -16,8 +16,12 @@
   letter-spacing: -0.9px;
   white-space: nowrap;
 }
-.brand img {
+.brand-logo {
   display: block;
+  color: var(--brand-logo-color, currentColor);
+}
+.brand-wordmark {
+  text-box: trim-both cap alphabetic;
 }
 .brand-period {
   color: var(--color-accent-text);

@@ -1,4 +1,5 @@
 import { createLifecycle } from "../app/lifecycle";
+import { renderBrandLogo } from "../components/brandLogo";
 
 type AuthMode = "signin" | "signup";
 
@@ -7,7 +8,7 @@ export function renderAuthView(): string {
     <a class="skip-link" href="#auth-title">Skip to sign in</a>
     <header class="frame auth-header">
       <a class="brand" href="./" aria-label="Sleeve home"
-        ><img src="./favicon.svg" alt="" width="38" height="38" /><span
+        >${renderBrandLogo()}<span class="brand-wordmark"
           >Sleeve<span class="brand-period">.</span></span
         ></a
       >
