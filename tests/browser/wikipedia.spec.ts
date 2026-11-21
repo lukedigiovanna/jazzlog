@@ -18,7 +18,16 @@ test("Wikipedia suggestions reuse genres, create instruments and remember mappin
     const title = new URL(route.request().url()).searchParams.get("titles");
     await route.fulfill({
       json: {
-        query: { pages: [{ title, pageprops: { wikibase_item: "Q1" } }] },
+        query: {
+          pages: [
+            {
+              title,
+              pageprops: {
+                wikibase_item: title === "SuggestionTestTwo" ? "Q10" : "Q1",
+              },
+            },
+          ],
+        },
       },
     });
   });
@@ -27,18 +36,24 @@ test("Wikipedia suggestions reuse genres, create instruments and remember mappin
     await route.fulfill({
       json: {
         entities:
-          ids === "Q1"
+          ids === "Q1" || ids === "Q10"
             ? {
-                Q1: {
+                [ids]: {
                   claims: {
                     P136: [claim({ id: "Q2" })],
-                    P870: [claim({ id: "Q3" })],
+                    P870: [
+                      claim({ id: "Q3" }),
+                      claim({ id: "Q4" }),
+                      ...(ids === "Q10" ? [claim({ id: "Q5" })] : []),
+                    ],
                   },
                 },
               }
             : {
-                Q2: { labels: { en: { value: "Jazz Hip Hop" } } },
-                Q3: { labels: { en: { value: "Test instrument" } } },
+                Q2: { labels: { en: { value: "japanese-fuson" } } },
+                Q3: { labels: { en: { value: "Test-instrument" } } },
+                Q4: { labels: { en: { value: "bass" } } },
+                Q5: { labels: { en: { value: "test-zither" } } },
               },
       },
     });
@@ -47,29 +62,52 @@ test("Wikipedia suggestions reuse genres, create instruments and remember mappin
   await page.locator("#auth-demo").click();
   await importAlbum(page, "SuggestionTest");
   await expect(page.locator("#genre-selected")).toHaveText("");
-  const genre = page.locator('[name="suggestion-genre-Q2"]');
-  const existing = await genre.locator("option").nth(2).getAttribute("value");
-  const existingName = await genre.locator("option").nth(2).textContent();
-  await genre.selectOption(existing!);
+  const genre = page.locator('[data-source="Q2"]');
+  await expect(
+    genre.getByRole("button", { name: "Create Japanese Fuson" }),
+  ).toBeVisible();
   await genre
-    .locator("xpath=ancestor::*[@data-suggestion-row]")
-    .getByRole("button", { name: "Add", exact: true })
+    .getByRole("button", { name: "Link existing genre for Japanese Fuson" })
     .click();
-  await expect(page.locator("#genre-selected")).toContainText(existingName!);
-  const instrument = page.locator('[name="suggestion-instrument-Q3"]');
-  await instrument.selectOption("__create");
-  await instrument
-    .locator("xpath=ancestor::*[@data-suggestion-row]")
-    .getByRole("button", { name: "Add", exact: true })
+  const popover = genre.getByRole("group", { name: "Link Japanese Fuson" });
+  await expect(popover).toBeVisible();
+  await expect(
+    popover.locator("[data-suggestion-matches] button").first(),
+  ).toHaveText("Link Japanese Fusion");
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  await expect(page.locator("#album-form")).toBeVisible();
+  await genre
+    .getByRole("button", { name: "Link existing genre for Japanese Fuson" })
     .click();
-  await expect(page.locator("#instrument-selected")).toContainText(
-    "Test instrument",
+  const search = genre.getByRole("searchbox", { name: "Search your genres" });
+  await search.fill("fusion japanese");
+  await search.press("Enter");
+  await expect(page.locator("#album-form")).toBeVisible();
+  await genre
+    .getByRole("button", { name: "Link Japanese Fusion", exact: true })
+    .click();
+  await expect(page.locator("#genre-selected")).toContainText(
+    "Japanese Fusion",
   );
+
+  const create = page.getByRole("button", { name: "Create Test Instrument" });
+  await expect(create).toHaveText("");
+  await expect(
+    page.getByRole("heading", { name: "New", exact: true }).last(),
+  ).toBeVisible();
+  await create.click();
+  await expect(page.locator("#instrument-selected")).toContainText(
+    "Test Instrument",
+  );
+  await page.getByRole("button", { name: "Skip Bass", exact: true }).click();
   await page.reload();
   await page.locator("#auth-demo").click();
-  await expect(page.locator("#genre-selected")).toContainText(existingName!);
+  await expect(page.locator("#genre-selected")).toContainText(
+    "Japanese Fusion",
+  );
   await expect(page.locator("#instrument-selected")).toContainText(
-    "Test instrument",
+    "Test Instrument",
   );
   await expect(page.locator("[data-suggestion-row]:visible")).toHaveCount(0);
   await page.locator('#album-form button[type="submit"]').click();
@@ -77,17 +115,32 @@ test("Wikipedia suggestions reuse genres, create instruments and remember mappin
   await page.reload();
   await page.locator("#auth-demo").click();
   await importAlbum(page, "SuggestionTestTwo");
-  await expect(page.locator('[name="suggestion-genre-Q2"]')).toHaveValue(
-    existing!,
-  );
   await expect(
-    page.locator('[name="suggestion-instrument-Q3"]'),
-  ).not.toHaveValue("");
-  // Remembered matches still require confirmation, and can be skipped.
+    page.getByRole("button", { name: "Add Japanese Fusion" }),
+  ).toBeVisible();
+  const add = page.getByRole("button", { name: "Add Test Instrument" });
+  await expect(add).toBeVisible();
+  await expect(add).toHaveText("");
+  const instruments = page.getByRole("group", {
+    name: "Wikipedia instrument suggestions",
+  });
+  await instruments.getByRole("button", { name: "Add all" }).click();
+  await expect(page.locator("#instrument-selected")).toContainText(
+    "Test Instrument",
+  );
+  await expect(page.locator("#instrument-selected")).toContainText("Bass");
+  await expect(
+    instruments.getByRole("heading", { name: "In library" }),
+  ).toBeHidden();
+  await expect(
+    instruments.getByRole("button", { name: "Create Test Zither" }),
+  ).toBeVisible();
+  await expect(page.locator("#instrument-selected")).not.toContainText(
+    "Test Zither",
+  );
   await expect(page.locator("#genre-selected")).toHaveText("");
   await page
-    .locator('[name="suggestion-genre-Q2"]')
-    .locator("xpath=ancestor::*[@data-suggestion-row]")
+    .locator('[data-source="Q2"]')
     .getByRole("button", { name: "Skip" })
     .click();
   await expect(page.locator("#genre-selected")).toHaveText("");
@@ -107,6 +160,11 @@ for (const source of ["wikidata", "no-item", "offline"]) {
                 <table class="infobox">
                   <tbody>
                     <tr>
+                      <th class="infobox-above summary">
+                        <i>Article: The Album</i>
+                      </th>
+                    </tr>
+                    <tr>
                       <th>Genre</th>
                       <td>
                         <div class="hlist">
@@ -118,7 +176,7 @@ for (const source of ["wikidata", "no-item", "offline"]) {
                             <li><a href="/wiki/Modal_jazz">Modal jazz</a></li>
                           </ul>
                         </div>
-                        <br />Post-bop
+                        <br />Post-bop, Post Bop
                       </td>
                     </tr>
                   </tbody>
@@ -182,23 +240,44 @@ for (const source of ["wikidata", "no-item", "offline"]) {
     await page.goto("/");
     await page.locator("#auth-demo").click();
     await importAlbum(page, "ArticleMetadata");
+    await expect(page.locator('#album-form [name="title"]')).toHaveValue(
+      "Article: The Album",
+    );
     const genreBox = page
       .locator(".instrument-picker")
       .filter({ has: page.locator("#genre-query") });
     await expect(genreBox.locator("[data-suggestion-row]")).toHaveCount(3);
-    await expect(genreBox).toContainText("Modal jazz");
-    await expect(genreBox).toContainText("Post-bop");
+    await expect(genreBox).toContainText("Modal Jazz");
+    await expect(genreBox).toContainText("Post Bop");
+    await genreBox.getByRole("button", { name: "Create Post Bop" }).click();
+    await expect(page.locator("#genre-selected")).toContainText("Post Bop");
     const instrumentBox = page
       .locator(".instrument-picker")
       .filter({ has: page.locator("#instrument-query") });
     await expect(instrumentBox.locator("[data-suggestion-row]")).toHaveCount(6);
-    await expect(instrumentBox).toContainText("trumpet");
-    await expect(instrumentBox).toContainText("double bass");
+    const list = instrumentBox.getByRole("group", {
+      name: "Wikipedia instrument suggestions",
+    });
+    const rows = list.locator("[data-suggestion-row]");
+    const bounds = (await list.boundingBox())!;
+    const sixth = (await rows.nth(5).boundingBox())!;
+    expect(sixth.y + sixth.height).toBeGreaterThan(bounds.y + bounds.height);
+    await rows
+      .nth(5)
+      .getByRole("button", { name: /^Skip / })
+      .click();
+    await expect(rows.nth(5)).toBeHidden();
+    await expect(instrumentBox).toContainText("Trumpet");
+    await expect(instrumentBox).toContainText("Double Bass");
     await expect(
-      instrumentBox.locator("label > span").filter({ hasText: /^guitar$/ }),
+      instrumentBox
+        .locator("[data-suggestion-row] > strong")
+        .filter({ hasText: /^guitar$/i }),
     ).toHaveCount(0);
     await expect(
-      instrumentBox.locator("label > span").filter({ hasText: /^producer$/ }),
+      instrumentBox
+        .locator("[data-suggestion-row] > strong")
+        .filter({ hasText: /^producer$/i }),
     ).toHaveCount(0);
   });
 }

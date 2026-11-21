@@ -129,7 +129,7 @@ export async function resolveWikipediaArticle(
     throw new Error("Invalid Wikipedia article.");
   const page = await resolveArticlePage(article);
   const result: WikipediaImport = {
-    title: page.title.replace(/\s+\([^)]*(?:album|soundtrack)[^)]*\)$/i, ""),
+    title: page.title.replace(/\s+\((?:[^()]*\s)?(?:album|soundtrack)\)$/i, ""),
     url: `https://${article.language}.wikipedia.org/wiki/${encodeURIComponent(page.title.replaceAll(" ", "_"))}`,
     artworkUrl: page.thumbnail?.source ?? page.original?.source ?? null,
     releaseYear: null,
@@ -265,6 +265,7 @@ async function addPageSuggestions(
     });
     if (typeof parsed.parse?.text === "string") {
       const details = parseWikipediaPage(parsed.parse.text, language);
+      if (details.title) result.title = details.title;
       result.genreSuggestions = mergeSuggestions(
         result.genreSuggestions,
         details.genres,

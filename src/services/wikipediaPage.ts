@@ -1,4 +1,5 @@
 export interface WikipediaPageSuggestions {
+  title: string | null;
   genres: Suggestion[];
   instruments: Suggestion[];
 }
@@ -8,20 +9,32 @@ type Suggestion = { id: string; name: string };
 const key = (name: string) =>
   name.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
 
+export function suggestionNameKey(name: string): string {
+  return key(name.replace(/[\p{Dash_Punctuation}−]/gu, " "));
+}
+
+export function formatSuggestionName(name: string): string {
+  return name
+    .replace(/[\p{Dash_Punctuation}−]/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(
+      /(^|\s)(\p{L})/gu,
+      (_, space, letter) => space + letter.toUpperCase(),
+    );
+}
+
 export function mergeSuggestions(
   primary: Suggestion[],
   additional: Suggestion[],
 ): Suggestion[] {
-  const seen = new Set(primary.map((item) => key(item.name)));
-  return [
-    ...primary,
-    ...additional.filter((item) => {
-      const name = key(item.name);
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    }),
-  ];
+  const seen = new Set<string>();
+  return [...primary, ...additional].filter((item) => {
+    const name = suggestionNameKey(item.name);
+    if (!name || seen.has(name)) return false;
+    seen.add(name);
+    return true;
+  });
 }
 
 // Personnel credits are prose, not a structured instrument field. Keep extraction
@@ -42,10 +55,15 @@ export function parseWikipediaPage(
     id: `wiki:${language}:${key(name)}`,
     name,
   });
+  const title =
+    doc
+      .querySelector(".infobox .summary, .infobox caption i")
+      ?.textContent?.replace(/\s+/g, " ")
+      .trim() || null;
   const genres: Suggestion[] = [];
   const instruments: Suggestion[] = [];
   // English infobox/section labels only; Wikidata still supports other languages.
-  if (language !== "en") return { genres, instruments };
+  if (language !== "en") return { title, genres, instruments };
   for (const row of doc.querySelectorAll(".infobox tr")) {
     if (!/^genres?$/i.test(row.querySelector("th")?.textContent?.trim() ?? ""))
       continue;
@@ -90,6 +108,7 @@ export function parseWikipediaPage(
     }
   }
   return {
+    title,
     genres: mergeSuggestions([], genres),
     instruments: mergeSuggestions([], instruments),
   };

@@ -36,6 +36,13 @@ import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
 import { webUrl, cover } from "../components/presentation";
 import { focusForTyping } from "./device";
+import { matches, nameSimilarity } from "./search";
+
+import {
+  formatSuggestionName,
+  mergeSuggestions,
+  suggestionNameKey,
+} from "../services/wikipediaPage";
 
 type SuggestionKind = "genre" | "instrument";
 
@@ -145,70 +152,232 @@ export class AlbumEditor {
     this.mappingKey = `sleeve:import-mappings:v1:${dependencies.accountId}`;
   }
 
+  private suggestionChoices(
+    kind: SuggestionKind,
+  ): { id: string; name: string }[] {
+    const selections = this.dependencies.pickers.selections;
+    return kind === "genre"
+      ? selections.genreChoices
+      : selections.instrumentChoices;
+  }
+
   private suggestions(
     kind: SuggestionKind,
     items: { id: string; name: string }[] = [],
   ): string {
-    if (!items.length) return "";
-
-    const choices =
-      kind === "genre"
-        ? this.dependencies.pickers.selections.genreChoices
-        : this.dependencies.pickers.selections.instrumentChoices;
+    const choices = this.suggestionChoices(kind);
     const mappings = readMappings(this.mappingKey);
+    const existing: string[] = [];
+    const unmatched: string[] = [];
+    for (const item of mergeSuggestions([], items)) {
+      const name = formatSuggestionName(item.name);
+      const mapped = mappings[`${kind}:${item.id}`];
+      const match =
+        choices.find((choice) => choice.id === mapped) ??
+        choices.find(
+          (choice) =>
+            suggestionNameKey(choice.name) === suggestionNameKey(name),
+        );
+
+      const linkId = `import-link-${kind}-${existing.length + unmatched.length}`;
+      const row = /* HTML */ `<div
+        class="import-suggestion"
+        data-suggestion-row
+        data-kind="${kind}"
+        data-source="${escapeHtml(item.id)}"
+        data-name="${escapeHtml(name)}"
+      >
+        <input
+          type="hidden"
+          name="suggestion-${kind}-${escapeHtml(item.id)}"
+          value=""
+        />
+        <div class="import-suggestion-line">
+          <strong title="${escapeHtml(name)}"
+            >${escapeHtml(name)}
+            ${
+              match && suggestionNameKey(match.name) !== suggestionNameKey(name)
+                ? ` ➜ ${escapeHtml(match.name)}`
+                : ""
+            }
+          </strong>
+          <button
+            type="button"
+            class="icon-button"
+            data-action="apply-import-suggestion"
+            data-id="${escapeHtml(match?.id ?? "")}"
+            aria-label="${match ? "Add" : "Create"} ${escapeHtml(match?.name ?? name)}"
+            title="${match ? "Add" : "Create"} ${escapeHtml(match?.name ?? name)}"
+          >
+            ${icon("plus", 17)}
+          </button>
+          <button
+            type="button"
+            class="icon-button"
+            data-action="toggle-import-link"
+            popovertarget="${linkId}"
+            aria-label="Link existing ${kind} for ${escapeHtml(name)}"
+            title="Link existing ${kind}"
+          >
+            ${icon("link", 17)}
+          </button>
+          <button
+            type="button"
+            class="icon-button"
+            data-action="skip-import-suggestion"
+            aria-label="Skip ${escapeHtml(name)}"
+            title="Skip"
+          >
+            ${icon("close", 17)}
+          </button>
+        </div>
+        <div
+          class="import-suggestion-link"
+          id="${linkId}"
+          popover
+          role="group"
+          aria-label="Link ${escapeHtml(name)}"
+        >
+          <strong>Link ${escapeHtml(name)}</strong>
+          <div
+            class="import-suggestion-matches"
+            data-suggestion-matches
+            aria-live="polite"
+          ></div>
+          <label class="field">
+            <span
+              >Search your ${kind === "genre" ? "genres" : "instruments"}</span
+            >
+            <input type="search" data-suggestion-search autocomplete="off" />
+          </label>
+        </div>
+      </div>`;
+      (match ? existing : unmatched).push(row);
+    }
+    if (!existing.length && !unmatched.length) return "";
 
     return /* HTML */ `<div class="import-suggestions">
       <p class="form-hint">
-        Suggested ${kind === "genre" ? "genres" : "instruments"} from Wikipedia.
-        Match to your library or create a new entry. Choices are remembered on
-        this device.
+        Suggested ${kind === "genre" ? "genres" : "instruments"} from Wikipedia
       </p>
-      ${items
-        .map((item) => {
-          const mapped = mappings[`${kind}:${item.id}`];
-          const match =
-            choices.find((choice) => choice.id === mapped) ??
-            choices.find(
-              (choice) =>
-                choice.name.trim().toLowerCase() ===
-                item.name.trim().toLowerCase(),
-            );
+      <div
+        class="import-suggestion-list"
+        role="group"
+        aria-label="Wikipedia ${kind} suggestions"
+        tabindex="0"
+      >
+        ${
+          existing.length
+            ? /* HTML */ `<div class="import-suggestion-group">
+                <div class="import-suggestion-header">
+                  <h3>In library</h3>
+                  <button
+                    type="button"
+                    class="button secondary compact"
+                    data-action="add-all-import-suggestions"
+                  >
+                    Add all
+                  </button>
+                </div>
+                ${existing.join("")}
+              </div>`
+            : ""
+        }
+        ${
+          unmatched.length
+            ? /* HTML */ `<div class="import-suggestion-group">
+                <div class="import-suggestion-header"><h3>New</h3></div>
+                ${unmatched.join("")}
+              </div>`
+            : ""
+        }
+      </div>
+    </div>`;
+  }
 
-          return /* HTML */ `<div class="field-grid" data-suggestion-row>
-            <label class="field"
-              ><span>${escapeHtml(item.name)}</span>
-              <select name="suggestion-${kind}-${escapeHtml(item.id)}">
-                <option value="">Choose a match…</option>
-                <option value="__done" hidden>Reviewed</option>
-                ${choices.map((choice) => /* HTML */ `<option value="${escapeHtml(choice.id)}" ${choice.id === match?.id ? "selected" : ""}>${escapeHtml(choice.name)}</option>`).join("")}
-                <option value="__create">
-                  Create “${escapeHtml(item.name)}”
-                </option>
-              </select>
-            </label>
-            <div>
-              <button
+  public input(input: HTMLInputElement): void {
+    if (!input.matches("[data-suggestion-search]")) return;
+
+    const row = input.closest<HTMLElement>("[data-suggestion-row]");
+    if (row) this.renderSuggestionMatches(row, input.value);
+  }
+
+  private renderSuggestionMatches(row: HTMLElement, search: string): void {
+    const { kind, name } = row.dataset;
+    if ((kind !== "genre" && kind !== "instrument") || !name) return;
+
+    const results = row.querySelector<HTMLElement>("[data-suggestion-matches]");
+    if (!results) return;
+
+    const query = suggestionNameKey(search);
+    const target = query || suggestionNameKey(name);
+    const choices = this.suggestionChoices(kind)
+      .map((choice) => {
+        const key = suggestionNameKey(choice.name);
+        return { choice, key, score: nameSimilarity(target, key) };
+      })
+      .filter(({ key, score }) => (query ? matches(query, key) : score >= 0.3))
+      .sort(
+        (a, b) =>
+          b.score - a.score || a.choice.name.localeCompare(b.choice.name),
+      )
+      .slice(0, query ? undefined : 5);
+
+    results.innerHTML = choices.length
+      ? choices
+          .map(
+            ({ choice }) =>
+              /* HTML */ `<button
                 type="button"
                 class="button secondary compact"
                 data-action="apply-import-suggestion"
-                data-kind="${kind}"
-                data-source="${escapeHtml(item.id)}"
-                data-name="${escapeHtml(item.name)}"
+                data-id="${escapeHtml(choice.id)}"
               >
-                Add
-              </button>
-              <button
-                type="button"
-                class="button secondary compact"
-                data-action="skip-import-suggestion"
-              >
-                Skip
-              </button>
-            </div>
-          </div>`;
-        })
-        .join("")}
-    </div>`;
+                Link ${escapeHtml(choice.name)}
+              </button>`,
+          )
+          .join("")
+      : /* HTML */ `<p class="form-hint">
+          ${query ? `No matching ${kind === "genre" ? "genres" : "instruments"}.` : "No close matches. Try searching by name."}
+        </p>`;
+  }
+
+  private finishSuggestion(row: HTMLElement): void {
+    row.querySelector<HTMLInputElement>('input[type="hidden"]')!.value =
+      "__done";
+    row.hidden = true;
+  }
+
+  private applySuggestion(row: HTMLElement, id: string): void {
+    const { kind, name, source } = row.dataset;
+    if ((kind !== "genre" && kind !== "instrument") || !name || !source) return;
+
+    const choices = this.suggestionChoices(kind);
+    const sameName = (choice: { name: string }) =>
+      suggestionNameKey(choice.name) === suggestionNameKey(name);
+    const chosen = id
+      ? choices.find((choice) => choice.id === id)
+      : choices.find(sameName);
+    if (id && !chosen) return;
+
+    row
+      .querySelector<HTMLElement>(".import-suggestion-link:popover-open")
+      ?.hidePopover();
+    this.dependencies.pickers.applySuggestion(kind, chosen?.id ?? null, name);
+
+    const added = chosen ?? this.suggestionChoices(kind).find(sameName);
+    if (added) {
+      const mappings = readMappings(this.mappingKey);
+      mappings[`${kind}:${source}`] = added.id;
+
+      try {
+        localStorage.setItem(this.mappingKey, JSON.stringify(mappings));
+      } catch {
+        /* Storage is optional. */
+      }
+    }
+
+    this.finishSuggestion(row);
   }
 
   private hasAppleLink(): boolean {
@@ -617,63 +786,58 @@ export class AlbumEditor {
 
   public click(button: HTMLButtonElement, album?: Album): boolean {
     switch (button.dataset.action) {
-      case "skip-import-suggestion": {
-        const row = button.closest<HTMLElement>("[data-suggestion-row]")!;
-        row.querySelector<HTMLSelectElement>("select")!.value = "__done";
-        row.hidden = true;
+      case "add-all-import-suggestions": {
+        const group = button.closest(".import-suggestion-group");
+        const rows = group?.querySelectorAll<HTMLElement>(
+          "[data-suggestion-row]:not([hidden])",
+        );
+        if (!rows) break;
+
+        for (const row of rows) {
+          const id = row.querySelector<HTMLButtonElement>(
+            ".import-suggestion-line [data-action='apply-import-suggestion']",
+          )?.dataset.id;
+          if (id) this.applySuggestion(row, id);
+        }
 
         this.dependencies.drafts.capture();
         break;
       }
 
-      case "apply-import-suggestion": {
-        const row = button.closest("[data-suggestion-row]")!;
-        const select = row.querySelector<HTMLSelectElement>("select")!;
-
-        if (!select.value) {
-          select.focus();
-          break;
-        }
-
-        const kind = button.dataset.kind;
-        const name = button.dataset.name;
-        if ((kind !== "genre" && kind !== "instrument") || !name) return true;
-        const choices =
-          kind === "genre"
-            ? this.dependencies.pickers.selections.genreChoices
-            : this.dependencies.pickers.selections.instrumentChoices;
-        const chosen =
-          select.value === "__create"
-            ? choices.find(
-                (item) => item.name.toLowerCase() === name.toLowerCase(),
-              )
-            : choices.find((item) => item.id === select.value);
-
-        this.dependencies.pickers.applySuggestion(
-          kind,
-          chosen?.id ?? (select.value === "__create" ? null : select.value),
-          name,
+      case "toggle-import-link": {
+        const row = button.closest<HTMLElement>("[data-suggestion-row]");
+        const input = row?.querySelector<HTMLInputElement>(
+          "[data-suggestion-search]",
         );
-
-        const added =
-          chosen ??
-          choices.find(
-            (item) => item.name.toLowerCase() === name.toLowerCase(),
-          );
-        if (added) {
-          const mappings = readMappings(this.mappingKey);
-          mappings[`${kind}:${button.dataset.source}`] = added.id;
-
-          try {
-            localStorage.setItem(this.mappingKey, JSON.stringify(mappings));
-          } catch {
-            /* Storage is optional. */
-          }
+        if (row && input && !input.closest(":popover-open")) {
+          input.value = "";
+          this.renderSuggestionMatches(row, "");
         }
+        break;
+      }
 
-        select.value = "__done";
-        (row as HTMLElement).hidden = true;
+      case "skip-import-suggestion":
+      case "apply-import-suggestion": {
+        const row = button.closest<HTMLElement>("[data-suggestion-row]");
+        if (!row || row.hidden) break;
 
+        if (button.dataset.action === "skip-import-suggestion") {
+          const list = row.closest<HTMLElement>(".import-suggestion-list");
+          this.finishSuggestion(row);
+          if (list?.querySelector("[data-suggestion-row]:not([hidden])")) {
+            list.focus({ preventScroll: true });
+          } else {
+            this.dependencies.dialog.element
+              .querySelector<HTMLElement>(
+                row.dataset.kind === "genre"
+                  ? "#genre-query"
+                  : "#instrument-query",
+              )
+              ?.focus();
+          }
+        } else {
+          this.applySuggestion(row, button.dataset.id ?? "");
+        }
         this.dependencies.drafts.capture();
         break;
       }

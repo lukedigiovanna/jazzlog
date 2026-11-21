@@ -510,6 +510,7 @@ export class AppController {
     this.instrumentFeature.input(input);
     this.router.input(input);
     this.metadataSearch.input(input);
+    this.albumEditor.input(input);
   }
 
   private onChange(event: Event): void {
@@ -757,6 +758,13 @@ export class AppController {
     this.lifecycle
       .listen(document)
       .addEventListener("input", (event) => this.onInput(event));
+    this.lifecycle.listen(this.editor).addEventListener("keydown", (event) => {
+      if (
+        event.key === "Enter" &&
+        (event.target as HTMLElement).matches("[data-suggestion-search]")
+      )
+        event.preventDefault();
+    });
     this.lifecycle
       .listen(document)
       .addEventListener("change", (event) => this.onChange(event));

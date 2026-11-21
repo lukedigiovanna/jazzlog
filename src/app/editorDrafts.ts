@@ -138,7 +138,9 @@ export class EditorDraftController implements EditorDrafts {
       baseline: this.ops.baseline(),
       source: this.state.source,
       fields: [
-        ...form.querySelectorAll<HTMLInputElement>("input, select, textarea"),
+        ...form.querySelectorAll<HTMLInputElement>(
+          "input:not([data-suggestion-search]), select, textarea",
+        ),
       ].map((input) => ({
         name: input.name,
         id: input.id,
@@ -249,7 +251,8 @@ export class EditorDraftController implements EditorDrafts {
       "[data-suggestion-row]",
     ))
       row.hidden =
-        row.querySelector<HTMLSelectElement>("select")?.value === "__done";
+        row.querySelector<HTMLInputElement>('input[type="hidden"]')?.value ===
+        "__done";
     const rating = this.ops.editor.querySelector<HTMLInputElement>(
       '[name="rating"]:checked',
     );
