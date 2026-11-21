@@ -1,10 +1,18 @@
 import { mergeSuggestions, parseWikipediaPage } from "./wikipediaPage.ts";
 
-// Both a pasted URL and a future search result resolve through this reference.
+// Pasted URLs and search results resolve through the same article reference.
 export interface WikipediaArticle {
   language: string;
   title: string;
 }
+export interface WikipediaAlbumSearchResult {
+  id: string;
+  article: WikipediaArticle;
+  title: string;
+  artworkUrl: string | null;
+  description: string;
+}
+
 export interface WikipediaImport {
   title: string;
   artworkUrl: string | null;
@@ -89,6 +97,53 @@ interface ArticleResponse {
     }[];
   };
 }
+type AlbumSearchPage = ArticlePage & { index: number; extract?: string };
+
+function articleUrl(article: WikipediaArticle): string {
+  return `https://${article.language}.wikipedia.org/wiki/${encodeURIComponent(article.title.replaceAll(" ", "_"))}`;
+}
+
+export async function searchWikipediaAlbums(
+  search: string,
+): Promise<WikipediaAlbumSearchResult[]> {
+  const language = "en";
+  const response = await query<{ query?: { pages: AlbumSearchPage[] } }>(
+    `${language}.wikipedia.org`,
+    {
+      action: "query",
+      generator: "search",
+      gsrsearch: `${search} hastemplate:"Infobox album"`,
+      gsrnamespace: "0",
+      gsrlimit: "10",
+      prop: "pageimages|pageprops|extracts",
+      piprop: "thumbnail",
+      pithumbsize: "120",
+      pilicense: "any",
+      ppprop: "disambiguation",
+      exintro: "1",
+      explaintext: "1",
+      exchars: "140",
+      exlimit: "max",
+    },
+  );
+
+  return (response.query?.pages ?? [])
+    .filter(
+      (page) => !page.missing && page.pageprops?.disambiguation === undefined,
+    )
+    .sort((a, b) => a.index - b.index)
+    .map((page) => {
+      const article = { language, title: page.title };
+      return {
+        id: articleUrl(article),
+        article,
+        title: page.title,
+        artworkUrl: page.thumbnail?.source ?? null,
+        description: page.extract?.trim() ?? "",
+      };
+    });
+}
+
 interface EntitiesResponse {
   entities: Record<string, Entity>;
 }
@@ -130,7 +185,7 @@ export async function resolveWikipediaArticle(
   const page = await resolveArticlePage(article);
   const result: WikipediaImport = {
     title: page.title.replace(/\s+\((?:[^()]*\s)?(?:album|soundtrack)\)$/i, ""),
-    url: `https://${article.language}.wikipedia.org/wiki/${encodeURIComponent(page.title.replaceAll(" ", "_"))}`,
+    url: articleUrl({ ...article, title: page.title }),
     artworkUrl: page.thumbnail?.source ?? page.original?.source ?? null,
     releaseYear: null,
     artists: [],
