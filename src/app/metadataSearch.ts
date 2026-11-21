@@ -3,11 +3,11 @@ import type { EditorDialog } from "./editorContracts";
 import {
   parseWikipediaUrl,
   resolveWikipediaArticle,
+  searchWikipediaAlbums,
+  type WikipediaAlbumSearchResult,
+  type WikipediaImport,
 } from "../services/wikipedia";
 import { makeId } from "./id";
-import { searchReleaseGroups } from "../services/musicbrainz";
-import { getReleaseGroupArtworkUrl } from "../services/coverArt";
-import type { MusicBrainzAlbumCandidate } from "../types/musicbrainz";
 import type { Album } from "../types/albums";
 import { icon } from "../components/icons";
 import { escapeHtml } from "../components/html";
@@ -33,33 +33,33 @@ export interface MetadataSearch {
   cancel: () => void;
 }
 
-function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
+type SearchResult = Album | WikipediaAlbumSearchResult;
+
+function importedAlbum(imported: WikipediaImport): Album {
   return {
-    id: candidate.musicbrainzId,
-    musicbrainzReleaseGroupId: candidate.musicbrainzId,
-    title: candidate.title,
-    releaseYear: candidate.releaseYear,
+    id: imported.url,
+    musicbrainzReleaseGroupId: null,
+    title: imported.title,
+    releaseYear: imported.releaseYear,
     sortTitle: null,
-    artworkUrl: getReleaseGroupArtworkUrl(candidate.musicbrainzId),
-    artists: candidate.artists
-      .filter(
-        (credit, index, credits) =>
-          credits.findIndex(
-            (other) => other.musicbrainzId === credit.musicbrainzId,
-          ) === index,
-      )
-      .map((credit, position) => ({
-        id: makeId(),
-        musicbrainzId: credit.musicbrainzId,
-        name: credit.name,
-        sortName: null,
-        country: null,
-        role: "primary",
-        position,
-      })),
+    artworkUrl: imported.artworkUrl,
+    genreSuggestions: imported.genreSuggestions,
+    instrumentSuggestions: imported.instrumentSuggestions,
+    recordLabel: imported.recordLabel ?? undefined,
+    artists: imported.artists.map((artist, position) => ({
+      ...artist,
+      id: makeId(),
+      sortName: null,
+      country: null,
+      role: "primary",
+      position,
+    })),
     genres: [],
     instruments: [],
-    links: [],
+    links: [
+      { id: makeId(), url: imported.url, label: "Wikipedia" },
+      ...imported.links.map((link) => ({ ...link, id: makeId() })),
+    ],
     listeningEntries: [],
     createdAt: "",
     updatedAt: "",
@@ -68,10 +68,10 @@ function candidateAlbum(candidate: MusicBrainzAlbumCandidate): Album {
 
 export class MetadataSearchController implements MetadataSearch {
   private searchQuery = "";
-  private searchResults: Album[] = [];
+  private searchResults: SearchResult[] = [];
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   private searchVersion = 0;
-  private readonly searchCache = new Map<string, Album[]>();
+  private readonly searchCache = new Map<string, SearchResult[]>();
 
   private readonly ops: MetadataSearchDependencies;
 
@@ -91,12 +91,12 @@ export class MetadataSearchController implements MetadataSearch {
       "Add an album",
       /* HTML */ `<div class="dialog-body">
           <p class="dialog-intro">
-            Find an album on MusicBrainz, paste a Wikipedia article URL, or
-            enter the details yourself.
+            Find an album on Wikipedia, paste an article URL, or enter the
+            details yourself.
           </p>
           <label class="search-field dialog-search"
             >${icon("search")}<span class="sr-only"
-              >Search MusicBrainz or paste a Wikipedia URL</span
+              >Search Wikipedia or paste an article URL</span
             ><input
               id="catalog-query"
               type="search"
@@ -136,7 +136,7 @@ export class MetadataSearchController implements MetadataSearch {
 
     if (!query) {
       container.innerHTML = /* HTML */ `<div class="empty catalog-empty">
-        <p>Search by album title or artist to find a release.</p>
+        <p>Search Wikipedia by album title or artist.</p>
       </div>`;
       return;
     }
@@ -156,60 +156,25 @@ export class MetadataSearchController implements MetadataSearch {
       <p>Finding album…</p>
     </div>`;
     this.searchTimer = setTimeout(async () => {
-      const current = () =>
-        this.ops.isActive() &&
-        version === this.searchVersion &&
-        this.ops.editor.open &&
-        this.ops.editor.querySelector("#catalog-results") === container;
-      if (!current()) return;
+      if (!this.isCurrent(version, container)) return;
 
       try {
-        // Preserve the indexed search syntax used by MusicBrainz's website.
-        if (/^https?:\/\//i.test(query)) {
-          const imported = await resolveWikipediaArticle(
-            parseWikipediaUrl(query),
-          );
-          if (!current()) return;
-          this.searchResults = [
-            {
-              ...candidateAlbum({
-                musicbrainzId: "",
-                title: imported.title,
-                releaseYear: imported.releaseYear,
-                primaryType: "Album",
-                artists: [],
-              }),
-              id: imported.url,
-              musicbrainzReleaseGroupId: null,
-              artworkUrl: imported.artworkUrl,
-              genreSuggestions: imported.genreSuggestions,
-              instrumentSuggestions: imported.instrumentSuggestions,
-              recordLabel: imported.recordLabel ?? undefined,
-              links: [
-                { id: makeId(), url: imported.url, label: "Wikipedia" },
-                ...imported.links.map((link) => ({ ...link, id: makeId() })),
-              ],
-              artists: imported.artists.map((artist, position) => ({
-                ...artist,
-                id: makeId(),
-                sortName: null,
-                country: null,
-                role: "primary",
-                position,
-              })),
-            },
-          ];
-        } else {
-          const candidates = await searchReleaseGroups(query);
-          if (!current()) return;
-          this.searchResults = candidates.map(candidateAlbum);
-        }
+        const results = /^https?:\/\//i.test(query)
+          ? [
+              importedAlbum(
+                await resolveWikipediaArticle(parseWikipediaUrl(query)),
+              ),
+            ]
+          : await searchWikipediaAlbums(query);
+        if (!this.isCurrent(version, container)) return;
+
+        this.searchResults = results;
         if (this.searchCache.size >= 20)
           this.searchCache.delete(this.searchCache.keys().next().value!);
         this.searchCache.set(query, this.searchResults);
         this.renderCatalog();
       } catch (error) {
-        if (!current()) return;
+        if (!this.isCurrent(version, container)) return;
         count.textContent = "Search failed";
         container.innerHTML = /* HTML */ `<div
           class="empty catalog-empty"
@@ -228,23 +193,67 @@ export class MetadataSearchController implements MetadataSearch {
           </button>
         </div>`;
       } finally {
-        if (current()) container.removeAttribute("aria-busy");
+        if (this.isCurrent(version, container))
+          container.removeAttribute("aria-busy");
       }
     }, 400);
   }
 
-  private findSavedAlbum(album: Album): Album | undefined {
+  private isCurrent(version: number, container: HTMLElement): boolean {
+    return (
+      this.ops.isActive() &&
+      version === this.searchVersion &&
+      this.ops.editor.open &&
+      this.ops.editor.querySelector("#catalog-results") === container
+    );
+  }
+
+  private findSavedAlbum(result: SearchResult): Album | undefined {
+    const urls =
+      "article" in result ? [result.id] : result.links.map((link) => link.url);
     return this.ops
       .albums()
-      .find(
-        (item) =>
-          (album.musicbrainzReleaseGroupId &&
-            item.musicbrainzReleaseGroupId ===
-              album.musicbrainzReleaseGroupId) ||
-          album.links.some((link) =>
-            item.links.some((savedLink) => savedLink.url === link.url),
-          ),
+      .find((album) => album.links.some((link) => urls.includes(link.url)));
+  }
+
+  private openResult(result: SearchResult): void {
+    const saved = this.findSavedAlbum(result);
+    if (saved) {
+      this.ops.editor.close();
+      location.hash = albumUrl(saved.id);
+    } else if ("article" in result) {
+      void this.importArticle(result);
+    } else {
+      this.ops.openAlbumForm(result, "review");
+    }
+  }
+
+  private async importArticle(
+    result: WikipediaAlbumSearchResult,
+  ): Promise<void> {
+    const container =
+      this.ops.editor.querySelector<HTMLElement>("#catalog-results");
+    const count = this.ops.editor.querySelector<HTMLElement>("#catalog-count");
+    if (!container || !count || container.hasAttribute("aria-busy")) return;
+
+    const version = ++this.searchVersion;
+    container.setAttribute("aria-busy", "true");
+    count.textContent = "Importing album…";
+
+    try {
+      const album = importedAlbum(
+        await resolveWikipediaArticle(result.article),
       );
+      if (this.isCurrent(version, container)) this.openResult(album);
+    } catch (error) {
+      if (!this.isCurrent(version, container)) return;
+
+      count.textContent =
+        error instanceof Error ? error.message : "Import failed. Try again.";
+    } finally {
+      if (this.isCurrent(version, container))
+        container.removeAttribute("aria-busy");
+    }
   }
 
   private renderCatalog(): void {
@@ -262,6 +271,10 @@ export class MetadataSearchController implements MetadataSearch {
             ${sorted
               .map((album) => {
                 const saved = this.findSavedAlbum(album);
+                const description =
+                  "article" in album
+                    ? album.description
+                    : `${artistText(album)} · ${album.releaseYear ?? "Unknown year"}`;
                 return /* HTML */ `<li>
                   <button
                     type="button"
@@ -270,12 +283,9 @@ export class MetadataSearchController implements MetadataSearch {
                     data-id="${escapeHtml(album.id)}"
                   >
                     ${cover(album)}<span class="result-info"
-                      ><strong>${escapeHtml(album.title)}</strong
-                      ><span
-                        >${escapeHtml(artistText(album))} ·
-                        ${album.releaseYear ?? "Unknown year"}</span
-                      ></span
-                    >
+                      ><strong>${escapeHtml(album.title)}</strong>
+                      ${description ? /* HTML */ `<span>${escapeHtml(description)}</span>` : ""}
+                    </span>
                     ${saved ? /* HTML */ `<span class="in-library">In library</span>` : ""}${icon("chevron", 17)}
                   </button>
                 </li>`;
@@ -310,14 +320,7 @@ export class MetadataSearchController implements MetadataSearch {
         const result = this.searchResults.find(
           (entry) => entry.id === button.dataset.id,
         );
-        if (!result) break;
-        const saved = this.findSavedAlbum(result);
-        if (saved) {
-          this.ops.editor.close();
-          location.hash = albumUrl(saved.id);
-        } else {
-          this.ops.openAlbumForm(result, "review");
-        }
+        if (result) this.openResult(result);
         break;
       }
       default:

@@ -536,9 +536,19 @@ test("metadata search can retry a failure and review an import before saving", a
   page,
 }) => {
   let requests = 0;
-  await page.route(
-    "https://musicbrainz.org/ws/2/release-group*",
-    async (route) => {
+  const wikipediaUrl =
+    "https://en.wikipedia.org/wiki/Regression_import_(album)";
+  await page.route("https://en.wikipedia.org/w/api.php*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("action") === "parse") {
+      await route.fulfill({ json: { parse: { text: "" } } });
+      return;
+    }
+    if (params.get("generator") === "search") {
+      expect(params.get("gsrsearch")).toBe(
+        'Regression import hastemplate:"Infobox album"',
+      );
+      expect(params.get("gsrnamespace")).toBe("0");
       requests++;
       if (requests === 1) {
         await route.fulfill({ status: 503, body: "unavailable" });
@@ -546,31 +556,66 @@ test("metadata search can retry a failure and review an import before saving", a
       }
       await route.fulfill({
         json: {
-          "release-groups": [
+          query: {
+            pages: [
+              {
+                title: "Regression import",
+                index: 1,
+                pageprops: { disambiguation: "" },
+              },
+              {
+                title: "Regression import (album)",
+                index: 2,
+                extract: "Album by Regression artist",
+              },
+            ],
+          },
+        },
+      });
+      return;
+    }
+
+    expect(params.get("titles")).toBe("Regression import (album)");
+    await route.fulfill({
+      json: {
+        query: {
+          pages: [
             {
-              id: "a1111111-1111-4111-8111-111111111111",
-              title: "Regression import",
-              "first-release-date": "1960-01-01",
-              "primary-type": "Album",
-              "artist-credit": [
-                {
-                  name: "Regression artist",
-                  artist: {
-                    id: "b1111111-1111-4111-8111-111111111111",
-                    name: "Regression artist",
-                  },
-                },
-              ],
+              title: "Regression import (album)",
+              pageprops: { wikibase_item: "Q1" },
             },
           ],
         },
-      });
-    },
-  );
+      },
+    });
+  });
+  await page.route("https://www.wikidata.org/w/api.php*", async (route) => {
+    const ids = new URL(route.request().url()).searchParams.get("ids");
+    await route.fulfill({
+      json: {
+        entities:
+          ids === "Q1"
+            ? {
+                Q1: {
+                  claims: {
+                    P175: [
+                      { mainsnak: { datavalue: { value: { id: "Q2" } } } },
+                    ],
+                  },
+                },
+              }
+            : { Q2: { labels: { en: { value: "Regression artist" } } } },
+      },
+    });
+  });
   await page.locator("#top-add").click();
   await page.locator("#catalog-query").fill("Regression import");
   await expect(page.locator("#catalog-count")).toHaveText("Search failed");
   await page.locator('[data-action="retry-search"]').click();
+  await expect(page.locator("#catalog-count")).toHaveText("1 result");
+  await expect(page.locator('[data-action="pick"]')).toContainText(
+    "Album by Regression artist",
+  );
   await page.locator('[data-action="pick"]').click();
   await expect(page.locator('[name="title"]')).toHaveValue("Regression import");
   await expect(page.locator("#artist-selected")).toContainText(
@@ -584,6 +629,9 @@ test("metadata search can retry a failure and review an import before saving", a
     "Reviewed regression import",
   );
   await expect(page.locator("main")).toContainText("Regression artist");
+  await expect(
+    page.locator("main").getByRole("link", { name: "Wikipedia" }),
+  ).toHaveAttribute("href", wikipediaUrl);
   expect(requests).toBe(2);
 });
 
@@ -865,22 +913,17 @@ test("a delayed metadata result cannot replace a manual editor", async ({
   const response = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(
-    "https://musicbrainz.org/ws/2/release-group*",
-    async (route) => {
-      requested();
-      await response;
-      await route.fulfill({ json: { "release-groups": [] } });
-    },
-  );
+  await page.route("https://en.wikipedia.org/w/api.php*", async (route) => {
+    requested();
+    await response;
+    await route.fulfill({ json: { query: { pages: [] } } });
+  });
   await page.locator("#top-add").click();
   await page.locator("#catalog-query").fill("Delayed search");
   await waiting;
   await page.locator('[data-action="manual"]').click();
   await page.locator('[name="title"]').fill("Manual editor survives");
-  const completed = page.waitForResponse(
-    "https://musicbrainz.org/ws/2/release-group*",
-  );
+  const completed = page.waitForResponse("https://en.wikipedia.org/w/api.php*");
   release();
   await completed;
   await expect(page.locator('[name="title"]')).toHaveValue(
