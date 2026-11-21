@@ -200,8 +200,7 @@ dialog::backdrop {
   font-weight: 650;
 }
 .field input,
-.field textarea,
-.import-suggestions select {
+.field textarea {
   min-width: 0;
   width: 100%;
   border: 1px solid var(--color-border);
@@ -407,7 +406,89 @@ dialog::backdrop {
 .import-suggestions {
   margin: 8px 0 18px;
 }
-.import-suggestions .field-grid {
+.import-suggestions:not(:has([data-suggestion-row]:not([hidden]))),
+.import-suggestion-group:not(:has([data-suggestion-row]:not([hidden]))) {
+  display: none;
+}
+.import-suggestion-list {
+  --suggestion-row-height: 36px;
+  --suggestion-header-height: 28px;
+  max-height: calc(
+    5 * var(--suggestion-row-height) + var(--suggestion-header-height) + 2px
+  );
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+.import-suggestion-line {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--suggestion-row-height);
+  padding: 0 2px 0 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.import-suggestion-line strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.import-suggestion-line .icon-button {
+  flex: 0 0 32px;
+  min-width: 0;
+  min-height: 32px;
+}
+.import-suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--suggestion-header-height);
+  padding: 0 5px 0 8px;
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+}
+.import-suggestion-header h3 {
+  margin: 0;
+  font-size: 12px;
+}
+.import-suggestion-header .button {
+  min-height: 22px;
+  padding: 1px 7px;
+  font-size: 12px;
+}
+.import-suggestion-link {
+  width: min(300px, calc(100vw - 24px));
+  max-height: min(26rem, calc(100dvh - 24px));
+  padding: 12px;
+  overflow: auto;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--color-shadow);
+}
+.import-suggestion-link .field {
   margin-top: 8px;
-  align-items: end;
+}
+@supports (position-area: block-end span-inline-start) {
+  .import-suggestion-link {
+    position-area: block-end span-inline-start;
+    position-try-fallbacks:
+      flip-block,
+      flip-inline,
+      flip-block flip-inline;
+    inset: auto;
+    margin: 4px;
+  }
+}
+.import-suggestion-matches:not(:empty) {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  max-height: 12rem;
+  overflow-y: auto;
+  margin-top: 6px;
 }
