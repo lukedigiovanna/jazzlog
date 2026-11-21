@@ -1034,6 +1034,38 @@ test("genres show the catalog count and update it during search", async ({
   await expect(count).toHaveText(total);
 });
 
+test("long parent genre names fit the picker on narrow screens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  const name = "VeryLongGenreName".repeat(4);
+  await page.goto("/#genres");
+  await page.locator('[data-action="new-catalog-genre"]').click();
+  await page.locator('[name="genreName"]').fill(name);
+  await page.locator('#catalog-genre-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText(name);
+
+  await page.goto("/#genres");
+  await page.locator('[data-action="new-catalog-genre"]').click();
+  await page.locator('[name="genreName"]').fill("Child genre");
+  await page.getByRole("checkbox", { name, exact: true }).check();
+  await page.locator('#catalog-genre-form button[type="submit"]').click();
+  await expect(page.locator("#page-title")).toHaveText("Child genre");
+
+  await page.goto("/#genres");
+  await page.locator('[data-action="new-catalog-genre"]').click();
+  const options = page.locator("#genre-parent-options");
+  await expect(
+    options.getByRole("checkbox", { name: "Child genre", exact: true }),
+  ).toBeVisible();
+  expect(
+    await options.evaluate((list) => list.scrollWidth - list.clientWidth),
+  ).toBe(0);
+  expect(
+    await options.evaluate((list) => list.getBoundingClientRect().right),
+  ).toBeLessThanOrEqual(320);
+});
+
 test("genre graph preserves explicit tags, shares branches, and prevents cycles", async ({
   page,
 }) => {

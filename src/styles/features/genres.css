@@ -219,6 +219,7 @@
 
 #genre-parent-options {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   margin-top: 8px;
   max-height: 15rem;
